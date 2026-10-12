@@ -1,0 +1,22 @@
+# Old project, only used for archaeological purposes
+bookishhideaway/
+
+# Secrets - never commit the real config
+config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+.obsidian/
+
+# Other
+docs/

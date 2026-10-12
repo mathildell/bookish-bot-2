@@ -1,0 +1,16 @@
+# Bookish Hideaway - single configuration file.
+# Copy this file to config.yaml and fill in real values. config.yaml is gitignored.
+
+# Discord bot token (from the Discord Developer Portal)
+discord_token: "REPLACE_WITH_YOUR_BOT_TOKEN"
+
+# The guild (server) the bot operates in
+guild_id: 123456789012345678
+
+# MySQL database (the compose file provisions these defaults)
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  database: "bookish_hideaway"
+  username: "bookish"
+  password: "bookish"
