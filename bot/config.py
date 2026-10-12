@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote_plus
 
 import yaml
 
@@ -31,8 +32,12 @@ class Config:
 
     @property
     def mysql_url(self) -> str:
+        # Percent-encode credentials so special characters (@, ^, /, ...) in the
+        # password aren't mistaken for URL delimiters.
+        username = quote_plus(str(self.mysql["username"]))
+        password = quote_plus(str(self.mysql["password"]))
         return (
-            f"mysql+aiomysql://{self.mysql['username']}:{self.mysql['password']}"
+            f"mysql+aiomysql://{username}:{password}"
             f"@{self.mysql['host']}:{self.mysql['port']}/{self.mysql['database']}?charset=utf8mb4"
         )
 
