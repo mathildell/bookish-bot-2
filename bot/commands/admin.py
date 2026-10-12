@@ -132,5 +132,4 @@ async def booster_react_view(
 
 def register_commands(bot: discord.ext.commands.Bot, guild_id: int) -> None:
     """Bind the admin group to the configured guild and register it."""
-    admin_group.guild_ids = [guild_id]
-    bot.tree.add_command(admin_group)
+    bot.tree.add_command(admin_group, guild=discord.Object(id=guild_id))
