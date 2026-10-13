@@ -90,15 +90,22 @@ class Paginator(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(emoji="<:chevronPrev:1559682407987413145>", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label=t("components.pagination.prev"), emoji="<:chevronPrev:1559682407987413145>", style=discord.ButtonStyle.secondary)
     async def prev_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         self.index = max(0, self.index - 1)
         await self._show(interaction)
 
+    @discord.ui.button(label=t("components.pagination.next"), emoji="<:chevronNext:1559682424940797992>", style=discord.ButtonStyle.secondary)
+    async def next_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        self.index = min(len(self.pages) - 1, self.index + 1)
+        await self._show(interaction)
+
     @discord.ui.button(
-        label="Page 1 of 1 • 0 results",
+        label=t("components.pagination.page_x_of_y"),
         style=discord.ButtonStyle.secondary,
         disabled=True,
     )
@@ -106,13 +113,6 @@ class Paginator(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         pass
-
-    @discord.ui.button(emoji="<:chevronNext:1559682424940797992>", style=discord.ButtonStyle.secondary)
-    async def next_button(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ) -> None:
-        self.index = min(len(self.pages) - 1, self.index + 1)
-        await self._show(interaction)
 
 
 async def send_paginated(
