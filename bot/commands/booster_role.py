@@ -320,6 +320,7 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
         return
 
+    embeds = []
     for row in records:
         member = await resolve_member(interaction.guild, row.discord_user_id)
         role = interaction.guild.get_role(row.role_id)
@@ -338,3 +339,21 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
 
     await send_paginated(interaction, pages)
+
+def _authorize_embed(
+    embed: discord.Embed, member: discord.Member | None, name: str
+) -> None:
+    escaped = discord.utils.escape_markdown(name)
+    if member is not None:
+        embed.set_author(name=escaped, icon_url=member.display_avatar.url)
+    else:
+        embed.set_author(name=escaped)
+
+def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
+    embed = discord.Embed(description=f"{role}")
+    _authorize_embed(embed, member, _member_name(member, row.identifiers))
+    embed.set_image(
+        url=config.get("transparent_embed_image")
+    )
+
+    return embed
