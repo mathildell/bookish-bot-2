@@ -342,20 +342,41 @@ async def list_roles(interaction: discord.Interaction) -> None:
 
     await send_paginated(interaction, pages)
 
-def _authorize_embed(
-    embed: discord.Embed, member: discord.Member | None
-) -> None:
-    escaped = discord.utils.escape_markdown(member.display_name)
-    if member is not None:
-        embed.set_author(name=escaped, icon_url=member.display_avatar.url)
-    else:
-        embed.set_author(name=escaped)
 
 def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
-    embed = discord.Embed(description=f"{role}")
-    _authorize_embed(embed, member)
-    embed.set_image(
-        url=config.get("transparent_embed_image")
-    )
+    embed = discord.Embed()
+    if role is not None:
+        embed.description = f"# {role.mention}"
+    if member is not None:
+        embed.set_author(
+            name=discord.utils.escape_markdown(member.display_name),
+            icon_url=member.display_avatar.url,
+        )
+    embed.set_image(url=config.get("transparent_embed_image"))
 
+    if role is not None:
+        fields = []
+        fields.append(("Role", role.mention, True))
+        fields.append(("Color", f"#{role.colour.value:06X}" if role.colour.value else "None", True))
+        fields.append(
+            (
+                "Gradient",
+                f"#{role.secondary_colour.value:06X}" if getattr(role, "secondary_colour", None) and role.secondary_colour.value else "None",
+                True,
+            )
+        )
+        icon_val = role.display_icon
+        if icon_val is None:
+            icon_text = "None"
+        elif isinstance(icon_val, discord.Asset):
+            icon_text = f"[Icon]({icon_val.url})"
+        else:
+            icon_text = str(icon_val)
+        fields.append(("Emoji/Icon", icon_text, True))
+        # image field - if it's an asset with url, show it; otherwise maybe indicate image
+        if isinstance(icon_val, discord.Asset) and icon_val.url:
+            # put image link or just note - but embed can have image; maybe also add field
+            pass
+        for name, value, inline in fields:
+            embed.add_field(name=name, value=value, inline=inline)
     return embed
