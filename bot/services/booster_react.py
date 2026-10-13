@@ -1,7 +1,7 @@
 """Booster reactions: react to messages that mention a registered booster.
 
 Port of the old Ruby "BoosterReact" feature:
-- Identifiers (user id, username, display name, nicknames) are stored raw and
+- Identifiers (user id, display name, username, nicknames) are stored raw and
   cleaned/normalised when the matchers are built, then matched
   case-insensitively on word boundaries against each message.
 - Reactions are skipped on bot messages and on the booster's own messages.

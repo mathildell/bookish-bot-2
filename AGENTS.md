@@ -1,0 +1,117 @@
+# AGENTS.md
+
+Guidance for AI coding agents working in this repository.
+
+## Project
+
+`bh2` is the "Bookish Hideaway" Discord bot. We're working on migrating features from the previous project, written in Ruby on Rails. The list of old features are available in `docs/Old project features.md`. 
+
+For now, we only have two features implemented: 
+- **Booster reacts** — auto-react to messages that mention a registered booster's
+  name/nickname.
+- **Booster roles** — let boosters rename/recolour a custom role an admin linked
+  to them.
+
+Stack: Python 3.14, [discord.py](https://discordpy.readthedocs.io/) 2.x,
+SQLAlchemy 2 (async) + aiomysql, MySQL, PyYAML.
+
+## Setup
+
+Dependencies live in the repo-local virtualenv (`.venv`):
+
+```bash
+.venv/bin/pip install -r requirements.txt
+```
+
+Configuration is a single `config.yaml` (gitignored). Copy the example and fill
+it in:
+
+```bash
+cp config.example.yaml config.yaml
+```
+
+MySQL for local development:
+
+```bash
+docker compose up -d mysql
+```
+
+## Running
+
+```bash
+.venv/bin/python run.py
+```
+
+The entrypoint is `run.py` → `bot.main.run()`. Slash commands are synced to the
+configured guild on startup.
+
+## Testing
+
+There is no test runner dependency; tests use the standard library:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+There is no linter/formatter configured. At minimum, keep the tree importing and
+compiling:
+
+```bash
+.venv/bin/python -m compileall -q bot tests run.py
+```
+
+## Layout
+
+```
+run.py                     entrypoint
+bot/
+  main.py                  bot wiring (events, intents, startup)
+  config.py                config.yaml loader
+  db.py                    async engine/session helpers
+  models.py                SQLAlchemy models (BoosterReact, BoosterRole)
+  commands/
+    booster.py             /booster root group
+    booster_react.py       /booster react ...
+    booster_role.py        /booster role ...
+    checks.py              shared permission checks
+    listing.py             shared pagination + list-embed helpers
+  services/
+    booster_react.py       react matching + CRUD
+    booster_role.py        role links + reconcile poll
+  texts/                   user-facing strings (YAML, one file per component)
+tests/                     unittest suite
+docs/                      may be outdated — do not treat as source of truth
+bookishhideaway/           archived old Ruby project — out of scope, ignore
+```
+
+## Conventions
+
+- **All user-facing text lives in `bot/texts/`.** Look it up with
+  `t("dotted.key", **variables)`. Nothing that a Discord user can read (command
+  descriptions, parameters, responses, embed labels, button labels, audit-log
+  reasons) may be hardcoded in Python.
+- **Group texts by component, not by where they are used.** One YAML file per
+  component; e.g. pagination text belongs under `components.pagination`, booster
+  text under `booster.*`. Shared strings (used by more than one command) get a
+  shared key rather than a duplicate.
+- **No dead text.** A key must be referenced from code; remove keys when their
+  feature is removed. `tests` and PR review should catch drift.
+- **Don't repeat code.** If a helper is needed in several places, define it once
+  (e.g. `commands/listing.py` for list/pagination/embed helpers,
+  `commands/checks.py` for permissions) and reference it.
+- **Match the existing style.** `from __future__ import annotations`, type hints
+  on public functions, small focused helpers.
+- **Do not add comments unless they explain non-obvious intent.** Keep comments
+  accurate — delete comments that no longer match the code.
+- **CRUD vocabulary for commands:** `add`, `remove`, `list`, `view`, `edit`. If the user uses the term `delete` instead of `remove`, for example, remind them of the established naming convention.
+- No emojis in source files.
+
+## Database
+
+Tables are created automatically on startup (`create_tables`). Schema changes
+require a migration step; do not assume `create_all` alters existing tables.
+
+## Deployment
+
+Production runs as a systemd service (`bookish-hideaway`). `update.sh` pulls,
+installs deps, and restarts the service.

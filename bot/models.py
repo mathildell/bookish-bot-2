@@ -26,7 +26,7 @@ class BoosterReact(Base):
     )
 
     # Aliases that trigger the reaction, stored raw (case preserved, trimmed):
-    # [user_id, username, display_name, *nicknames]. They are cleaned when the
+    # [user_id, display_name, username, *nicknames]. They are cleaned when the
     # matchers are built, not at storage time.
     identifiers: Mapped[list] = mapped_column(JSON, default=list)
 

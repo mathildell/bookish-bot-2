@@ -1,10 +1,10 @@
 """Application texts (English only).
 
-One YAML file per module lives in this package directory. Look up a key by its
-dotted path and interpolate ``%{variable}`` placeholders::
+One YAML file per component lives in this package directory. Look up a key by
+its dotted path and interpolate ``%{variable}`` placeholders::
 
     from ..texts import t
-    t("boosters.add.success", emoji=emoji, user=user.mention, id=record.id)
+    t("booster.react.add.success", emoji=emoji, user=user.mention, extra=extra)
 """
 
 from __future__ import annotations

@@ -1,14 +1,22 @@
+# All texts for the /booster command tree, grouped by sub-feature.
 booster:
   group_description: "Booster features"
-  pagination:
-    not_author: "Only the command author can use these buttons."
-    page_footer: "Page %{current}/%{total}"
-    boost_field: "Boost date"
+
+  # Shared permission denials (see bot/commands/checks.py).
+  permissions:
+    no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
+    cannot_manage_others: "You can only manage your own booster %{kind} <:BunnyDizzy:1509264355714400316>"
+
+  # Shared boost-status labels used by the react and role listings.
+  boost:
+    date_field: "Boost date"
     not_boosting: "Not boosting"
+
+  # Fallback name when a listed member can no longer be resolved.
+  unknown_name: "Unknown"
+
   react:
     group_description: "Manage custom booster reacts"
-    no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
-    cannot_manage_others: "You can only manage your own booster react <:BunnyDizzy:1509264355714400316>"
     add:
       description: "Add a custom react emoji"
       param_emoji: "Emoji to react with (unicode or <:name:id>)"
@@ -34,20 +42,15 @@ booster:
       description: "Remove a booster react"
       param_user: "Who to remove it for (defaults to you)"
       success: "Removed %{user}'s booster react."
-      not_found: "%{user} doesn't have a booster react boostyet!"
+      not_found: "%{user} doesn't have a booster react yet!"
     list:
       description: "List every registered booster react (admin only)"
-      title: "Booster reacts (%{count})"
       empty: "No booster reacts registered."
       no_aliases: "(no extra aliases)"
-      line: "%{emoji} %{user} — %{identifiers}%{boosting}"
-      boosting: " · boosting <t:%{ts}:R>"
       names_field: "Names"
-      footer: "Page %{current}/%{total} • %{count} booster reacts"
+
   role:
     group_description: "Manage your custom booster role"
-    no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
-    cannot_manage_others: "You can only manage your own booster role <:BunnyDizzy:1509264355714400316>"
     edit:
       description: "Change your booster role's name, colors or emoji"
       param_user: "Who to update (defaults to you)"
@@ -66,6 +69,7 @@ booster:
       hierarchy_error: "I can't edit that role — it's above my highest role."
       failed: "Couldn't edit the role: %{error}"
       success: "Updated %{user}'s booster role %{role}"
+      reason: "Booster role edit by %{user}"
     link:
       description: "Link an admin-created role to a booster"
       param_user: "The booster who will own the role"
@@ -74,6 +78,7 @@ booster:
       user_taken: "%{user} already has %{role} linked."
       hierarchy_error: "I can't manage %{role} — it's above my highest role."
       success: "Linked %{role} to %{user}."
+      reason: "Booster role link by %{user}"
     remove:
       description: "Delete a booster's role and unlink it"
       param_user: "The booster whose role to remove"
@@ -81,16 +86,17 @@ booster:
       hierarchy_error: "I can't delete %{role} — it's above my highest role."
       failed: "Couldn't delete the role: %{error}"
       success: "Removed %{user}'s booster role."
+      reason: "Booster role removal by %{user}"
     sync:
       description: "Check for boosters who no longer boost and unlink them"
       success: "Checked boosters — unlinked %{count}."
     list:
       description: "List every linked booster role (admin only)"
-      title: "Booster roles (%{count})"
       empty: "No booster roles linked."
-      line: "%{role} → %{user}%{boosting}"
-      boosting: " · boosting <t:%{ts}:R>"
-      user_field: "User"
-      footer: "Page %{current}/%{total} • %{count} booster roles"
+      color_field: "Color"
+      gradient_field: "Gradient"
+      icon_field: "Emoji/Icon"
+      none: "None"
+      custom_icon: "Custom icon"
     cleanup:
       notice: "%{user} is no longer boosting; unlinked their role %{role}. Delete it if you want to clean up."

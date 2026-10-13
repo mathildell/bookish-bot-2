@@ -22,5 +22,10 @@ mysql:
   database: "bookish_hideaway"
   username: "bookish"
   password: "bookish"
+
+# Default colour applied to every embed the bot sends (hex)
+default_embed_color: "#97A97C"
+
+# Transparent image used as the background of booster listing embeds
 transparent_embed_image: "https://i.imgur.com/example.png"
 

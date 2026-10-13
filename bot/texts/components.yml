@@ -1,5 +1,9 @@
+# Texts for reusable UI components (pagination buttons, etc.).
 components:
   pagination:
-    next: "Next"
     prev: "Prev"
-    page_x_of_y: "Page %{n} of %{t} • %{r} results"
+    prev_emoji: "<:chevronPrev:1559682407987413145>"
+    next: "Next"
+    next_emoji: "<:chevronNext:1559682424940797992>"
+    page_x_of_y: "Page %{current} of %{total} • %{results} results"
+    not_author: "Only the command author can use these buttons."

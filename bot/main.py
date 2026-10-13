@@ -16,6 +16,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
+from .commands.listing import parse_hex_colour
 from .config import load_config
 from .db import close_db, create_tables, init_db
 from .services.booster_react import BoosterReactService, parse_emoji
@@ -49,6 +50,11 @@ async def run() -> None:
     bot.booster_roles = booster_roles
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
+    )
+    bot.transparent_embed_image = config.get("transparent_embed_image") or None
+    default_color = config.get("default_embed_color")
+    bot.default_embed_color = (
+        parse_hex_colour(default_color) if default_color else None
     )
 
     # ---------------- registered slash commands ----------------

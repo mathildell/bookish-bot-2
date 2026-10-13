@@ -26,24 +26,32 @@ def is_booster(interaction: discord.Interaction) -> bool:
     return any(role.id == role_id for role in roles)
 
 
-def denial_reason(
-    interaction: discord.Interaction, target: discord.User
-) -> str | None:
-    """Return a text-key suffix for the denial, or ``None`` if allowed."""
+async def require_admin(interaction: discord.Interaction) -> bool:
+    """Reply with a denial unless the member has Manage Server.
+
+    Returns ``True`` when the member is allowed, ``False`` after sending the
+    denial (the caller should then simply return).
+    """
     if is_admin(interaction):
-        return None
-    if is_booster(interaction):
-        if target.id == interaction.user.id:
-            return None
-        return "cannot_manage_others"
-    return "no_permission"
+        return True
+    await interaction.response.send_message(
+        t("booster.permissions.no_permission"), ephemeral=True
+    )
+    return False
 
 
 def denial_message(
     interaction: discord.Interaction, target: discord.User, *, scope: str
 ) -> str | None:
-    """Return the localized denial message, or ``None`` if allowed."""
-    reason = denial_reason(interaction, target)
-    if reason is None:
+    """Return the denial message, or ``None`` if the member may manage target.
+
+    ``scope`` names the feature being managed (e.g. ``react``/``role``) and is
+    only used to word the "manage your own" denial.
+    """
+    if is_admin(interaction):
         return None
-    return t(f"booster.{scope}.{reason}")
+    if is_booster(interaction):
+        if target.id == interaction.user.id:
+            return None
+        return t("booster.permissions.cannot_manage_others", kind=scope)
+    return t("booster.permissions.no_permission")

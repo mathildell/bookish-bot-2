@@ -2,12 +2,10 @@
 
 Admins create the Discord roles themselves and register them with
 ``/booster role link``. Boosters may then ``edit`` their own role; admins may do
-so for anyone. ``link``/``remove``/``sync`` are admin-only.
+so for anyone. ``link``/``remove``/``sync``/``list`` are admin-only.
 """
 
 from __future__ import annotations
-
-import re
 
 import discord
 from discord import app_commands
@@ -15,33 +13,80 @@ from discord import app_commands
 from ..services.booster_react import CUSTOM_EMOJI_RE
 from ..services.booster_role import resolve_notify_channel
 from ..texts import t
-from .checks import denial_message, is_admin
-from .pagination import chunked, resolve_member, send_paginated
-from ..config import load_config
+from .checks import denial_message, require_admin
+from .listing import (
+    EMBEDS_PER_PAGE,
+    boost_value,
+    chunked,
+    new_embed,
+    parse_hex_colour,
+    resolve_member,
+    send_paginated,
+    set_author,
+    set_transparent_image,
+)
 
 role_group = app_commands.Group(
     name="role",
     description=t("booster.role.group_description"),
 )
 
-_HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
 _NONE_VALUES = {"none", "clear"}
-PAGE_SIZE = 15
 
-
-EMBEDS_PER_PAGE = 6
-
-config = load_config()
 
 def _is_none(value: str | None) -> bool:
     return value is not None and value.strip().lower() in _NONE_VALUES
 
 
-def _parse_hex(value: str) -> discord.Colour:
-    match = _HEX_RE.match(value.strip())
-    if not match:
-        raise ValueError(value)
-    return discord.Colour(int(match.group("hex"), 16))
+def _colour_value(colour: discord.Colour | None) -> str:
+    if colour is None or not colour.value:
+        return t("booster.role.list.none")
+    return f"#{colour.value:06X}"
+
+
+def _icon_value(role: discord.Role, embed: discord.Embed) -> str:
+    icon = role.display_icon
+    if icon is None:
+        return t("booster.role.list.none")
+    if isinstance(icon, discord.Asset):
+        embed.set_thumbnail(url=icon.url)
+        return t("booster.role.list.custom_icon")
+    return str(icon)
+
+
+def _role_embed(
+    member: discord.Member | None, role: discord.Role | None, client
+) -> discord.Embed:
+    embed = new_embed(client)
+    if role is not None:
+        embed.description = f"# {role.mention}"
+        embed.add_field(
+            name=t("booster.role.list.color_field"),
+            value=_colour_value(role.colour),
+            inline=True,
+        )
+        embed.add_field(
+            name=t("booster.role.list.gradient_field"),
+            value=_colour_value(role.secondary_colour),
+            inline=True,
+        )
+        embed.add_field(
+            name=t("booster.role.list.icon_field"),
+            value=_icon_value(role, embed),
+            inline=True,
+        )
+        embed.add_field(
+            name=t("booster.boost.date_field"),
+            value=boost_value(member),
+            inline=True,
+        )
+    set_author(
+        embed,
+        member,
+        member.display_name if member is not None else t("booster.unknown_name"),
+    )
+    set_transparent_image(embed, client)
+    return embed
 
 
 @role_group.command(name="edit", description=t("booster.role.edit.description"))
@@ -76,7 +121,7 @@ async def edit(
         )
         return
 
-    if all(v is None for v in (name, color, gradient, emoji, image)):
+    if all(value is None for value in (name, color, gradient, emoji, image)):
         await interaction.followup.send(
             t("booster.role.edit.nothing_to_change"), ephemeral=True
         )
@@ -84,7 +129,7 @@ async def edit(
 
     record = await interaction.client.booster_roles.find_by_user(target.id)
     role = interaction.guild.get_role(record.role_id) if record else None
-    if record is None or role is None:
+    if role is None:
         await interaction.followup.send(
             t("booster.role.edit.not_found", user=target.mention),
             ephemeral=True,
@@ -107,7 +152,7 @@ async def edit(
             changes["colour"] = 0
         else:
             try:
-                changes["colour"] = _parse_hex(color)
+                changes["colour"] = parse_hex_colour(color)
             except ValueError:
                 await interaction.followup.send(
                     t("booster.role.edit.invalid_color", color=color),
@@ -121,7 +166,8 @@ async def edit(
         else:
             primary = changes.get("colour")
             primary_value = (
-                primary.value if isinstance(primary, discord.Colour)
+                primary.value
+                if isinstance(primary, discord.Colour)
                 else (primary if isinstance(primary, int) else role.colour.value)
             )
             if not primary_value:
@@ -130,7 +176,7 @@ async def edit(
                 )
                 return
             try:
-                changes["secondary_colour"] = _parse_hex(gradient)
+                changes["secondary_colour"] = parse_hex_colour(gradient)
             except ValueError:
                 await interaction.followup.send(
                     t("booster.role.edit.invalid_color", color=gradient),
@@ -153,7 +199,10 @@ async def edit(
         changes["display_icon"] = await image.read()
 
     try:
-        await role.edit(**changes, reason=f"Booster role edit by {interaction.user}")
+        await role.edit(
+            **changes,
+            reason=t("booster.role.edit.reason", user=interaction.user),
+        )
     except discord.Forbidden:
         await interaction.followup.send(
             t("booster.role.edit.hierarchy_error"), ephemeral=True
@@ -180,10 +229,7 @@ async def link(
     user: discord.Member,
     role: discord.Role,
 ) -> None:
-    if not is_admin(interaction):
-        await interaction.response.send_message(
-            t("booster.role.no_permission"), ephemeral=True
-        )
+    if not await require_admin(interaction):
         return
 
     await interaction.response.defer()
@@ -222,7 +268,10 @@ async def link(
 
     try:
         if role not in user.roles:
-            await user.add_roles(role, reason=f"Booster role link by {interaction.user}")
+            await user.add_roles(
+                role,
+                reason=t("booster.role.link.reason", user=interaction.user),
+            )
     except discord.Forbidden:
         await interaction.followup.send(
             t("booster.role.link.hierarchy_error", role=role.mention),
@@ -243,10 +292,7 @@ async def remove(
     interaction: discord.Interaction,
     user: discord.User,
 ) -> None:
-    if not is_admin(interaction):
-        await interaction.response.send_message(
-            t("booster.role.no_permission"), ephemeral=True
-        )
+    if not await require_admin(interaction):
         return
 
     await interaction.response.defer()
@@ -262,7 +308,9 @@ async def remove(
     role = interaction.guild.get_role(record.role_id)
     if role is not None:
         try:
-            await role.delete(reason=f"Booster role removed by {interaction.user}")
+            await role.delete(
+                reason=t("booster.role.remove.reason", user=interaction.user)
+            )
         except discord.Forbidden:
             await interaction.followup.send(
                 t("booster.role.remove.hierarchy_error", role=role.mention),
@@ -284,10 +332,7 @@ async def remove(
 
 @role_group.command(name="sync", description=t("booster.role.sync.description"))
 async def sync(interaction: discord.Interaction) -> None:
-    if not is_admin(interaction):
-        await interaction.response.send_message(
-            t("booster.role.no_permission"), ephemeral=True
-        )
+    if not await require_admin(interaction):
         return
 
     await interaction.response.defer()
@@ -307,10 +352,7 @@ async def sync(interaction: discord.Interaction) -> None:
 
 @role_group.command(name="list", description=t("booster.role.list.description"))
 async def list_roles(interaction: discord.Interaction) -> None:
-    if not is_admin(interaction):
-        await interaction.response.send_message(
-            t("booster.role.no_permission"), ephemeral=True
-        )
+    if not await require_admin(interaction):
         return
 
     await interaction.response.defer(ephemeral=True)
@@ -326,57 +368,10 @@ async def list_roles(interaction: discord.Interaction) -> None:
     for row in records:
         member = await resolve_member(interaction.guild, row.discord_user_id)
         role = interaction.guild.get_role(row.role_id)
-        embeds.append(_role_embed(row, member, role))
+        embeds.append(_role_embed(member, role, interaction.client))
 
-    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
-    await send_paginated(interaction, pages, total_results=len(records))
-
-def _boost_value(member: discord.Member | None) -> str:
-    if member is not None and member.premium_since is not None:
-        return f"<t:{int(member.premium_since.timestamp())}:f>"
-    return t("booster.pagination.not_boosting")
-
-def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
-    embed = discord.Embed()
-    if role is not None:
-        embed.description = f"# {role.mention}"
-    if member is not None:
-        embed.set_author(
-            name=discord.utils.escape_markdown(member.display_name),
-            icon_url=member.display_avatar.url,
-        )
-
-    embed.set_image(
-        url=config.get("transparent_embed_image")
+    await send_paginated(
+        interaction,
+        chunked(embeds, EMBEDS_PER_PAGE),
+        total_results=len(records),
     )
-
-    if role is not None:
-        fields = []
-        # fields.append(("Role", role.mention, True))
-        fields.append(("Color", f"#{role.colour.value:06X}" if role.colour.value else "None", True))
-        fields.append(
-            (
-                "Gradient",
-                f"#{role.secondary_colour.value:06X}" if getattr(role, "secondary_colour", None) and role.secondary_colour.value else "None",
-                True,
-            )
-        )
-        icon_val = role.display_icon
-        if icon_val is None:
-            icon_text = "None"
-        elif isinstance(icon_val, discord.Asset):
-            icon_text = "Custom icon"
-            embed.set_thumbnail(url=icon_val.url)
-        else:
-            icon_text = str(icon_val)
-        fields.append(("Emoji/Icon", icon_text, True))
-
-        fields.append((t("booster.pagination.boost_field"), _boost_value(member), True))
-
-        # image field - if it's an asset with url, show it; otherwise maybe indicate image
-        if isinstance(icon_val, discord.Asset) and icon_val.url:
-            # put image link or just note - but embed can have image; maybe also add field
-            pass
-        for name, value, inline in fields:
-            embed.add_field(name=name, value=value, inline=inline)
-    return embed
