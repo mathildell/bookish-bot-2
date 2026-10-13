@@ -24,13 +24,18 @@ react_group = app_commands.Group(
 PAGE_SIZE = 15
 
 
-def _display_name_for(user: discord.User, interaction: discord.Interaction) -> str:
-    member = (
-        interaction.guild.get_member(user.id) if interaction.guild else None
-    )
-    if member is not None:
-        return member.display_name or member.name
+def _server_display_name(user: discord.User, interaction: discord.Interaction) -> str:
+    if interaction.guild is not None:
+        member = interaction.guild.get_member(user.id)
+        if member is not None:
+            if member.nick:
+                return member.nick
+            return member.display_name or member.name
     return user.global_name or user.name
+
+
+def _username(user: discord.User) -> str:
+    return user.name
 
 
 def _nickname_extra(nicknames: str | None) -> str:
@@ -71,8 +76,8 @@ async def add(
 
     identifiers = build_identifiers(
         discord_user_id=target.id,
-        username=target.name,
-        display_name=_display_name_for(target, interaction),
+        username=_username(target),
+        display_name=_server_display_name(target, interaction),
         nicknames=nicknames,
     )
 
@@ -144,8 +149,8 @@ async def edit(
     if nicknames is not None:
         identifiers = build_identifiers(
             discord_user_id=target.id,
-            username=target.name,
-            display_name=_display_name_for(target, interaction),
+            username=_username(target),
+            display_name=_server_display_name(target, interaction),
             nicknames=nicknames,
         )
 

@@ -171,17 +171,25 @@ def build_identifiers(
     """Assemble the ordered, de-duplicated list of trigger identifiers.
 
     Identifiers are stored as entered (raw, case preserved) so they can be
-    shown back to admins, but are de-duplicated on their cleaned form so a
-    username and display name that match are only listed once. The user id is
-    always first; it is used to match mentions.
+    shown back to admins, but are de-duplicated on their cleaned form. The user
+    id is always first; it is used to match mentions. Order is: user id,
+    server display name (if present), username (if different), then nicknames
+    (with duplicates removed).
     """
     raw: list[str] = [str(discord_user_id)]
-    if username:
-        raw.append(username)
-    if display_name and display_name != username:
+    if display_name:
         raw.append(display_name)
+    if username and username != display_name:
+        raw.append(username)
     if nicknames:
-        raw.extend(part for part in nicknames.split(","))
+        for part in nicknames.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            # avoid re-adding if same as display_name or username
+            if part == display_name or part == username:
+                continue
+            raw.append(part)
 
     identifiers: list[str] = []
     seen: set[str] = set()
