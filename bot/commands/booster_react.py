@@ -123,6 +123,15 @@ async def add(
         )
         return
 
+    owner = interaction.client.booster_reacts.emoji_owner(
+        emoji, exclude_user_id=target.id
+    )
+    if owner is not None:
+        await interaction.followup.send(
+            t("booster.react.emoji_taken", user=f"<@{owner}>"), ephemeral=True
+        )
+        return
+
     identifiers = build_identifiers(
         discord_user_id=target.id,
         username=_username(target),
@@ -188,6 +197,13 @@ async def edit(
         except ValueError:
             await interaction.followup.send(
                 t("booster.react.edit.invalid_emoji", emoji=emoji),
+                ephemeral=True,
+            )
+            return
+        owner = service.emoji_owner(emoji, exclude_user_id=target.id)
+        if owner is not None:
+            await interaction.followup.send(
+                t("booster.react.emoji_taken", user=f"<@{owner}>"),
                 ephemeral=True,
             )
             return

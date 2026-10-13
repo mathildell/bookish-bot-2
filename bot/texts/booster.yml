@@ -17,6 +17,7 @@ booster:
 
   react:
     group_description: "Manage custom booster reacts"
+    emoji_taken: "That emoji is already used by %{user}."
     add:
       description: "Add a custom react emoji"
       param_emoji: "Emoji to react with (unicode or <:name:id>)"

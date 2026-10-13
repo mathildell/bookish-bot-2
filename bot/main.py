@@ -71,18 +71,21 @@ async def run() -> None:
         if not message.content:
             return
 
-        entry = reactor.find_matching(message.content)
-        if entry is None:
-            return
-        if message.author.id == entry["discord_user_id"]:
-            return
-
-        try:
-            await message.add_reaction(parse_emoji(entry["emoji"]))
-        except discord.HTTPException as exc:
-            logger.warning(
-                "Could not react to message %s: %s", message.id, exc
-            )
+        used_emojis: set[str] = set()
+        for entry in reactor.find_matches(message.content):
+            # A booster is not reacted to on their own message.
+            if message.author.id == entry["discord_user_id"]:
+                continue
+            # Two boosters may share an emoji; only add it once.
+            if entry["emoji"] in used_emojis:
+                continue
+            used_emojis.add(entry["emoji"])
+            try:
+                await message.add_reaction(parse_emoji(entry["emoji"]))
+            except discord.HTTPException as exc:
+                logger.warning(
+                    "Could not react to message %s: %s", message.id, exc
+                )
 
     # ---------------------- role deletions ----------------------
     @bot.event

@@ -52,6 +52,18 @@ def parse_emoji(raw: str) -> discord.PartialEmoji | str:
     return raw
 
 
+def emoji_key(raw: str) -> str:
+    """Canonical key for an emoji, so equal emojis compare equal.
+
+    Custom emojis are keyed by their id (name/animation differences are
+    ignored); unicode emojis are keyed by their text.
+    """
+    parsed = parse_emoji(raw)
+    if isinstance(parsed, discord.PartialEmoji):
+        return f"custom:{parsed.id}"
+    return f"unicode:{parsed}"
+
+
 class BoosterReactService:
     """CRUD + the in-memory trigger registry used by the message listener."""
 
@@ -106,12 +118,26 @@ class BoosterReactService:
             "regexes": regexes,
         }
 
-    def find_matching(self, content: str) -> dict | None:
-        """Return the first booster whose identifier matches the message content."""
+    def find_matches(self, content: str) -> list[dict]:
+        """Return every booster whose identifier matches the message content."""
+        return [
+            entry
+            for entry in self._records.values()
+            if any(regex.search(content) for regex in entry["regexes"])
+        ]
+
+    def emoji_owner(self, emoji: str, *, exclude_user_id: int) -> int | None:
+        """Return the user id already using ``emoji``, if any.
+
+        ``exclude_user_id`` is the booster making the request, so their own
+        registration never clashes with itself.
+        """
+        key = emoji_key(emoji)
         for entry in self._records.values():
-            for regex in entry["regexes"]:
-                if regex.search(content):
-                    return entry
+            if entry["discord_user_id"] == exclude_user_id:
+                continue
+            if emoji_key(entry["emoji"]) == key:
+                return entry["discord_user_id"]
         return None
 
     # ------------------------------------------------------------------- CRUD

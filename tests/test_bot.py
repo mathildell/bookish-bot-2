@@ -112,24 +112,70 @@ class BuildIdentifiersTests(unittest.TestCase):
         )
 
 
-class FindMatchingTests(unittest.TestCase):
+class FindMatchesTests(unittest.TestCase):
     def _service(self) -> BoosterReactService:
         service = BoosterReactService()
-        row = FakeRow(identifiers=build_identifiers(7, "alice", "Alice", "Ali"))
-        service._records = {7: service._build_entry(row)}
+        leah = FakeRow(
+            discord_user_id=7,
+            identifiers=build_identifiers(7, "leah", "Leah", None),
+        )
+        bella = FakeRow(
+            discord_user_id=8,
+            identifiers=build_identifiers(8, "bella", "Bella", None),
+        )
+        service._records = {
+            7: service._build_entry(leah),
+            8: service._build_entry(bella),
+        }
         return service
 
     def test_matches_identifier(self) -> None:
         service = self._service()
-        self.assertIsNotNone(service.find_matching("hey Ali how are you"))
+        matches = service.find_matches("hey Leah how are you")
+        self.assertEqual([m["discord_user_id"] for m in matches], [7])
+
+    def test_matches_everyone_mentioned(self) -> None:
+        service = self._service()
+        matches = service.find_matches("@Leah @Bella check this out")
+        self.assertEqual([m["discord_user_id"] for m in matches], [7, 8])
 
     def test_no_match(self) -> None:
         service = self._service()
-        self.assertIsNone(service.find_matching("hello world"))
+        self.assertEqual(service.find_matches("hello world"), [])
 
     def test_respects_word_boundaries(self) -> None:
         service = self._service()
-        self.assertIsNone(service.find_matching("Salivate"))
+        self.assertEqual(service.find_matches("Salivate"), [])
+
+
+class EmojiOwnerTests(unittest.TestCase):
+    def _service(self, entries) -> BoosterReactService:
+        service = BoosterReactService()
+        service._records = {
+            user_id: service._build_entry(
+                FakeRow(discord_user_id=user_id, emoji=emoji)
+            )
+            for user_id, emoji in entries
+        }
+        return service
+
+    def test_unused_emoji(self) -> None:
+        service = self._service([(7, "😀")])
+        self.assertIsNone(service.emoji_owner("🐱", exclude_user_id=8))
+
+    def test_detects_duplicate_unicode(self) -> None:
+        service = self._service([(7, "😀")])
+        self.assertEqual(service.emoji_owner("😀", exclude_user_id=8), 7)
+
+    def test_custom_emoji_matched_by_id(self) -> None:
+        service = self._service([(7, "<:cat:123>")])
+        self.assertEqual(
+            service.emoji_owner("<:other:123>", exclude_user_id=8), 7
+        )
+
+    def test_ignores_the_requesting_user(self) -> None:
+        service = self._service([(7, "😀")])
+        self.assertIsNone(service.emoji_owner("😀", exclude_user_id=7))
 
 
 class ChunkedTests(unittest.TestCase):
