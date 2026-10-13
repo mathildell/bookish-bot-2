@@ -27,10 +27,12 @@ def _success(content: str) -> discord.Embed:
     return discord.Embed(description=content, color=0x57F287)
 
 
-def _extra(identifiers: list[str], start: int) -> str:
-    """Render the trailing nickname aliases, skipping the first ``start`` entries."""
-    rest = identifiers[start:]
-    return f" ({', '.join(rest)})" if rest else ""
+def _nickname_extra(nicknames: str | None) -> str:
+    """Render the extra nicknames as supplied by the admin, if any."""
+    if not nicknames:
+        return ""
+    parts = [part.strip() for part in nicknames.split(",") if part.strip()]
+    return f" ({', '.join(parts)})" if parts else ""
 
 
 @boosters_group.command(
@@ -78,7 +80,7 @@ async def add(
                 emoji=emoji,
                 user=user.mention,
                 id=record.id,
-                extra=_extra(identifiers, 3),
+                extra=_nickname_extra(nicknames),
             )
         )
     )
@@ -147,7 +149,7 @@ async def edit(
                 emoji=new_emoji,
                 user=user.mention,
                 id=record.id,
-                extra=_extra(identifiers, 3),
+                extra=_nickname_extra(nicknames),
             )
         )
     )
@@ -171,16 +173,14 @@ async def view(
         return
 
     identifiers = record.identifiers or []
-    primary = identifiers[0] if identifiers else ""
+    listed = identifiers[1:]
     await interaction.followup.send(
         embed=_success(
             t(
                 "boosters.view.success",
                 emoji=record.emoji,
                 user=user.mention,
-                primary=primary,
-                extra=_extra(identifiers, 1),
-                id=record.id,
+                identifiers=", ".join(listed),
             )
         )
     )

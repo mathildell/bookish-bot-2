@@ -20,7 +20,7 @@ boosters:
     description: "Show a booster's reaction emoji and matching identifiers"
     param_user: "The booster to inspect"
     not_found: "%{user} has no booster reaction registered."
-    success: "%{emoji} **%{user}** triggers: `%{primary}`%{extra} (id `%{id}`)"
+    success: "%{emoji} %{user} (%{identifiers})"
   remove:
     description: "Remove a booster's custom reaction emoji"
     param_user: "The booster to unregister"

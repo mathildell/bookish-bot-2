@@ -78,13 +78,15 @@ class BoosterReactService:
 
     @staticmethod
     def _build_entry(row: BoosterReact) -> dict:
-        regexes = [
-            re.compile(
-                rf"(?<!\w){re.escape(identifier)}(?!\w)", re.IGNORECASE
-            )
-            for identifier in (row.identifiers or [])
-            if identifier
-        ]
+        regexes = []
+        for identifier in row.identifiers or []:
+            cleaned = clean_identifier(identifier)
+            if cleaned:
+                regexes.append(
+                    re.compile(
+                        rf"(?<!\w){re.escape(cleaned)}(?!\w)", re.IGNORECASE
+                    )
+                )
         return {
             "discord_user_id": row.discord_user_id,
             "emoji": row.emoji,
@@ -153,7 +155,13 @@ def build_identifiers(
     display_name: str | None,
     nicknames: str | None,
 ) -> list[str]:
-    """Assemble and deduplicate the ordered list of cleaned trigger identifiers."""
+    """Assemble the ordered, de-duplicated list of trigger identifiers.
+
+    Identifiers are stored as entered (raw, case preserved) so they can be
+    shown back to admins, but are de-duplicated on their cleaned form so a
+    username and display name that match are only listed once. The user id is
+    always first; it is used to match mentions.
+    """
     raw: list[str] = [str(discord_user_id)]
     if username:
         raw.append(username)
@@ -163,8 +171,10 @@ def build_identifiers(
         raw.extend(part for part in nicknames.split(","))
 
     identifiers: list[str] = []
+    seen: set[str] = set()
     for value in raw:
         cleaned = clean_identifier(value)
-        if cleaned and cleaned not in identifiers:
-            identifiers.append(cleaned)
+        if cleaned and cleaned not in seen:
+            seen.add(cleaned)
+            identifiers.append(value.strip())
     return identifiers
