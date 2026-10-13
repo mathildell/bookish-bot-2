@@ -65,6 +65,19 @@ class BoosterReactService:
     def records(self) -> list[dict]:
         return list(self._records.values())
 
+    async def all(self) -> list[BoosterReact]:
+        """Return every registration (raw rows, for admin listings)."""
+        async with session_scope() as session:
+            return list(
+                (
+                    await session.execute(
+                        select(BoosterReact).order_by(BoosterReact.id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
     async def reload(self) -> None:
         """Re-read every booster from the database and rebuild the matchers."""
         async with session_scope() as session:

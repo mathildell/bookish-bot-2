@@ -1,5 +1,8 @@
 booster:
   group_description: "Booster features"
+  pagination:
+    not_author: "Only the command author can use these buttons."
+    page_footer: "Page %{current}/%{total}"
   react:
     group_description: "Manage custom booster reacts"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
@@ -30,6 +33,13 @@ booster:
       param_user: "Who to remove it for (defaults to you)"
       success: "Removed %{user}'s booster react."
       not_found: "%{user} doesn't have a booster react yet!"
+    list:
+      description: "List every registered booster react (admin only)"
+      title: "Booster reacts (%{count})"
+      empty: "No booster reacts registered."
+      no_aliases: "(no extra aliases)"
+      line: "%{emoji} %{user} — %{identifiers}%{boosting}"
+      boosting: " · boosting <t:%{ts}:R>"
   role:
     group_description: "Manage your custom booster role"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
@@ -70,5 +80,11 @@ booster:
     sync:
       description: "Check for boosters who no longer boost and unlink them"
       success: "Checked boosters — unlinked %{count}."
+    list:
+      description: "List every linked booster role (admin only)"
+      title: "Booster roles (%{count})"
+      empty: "No booster roles linked."
+      line: "%{role} → %{user}%{boosting}"
+      boosting: " · boosting <t:%{ts}:R>"
     cleanup:
       notice: "%{user} is no longer boosting; unlinked their role %{role}. Delete it if you want to clean up."

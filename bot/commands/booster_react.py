@@ -13,12 +13,15 @@ from discord import app_commands
 
 from ..services.booster_react import build_identifiers, parse_emoji
 from ..texts import t
-from .checks import denial_message
+from .checks import denial_message, is_admin
+from .pagination import chunked, get_boosting_since, send_paginated
 
 react_group = app_commands.Group(
     name="react",
     description=t("booster.react.group_description"),
 )
+
+PAGE_SIZE = 15
 
 
 def _display_name_for(user: discord.User, interaction: discord.Interaction) -> str:
@@ -219,3 +222,56 @@ async def remove(
             t("booster.react.remove.not_found", user=target.mention),
             ephemeral=True,
         )
+
+
+@react_group.command(name="list", description=t("booster.react.list.description"))
+async def list_reacts(interaction: discord.Interaction) -> None:
+    if not is_admin(interaction):
+        await interaction.response.send_message(
+            t("booster.react.no_permission"), ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    records = await interaction.client.booster_reacts.all()
+    if not records:
+        await interaction.followup.send(
+            t("booster.react.list.empty"), ephemeral=True
+        )
+        return
+
+    lines = []
+    for row in records:
+        since = await get_boosting_since(interaction.guild, row.discord_user_id)
+        boosting = (
+            t("booster.react.list.boosting", ts=int(since.timestamp()))
+            if since is not None
+            else ""
+        )
+        rest = (row.identifiers or [])[1:]
+        identifiers = ", ".join(rest) if rest else t("booster.react.list.no_aliases")
+        lines.append(
+            t(
+                "booster.react.list.line",
+                emoji=row.emoji,
+                user=f"<@{row.discord_user_id}>",
+                identifiers=identifiers,
+                boosting=boosting,
+            )
+        )
+
+    chunks = list(chunked(lines, PAGE_SIZE))
+    total = len(chunks)
+    embeds = []
+    for index, chunk in enumerate(chunks):
+        embed = discord.Embed(
+            title=t("booster.react.list.title", count=len(records)),
+            description="\n".join(chunk),
+        )
+        embed.set_footer(
+            text=t("booster.pagination.page_footer", current=index + 1, total=total)
+        )
+        embeds.append(embed)
+
+    await send_paginated(interaction, embeds)
