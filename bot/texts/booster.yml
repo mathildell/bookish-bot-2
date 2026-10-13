@@ -1,5 +1,5 @@
 booster:
-  group_description: "Booster reactions"
+  group_description: "Booster features"
   react:
     group_description: "Manage custom booster reacts"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
@@ -30,3 +30,57 @@ booster:
       param_user: "Who to remove it for (defaults to you)"
       success: "Removed %{user}'s booster react."
       not_found: "%{user} doesn't have a booster react yet!"
+  role:
+    group_description: "Manage your custom booster role"
+    no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
+    cannot_manage_others: "You can only manage your own booster role <:BunnyDizzy:1509264355714400316>"
+    none_label: "none"
+    image_label: "custom image"
+    view:
+      description: "Show a booster's linked role"
+      param_user: "Who to inspect (defaults to you)"
+      not_found: "%{user} doesn't have a booster role yet!"
+      success: |-
+        %{user}'s role: %{role}
+        name: %{name}
+        color: %{color}
+        gradient: %{gradient}
+        emoji: %{emoji}
+    edit:
+      description: "Change your booster role's name, colors or emoji"
+      param_user: "Who to update (defaults to you)"
+      param_name: "New role name"
+      param_color: "Primary color as hex, e.g. #ff00ff (use `none` to clear)"
+      param_gradient: "Secondary color for a gradient, hex (use `none` to clear)"
+      param_emoji: "Unicode emoji icon (use `none` to clear)"
+      param_image: "Or upload a PNG/JPEG image to use as the icon"
+      icon_conflict: "Provide either an emoji or an image, not both."
+      nothing_to_change: "Provide a new name, color, gradient, emoji or image to change."
+      not_found: "%{user} doesn't have a booster role yet!"
+      invalid_name: "That role name isn't valid."
+      invalid_color: "`%{color}` isn't a valid hex color (use #rrggbb)."
+      gradient_needs_color: "Set a primary color before adding a gradient."
+      invalid_emoji: "`%{emoji}` can't be used as a role icon (custom emojis aren't allowed)."
+      hierarchy_error: "I can't edit that role — it's above my highest role."
+      failed: "Couldn't edit the role: %{error}"
+      success: "Updated %{user}'s booster role %{role}"
+    link:
+      description: "Link an admin-created role to a booster"
+      param_user: "The booster who will own the role"
+      param_role: "The role to link"
+      role_taken: "%{role} is already linked to %{user}."
+      user_taken: "%{user} already has %{role} linked."
+      hierarchy_error: "I can't manage %{role} — it's above my highest role."
+      success: "Linked %{role} to %{user}."
+    remove:
+      description: "Delete a booster's role and unlink it"
+      param_user: "The booster whose role to remove"
+      not_found: "%{user} doesn't have a booster role yet!"
+      hierarchy_error: "I can't delete %{role} — it's above my highest role."
+      failed: "Couldn't delete the role: %{error}"
+      success: "Removed %{user}'s booster role."
+    sync:
+      description: "Check for boosters who no longer boost and unlink them"
+      success: "Checked boosters — unlinked %{count}."
+    cleanup:
+      notice: "%{user} is no longer boosting; unlinked their role %{role}. Delete it if you want to clean up."

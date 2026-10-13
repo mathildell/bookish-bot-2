@@ -13,12 +13,13 @@ import logging
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
 from .config import load_config
 from .db import close_db, create_tables, init_db
 from .services.booster_react import BoosterReactService, parse_emoji
+from .services.booster_role import BoosterRoleService, resolve_notify_channel
 
 logger = logging.getLogger("bh2")
 
@@ -37,6 +38,7 @@ async def run() -> None:
 
     # Reactor service (shared instance exposed on the bot for commands)
     reactor = BoosterReactService()
+    booster_roles = BoosterRoleService()
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -44,6 +46,10 @@ async def run() -> None:
     bot = commands.Bot(command_prefix="", intents=intents)
     bot.booster_reacts = reactor
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
+    bot.booster_roles = booster_roles
+    bot.bot_updates_channel_id = int(
+        config.get("bot_updates_channel_id", 0) or 0
+    )
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
@@ -72,6 +78,32 @@ async def run() -> None:
                 "Could not react to message %s: %s", message.id, exc
             )
 
+    # ---------------------- role deletions ----------------------
+    @bot.event
+    async def on_guild_role_delete(role: discord.Role) -> None:
+        if role.guild.id != int(config.guild_id):
+            return
+        if await booster_roles.delete_by_role(role.id):
+            logger.info("Unlinked deleted booster role %s", role.id)
+
+    # ------------------- booster role upkeep -------------------
+    # No Members intent: poll daily to catch boosters who stopped boosting.
+    # The single-member fetch used by reconcile() does not need the intent.
+    @tasks.loop(hours=24)
+    async def reconcile_boosters() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        channel = await resolve_notify_channel(
+            guild, bot.bot_updates_channel_id
+        )
+        unlinked = await booster_roles.reconcile(guild, channel)
+        logger.info("Booster role sync: unlinked %d", len(unlinked))
+
+    @reconcile_boosters.before_loop
+    async def _wait_ready() -> None:
+        await bot.wait_until_ready()
+
     # ------------------------- startup -------------------------
     @bot.event
     async def on_ready() -> None:
@@ -79,6 +111,9 @@ async def run() -> None:
 
         await reactor.reload()
         logger.info("Loaded %d booster reaction(s)", len(reactor.records))
+
+        if not reconcile_boosters.is_running():
+            reconcile_boosters.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:
