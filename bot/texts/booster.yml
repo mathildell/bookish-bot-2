@@ -34,7 +34,7 @@ booster:
       description: "Remove a booster react"
       param_user: "Who to remove it for (defaults to you)"
       success: "Removed %{user}'s booster react."
-      not_found: "%{user} doesn't have a booster react yet!"
+      not_found: "%{user} doesn't have a booster react boostyet!"
     list:
       description: "List every registered booster react (admin only)"
       title: "Booster reacts (%{count})"

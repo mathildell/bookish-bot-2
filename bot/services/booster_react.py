@@ -186,7 +186,6 @@ def build_identifiers(
             part = part.strip()
             if not part:
                 continue
-            # avoid re-adding if same as display_name or username
             if part == display_name or part == username:
                 continue
             raw.append(part)

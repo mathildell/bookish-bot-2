@@ -22,3 +22,5 @@ mysql:
   database: "bookish_hideaway"
   username: "bookish"
   password: "bookish"
+transparent_embed_image: "https://i.imgur.com/example.png"
+

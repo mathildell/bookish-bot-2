@@ -15,6 +15,7 @@ from ..services.booster_react import build_identifiers, parse_emoji
 from ..texts import t
 from .checks import denial_message, is_admin
 from .pagination import chunked, resolve_member, send_paginated
+from ..config import load_config
 
 react_group = app_commands.Group(
     name="react",
@@ -22,6 +23,8 @@ react_group = app_commands.Group(
 )
 
 EMBEDS_PER_PAGE = 6
+
+config = load_config()
 
 
 def _member_name(
@@ -63,24 +66,50 @@ def _react_embed(row, member: discord.Member | None) -> discord.Embed:
         else t("booster.react.list.no_aliases")
     )
     embed.add_field(
-        name=t("booster.react.list.names_field"), value=value, inline=False
+        name=t("booster.react.list.names_field"), value=value, inline=True
     )
     embed.add_field(
         name=t("booster.pagination.boost_field"),
         value=_boost_value(member),
-        inline=False,
+        inline=True,
     )
+    embed.set_image(
+        url=config.get("transparent_embed_image")
+    )
+
     return embed
 
 
 def _server_display_name(user: discord.User, interaction: discord.Interaction) -> str:
+    member = None
     if interaction.guild is not None:
         member = interaction.guild.get_member(user.id)
-        if member is not None:
-            if member.nick:
-                return member.nick
-            return member.display_name or member.name
-    return user.global_name or user.name
+    if isinstance(user, discord.Member):
+        member = user
+    if member is None and interaction.guild is not None:
+        try:
+            member = interaction.guild.get_member(user.id)
+        except Exception:
+            member = None
+    if member is None and interaction.guild is not None:
+        try:
+            import asyncio
+
+            # but we're in sync context? no, we're in async command
+            # so can't await directly; but easier to just try fetch via client? maybe better to handle in caller differently
+            # simpler: rely on get_member first
+            pass
+        except Exception:
+            pass
+    if member is not None:
+        # Return the server-visible display name in full: prefer nick if set,
+        # otherwise member.display_name (which falls back to global)
+        if getattr(member, "nick", None):
+            return str(member.nick)
+        dn = getattr(member, "display_name", None) or getattr(member, "name", None)
+        if dn:
+            return str(dn)
+    return str(getattr(user, "global_name", None) or getattr(user, "name", ""))
 
 
 def _username(user: discord.User) -> str:
