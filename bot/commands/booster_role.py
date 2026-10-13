@@ -339,23 +339,11 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
 
     await send_paginated(interaction, pages)
-    
-def _member_name(
-    member: discord.Member | None, identifiers: list[str] | None
-) -> str:
-    if member is not None:
-        return member.display_name
-    parts = identifiers or []
-    if len(parts) > 1:
-        return parts[1]
-    if len(parts) > 2:
-        return parts[2]
-    return "Unknown"
 
 def _authorize_embed(
-    embed: discord.Embed, member: discord.Member | None, name: str
+    embed: discord.Embed, member: discord.Member | None
 ) -> None:
-    escaped = discord.utils.escape_markdown(name)
+    escaped = discord.utils.escape_markdown(member.display_name)
     if member is not None:
         embed.set_author(name=escaped, icon_url=member.display_avatar.url)
     else:
@@ -363,7 +351,7 @@ def _authorize_embed(
 
 def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
     embed = discord.Embed(description=f"{role}")
-    _authorize_embed(embed, member, _member_name(member, row.identifiers))
+    _authorize_embed(embed, member)
     embed.set_image(
         url=config.get("transparent_embed_image")
     )
