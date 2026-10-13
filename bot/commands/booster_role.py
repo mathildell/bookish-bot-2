@@ -1,8 +1,8 @@
 """Booster role commands (``/booster role ...``).
 
 Admins create the Discord roles themselves and register them with
-``/booster role link``. Boosters may then ``view``/``edit`` their own role;
-admins may do so for anyone. ``link``/``remove``/``sync`` are admin-only.
+``/booster role link``. Boosters may then ``edit`` their own role; admins may do
+so for anyone. ``link``/``remove``/``sync`` are admin-only.
 """
 
 from __future__ import annotations
@@ -35,58 +35,6 @@ def _parse_hex(value: str) -> discord.Colour:
     if not match:
         raise ValueError(value)
     return discord.Colour(int(match.group("hex"), 16))
-
-
-def _color_label(value: int | None) -> str:
-    if value is None or value == 0:
-        return t("booster.role.none_label")
-    return f"#{value:06x}"
-
-
-def _icon_label(role: discord.Role) -> str:
-    display = role.display_icon
-    if display is None:
-        return t("booster.role.none_label")
-    if isinstance(display, str):
-        return display
-    return t("booster.role.image_label")
-
-
-@role_group.command(name="view", description=t("booster.role.view.description"))
-@app_commands.describe(user=t("booster.role.view.param_user"))
-async def view(
-    interaction: discord.Interaction,
-    user: discord.User | None = None,
-) -> None:
-    target = user if user is not None else interaction.user
-    denial = denial_message(interaction, target, scope="role")
-    if denial is not None:
-        await interaction.response.send_message(denial, ephemeral=True)
-        return
-
-    await interaction.response.defer()
-
-    record = await interaction.client.booster_roles.find_by_user(target.id)
-    role = interaction.guild.get_role(record.role_id) if record else None
-    if record is None or role is None:
-        await interaction.followup.send(
-            t("booster.role.view.not_found", user=target.mention),
-            ephemeral=True,
-        )
-        return
-
-    secondary = role.secondary_colour
-    await interaction.followup.send(
-        t(
-            "booster.role.view.success",
-            user=target.mention,
-            role=role.mention,
-            name=role.name,
-            color=_color_label(role.colour.value),
-            gradient=_color_label(secondary.value if secondary else None),
-            emoji=_icon_label(role),
-        )
-    )
 
 
 @role_group.command(name="edit", description=t("booster.role.edit.description"))

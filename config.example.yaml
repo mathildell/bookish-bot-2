@@ -13,7 +13,7 @@ booster_role_id: 0
 
 # Channel where the bot posts when a booster stops boosting and their custom
 # role is unlinked (0 disables the notice)
-booster_updates_channel_id: 0
+bot_updates_channel_id: 0
 
 # MySQL database (the compose file provisions these defaults)
 mysql:

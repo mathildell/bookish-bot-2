@@ -34,18 +34,6 @@ booster:
     group_description: "Manage your custom booster role"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
     cannot_manage_others: "You can only manage your own booster role <:BunnyDizzy:1509264355714400316>"
-    none_label: "none"
-    image_label: "custom image"
-    view:
-      description: "Show a booster's linked role"
-      param_user: "Who to inspect (defaults to you)"
-      not_found: "%{user} doesn't have a booster role yet!"
-      success: |-
-        %{user}'s role: %{role}
-        name: %{name}
-        color: %{color}
-        gradient: %{gradient}
-        emoji: %{emoji}
     edit:
       description: "Change your booster role's name, colors or emoji"
       param_user: "Who to update (defaults to you)"
