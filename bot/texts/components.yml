@@ -2,4 +2,4 @@ components:
   pagination:
     next: "Next"
     prev: "Prev"
-    page_x_of_y: "Page 1 of 1 • 0 results"
+    page_x_of_y: "Page %{n} of %{t} • %{r} results"

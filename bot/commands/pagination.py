@@ -73,7 +73,7 @@ class Paginator(discord.ui.View):
         self.prev_button.disabled = single or self.index == 0
         self.next_button.disabled = single or self.index == last
         self.page_label.disabled = True
-        self.page_label.label = f"Page {self.index + 1} of {len(self.pages)} • {self.total_results} results"
+        self.page_label.label = t("components.pagination.page_x_of_y", n=f"{self.index + 1}", t=f"{len(self.pages)}", r=f"{self.total_results}")
 
     async def _show(self, interaction: discord.Interaction) -> None:
         self._refresh()
@@ -105,7 +105,7 @@ class Paginator(discord.ui.View):
         await self._show(interaction)
 
     @discord.ui.button(
-        label=t("components.pagination.page_x_of_y"),
+        label=t("components.pagination.page_x_of_y", n="1", t="1", r="0"),
         style=discord.ButtonStyle.secondary,
         disabled=True,
     )
