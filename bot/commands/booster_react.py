@@ -9,7 +9,7 @@ Permissions:
 from __future__ import annotations
 
 import discord
-from discord import app_commands
+from discord import app_commands, PartialEmoji
 
 from ..services.booster_react import build_identifiers, parse_emoji
 from ..texts import t
@@ -57,7 +57,16 @@ def _authorize_embed(
 
 
 def _react_embed(row, member: discord.Member | None) -> discord.Embed:
-    embed = discord.Embed(description=f"# {row.emoji}")
+    embed = discord.Embed()
+    try:
+        partial_emoji = PartialEmoji.from_str(row.emoji)
+        if partial_emoji.is_custom_emoji() and partial_emoji.url:
+            embed.set_thumbnail(url=partial_emoji.url)
+        else:
+            embed.description = f"# {row.emoji}"
+    except Exception:
+        embed.description = f"# {row.emoji}"
+
     _authorize_embed(embed, member, _member_name(member, row.identifiers))
     names = (row.identifiers or [])[1:]
     value = (
