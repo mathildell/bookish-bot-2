@@ -34,10 +34,6 @@ def _display_name_for(user: discord.User, interaction: discord.Interaction) -> s
     return user.global_name or user.name
 
 
-def _success(content: str) -> discord.Embed:
-    return discord.Embed(description=content, color=0x57F287)
-
-
 def _nickname_extra(nicknames: str | None) -> str:
     """Render the extra nicknames as supplied, if any."""
     if not nicknames:
@@ -106,21 +102,18 @@ async def add(
     )
 
     service = interaction.client.booster_reacts
-    record = await service.upsert(
+    await service.upsert(
         discord_user_id=target.id,
         identifiers=identifiers,
         emoji=emoji,
     )
 
     await interaction.followup.send(
-        embed=_success(
-            t(
-                "booster.react.add.success",
-                emoji=emoji,
-                user=target.mention,
-                id=record.id,
-                extra=_nickname_extra(nicknames),
-            )
+        t(
+            "booster.react.add.success",
+            emoji=emoji,
+            user=target.mention,
+            extra=_nickname_extra(nicknames),
         )
     )
 
@@ -181,21 +174,18 @@ async def edit(
             nicknames=nicknames,
         )
 
-    record = await service.upsert(
+    await service.upsert(
         discord_user_id=target.id,
         identifiers=identifiers,
         emoji=new_emoji,
     )
 
     await interaction.followup.send(
-        embed=_success(
-            t(
-                "booster.react.edit.success",
-                emoji=new_emoji,
-                user=target.mention,
-                id=record.id,
-                extra=_nickname_extra(nicknames),
-            )
+        t(
+            "booster.react.edit.success",
+            emoji=new_emoji,
+            user=target.mention,
+            extra=_nickname_extra(nicknames),
         )
     )
 
@@ -221,13 +211,11 @@ async def view(
 
     identifiers = record.identifiers or []
     await interaction.followup.send(
-        embed=_success(
-            t(
-                "booster.react.view.success",
-                emoji=record.emoji,
-                user=target.mention,
-                identifiers=", ".join(identifiers[1:]),
-            )
+        t(
+            "booster.react.view.success",
+            emoji=record.emoji,
+            user=target.mention,
+            identifiers=", ".join(identifiers[1:]),
         )
     )
 
@@ -250,9 +238,7 @@ async def remove(
     removed = await service.delete(target.id)
     if removed:
         await interaction.followup.send(
-            embed=_success(
-                t("booster.react.remove.success", user=target.mention)
-            )
+            t("booster.react.remove.success", user=target.mention)
         )
     else:
         await interaction.followup.send(
