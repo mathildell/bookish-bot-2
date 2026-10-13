@@ -344,16 +344,4 @@ async def list_reacts(interaction: discord.Interaction) -> None:
         member = await resolve_member(interaction.guild, row.discord_user_id)
         embeds.append(_react_embed(row, member))
 
-    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
-    total = len(pages)
-    for index, page in enumerate(pages):
-        page[-1].set_footer(
-            text=t(
-                "booster.react.list.footer",
-                current=index + 1,
-                total=total,
-                count=len(records),
-            )
-        )
-
-    await send_paginated(interaction, pages)
+    await send_paginated(interaction, pages, total_results=len(records))

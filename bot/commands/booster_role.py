@@ -328,19 +328,7 @@ async def list_roles(interaction: discord.Interaction) -> None:
         role = interaction.guild.get_role(row.role_id)
         embeds.append(_role_embed(row, member, role))
 
-    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
-    total = len(pages)
-    for index, page in enumerate(pages):
-        page[-1].set_footer(
-            text=t(
-                "booster.role.list.footer",
-                current=index + 1,
-                total=total,
-                count=len(records),
-            )
-        )
-
-    await send_paginated(interaction, pages)
+    await send_paginated(interaction, pages, total_results=len(records))
 
 def _boost_value(member: discord.Member | None) -> str:
     if member is not None and member.premium_since is not None:

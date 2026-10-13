@@ -49,12 +49,14 @@ class Paginator(discord.ui.View):
         *,
         author_id: int,
         timeout: float = 120.0,
+        total_results: int | None = None,
     ) -> None:
         super().__init__(timeout=timeout)
         self.pages = [list(page) for page in pages]
         self.author_id = author_id
         self.index = 0
         self.message: discord.Message | None = None
+        self.total_results = total_results or sum(len(p) for p in self.pages)
         self._refresh()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -68,11 +70,10 @@ class Paginator(discord.ui.View):
     def _refresh(self) -> None:
         last = len(self.pages) - 1
         single = last <= 0
-        self.first_page.disabled = single or self.index == 0
-        self.previous_page.disabled = single or self.index == 0
-        self.next_page.disabled = single or self.index == last
-        self.last_page.disabled = single or self.index == last
-        self.page_indicator.label = f"{self.index + 1}/{len(self.pages)}"
+        self.prev_button.disabled = single or self.index == 0
+        self.next_button.disabled = single or self.index == last
+        self.page_label.disabled = True
+        self.page_label.label = f"Page {self.index + 1} of {len(self.pages)} • {self.total_results} results"
 
     async def _show(self, interaction: discord.Interaction) -> None:
         self._refresh()
@@ -89,50 +90,41 @@ class Paginator(discord.ui.View):
             except discord.HTTPException:
                 pass
 
-    @discord.ui.button(label="«", style=discord.ButtonStyle.secondary)
-    async def first_page(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ) -> None:
-        self.index = 0
-        await self._show(interaction)
-
-    @discord.ui.button(label="‹", style=discord.ButtonStyle.secondary)
-    async def previous_page(
+    @discord.ui.button(emoji="<:chevronPrev:1559682407987413145>", style=discord.ButtonStyle.secondary)
+    async def prev_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         self.index = max(0, self.index - 1)
         await self._show(interaction)
 
-    @discord.ui.button(label="1/1", style=discord.ButtonStyle.secondary, disabled=True)
-    async def page_indicator(
+    @discord.ui.button(
+        label="Page 1 of 1 • 0 results",
+        style=discord.ButtonStyle.secondary,
+        disabled=True,
+    )
+    async def page_label(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         pass
 
-    @discord.ui.button(label="›", style=discord.ButtonStyle.secondary)
-    async def next_page(
+    @discord.ui.button(emoji="<:chevronNext:1559682424940797992>", style=discord.ButtonStyle.secondary)
+    async def next_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         self.index = min(len(self.pages) - 1, self.index + 1)
-        await self._show(interaction)
-
-    @discord.ui.button(label="»", style=discord.ButtonStyle.secondary)
-    async def last_page(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ) -> None:
-        self.index = len(self.pages) - 1
         await self._show(interaction)
 
 
 async def send_paginated(
     interaction: discord.Interaction,
     pages: Sequence[Sequence[discord.Embed]],
+    total_results: int | None = None,
 ) -> None:
     """Send the first page (ephemeral) with pagination buttons if needed."""
     if len(pages) <= 1:
         await interaction.followup.send(embeds=list(pages[0]), ephemeral=True)
         return
-    view = Paginator(pages, author_id=interaction.user.id)
+    view = Paginator(pages, author_id=interaction.user.id, total_results=total_results)
     view.message = await interaction.followup.send(
         embeds=list(pages[0]), view=view, ephemeral=True
     )
