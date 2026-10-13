@@ -62,8 +62,10 @@ def _react_embed(row, member: discord.Member | None) -> discord.Embed:
         partial_emoji = PartialEmoji.from_str(row.emoji)
         if partial_emoji.is_custom_emoji() and partial_emoji.url:
             embed.set_thumbnail(url=partial_emoji.url)
+            inline=False
         else:
             embed.description = f"# {row.emoji}"
+            inline=True
     except Exception:
         embed.description = f"# {row.emoji}"
 
@@ -75,12 +77,14 @@ def _react_embed(row, member: discord.Member | None) -> discord.Embed:
         else t("booster.react.list.no_aliases")
     )
     embed.add_field(
-        name=t("booster.react.list.names_field"), value=value, inline=False
+        name=t("booster.react.list.names_field"), 
+        value=value, 
+        inline=inline
     )
     embed.add_field(
         name=t("booster.pagination.boost_field"),
         value=_boost_value(member),
-        inline=False,
+        inline=inline,
     )
     embed.set_image(
         url=config.get("transparent_embed_image")
