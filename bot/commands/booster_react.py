@@ -344,4 +344,5 @@ async def list_reacts(interaction: discord.Interaction) -> None:
         member = await resolve_member(interaction.guild, row.discord_user_id)
         embeds.append(_react_embed(row, member))
 
+    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
     await send_paginated(interaction, pages, total_results=len(records))

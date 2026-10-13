@@ -328,6 +328,7 @@ async def list_roles(interaction: discord.Interaction) -> None:
         role = interaction.guild.get_role(row.role_id)
         embeds.append(_role_embed(row, member, role))
 
+    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
     await send_paginated(interaction, pages, total_results=len(records))
 
 def _boost_value(member: discord.Member | None) -> str:
