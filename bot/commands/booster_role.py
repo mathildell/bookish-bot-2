@@ -339,6 +339,18 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
 
     await send_paginated(interaction, pages)
+    
+def _member_name(
+    member: discord.Member | None, identifiers: list[str] | None
+) -> str:
+    if member is not None:
+        return member.display_name
+    parts = identifiers or []
+    if len(parts) > 1:
+        return parts[1]
+    if len(parts) > 2:
+        return parts[2]
+    return "Unknown"
 
 def _authorize_embed(
     embed: discord.Embed, member: discord.Member | None, name: str
