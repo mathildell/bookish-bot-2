@@ -352,11 +352,10 @@ def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
             name=discord.utils.escape_markdown(member.display_name),
             icon_url=member.display_avatar.url,
         )
-    embed.set_image(url=config.get("transparent_embed_image"))
 
     if role is not None:
         fields = []
-        fields.append(("Role", role.mention, True))
+        # fields.append(("Role", role.mention, True))
         fields.append(("Color", f"#{role.colour.value:06X}" if role.colour.value else "None", True))
         fields.append(
             (
@@ -369,7 +368,8 @@ def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
         if icon_val is None:
             icon_text = "None"
         elif isinstance(icon_val, discord.Asset):
-            icon_text = f"[Icon]({icon_val.url})"
+            icon_text = "Custom icon"
+            embed.set_thumbnail(url=icon_val.url)
         else:
             icon_text = str(icon_val)
         fields.append(("Emoji/Icon", icon_text, True))
