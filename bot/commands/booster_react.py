@@ -14,14 +14,63 @@ from discord import app_commands
 from ..services.booster_react import build_identifiers, parse_emoji
 from ..texts import t
 from .checks import denial_message, is_admin
-from .pagination import chunked, get_boosting_since, send_paginated
+from .pagination import chunked, resolve_member, send_paginated
 
 react_group = app_commands.Group(
     name="react",
     description=t("booster.react.group_description"),
 )
 
-PAGE_SIZE = 15
+EMBEDS_PER_PAGE = 6
+
+
+def _member_name(
+    member: discord.Member | None, identifiers: list[str] | None
+) -> str:
+    if member is not None:
+        return member.display_name
+    parts = identifiers or []
+    if len(parts) > 1:
+        return parts[1]
+    if len(parts) > 2:
+        return parts[2]
+    return "Unknown"
+
+
+def _boost_value(member: discord.Member | None) -> str:
+    if member is not None and member.premium_since is not None:
+        return f"<t:{int(member.premium_since.timestamp())}:f>"
+    return t("booster.pagination.not_boosting")
+
+
+def _authorize_embed(
+    embed: discord.Embed, member: discord.Member | None, name: str
+) -> None:
+    escaped = discord.utils.escape_markdown(name)
+    if member is not None:
+        embed.set_author(name=escaped, icon_url=member.display_avatar.url)
+    else:
+        embed.set_author(name=escaped)
+
+
+def _react_embed(row, member: discord.Member | None) -> discord.Embed:
+    embed = discord.Embed(description=f"# {row.emoji}")
+    _authorize_embed(embed, member, _member_name(member, row.identifiers))
+    names = (row.identifiers or [])[1:]
+    value = (
+        ", ".join(discord.utils.escape_markdown(name) for name in names)
+        if names
+        else t("booster.react.list.no_aliases")
+    )
+    embed.add_field(
+        name=t("booster.react.list.names_field"), value=value, inline=False
+    )
+    embed.add_field(
+        name=t("booster.pagination.boost_field"),
+        value=_boost_value(member),
+        inline=False,
+    )
+    return embed
 
 
 def _server_display_name(user: discord.User, interaction: discord.Interaction) -> str:
@@ -195,7 +244,9 @@ async def view(
             "booster.react.view.success",
             emoji=record.emoji,
             user=target.mention,
-            identifiers=", ".join(identifiers[1:]),
+            identifiers=", ".join(
+                discord.utils.escape_markdown(n) for n in identifiers[1:]
+            ),
         )
     )
 
@@ -246,37 +297,21 @@ async def list_reacts(interaction: discord.Interaction) -> None:
         )
         return
 
-    lines = []
+    embeds = []
     for row in records:
-        since = await get_boosting_since(interaction.guild, row.discord_user_id)
-        boosting = (
-            t("booster.react.list.boosting", ts=int(since.timestamp()))
-            if since is not None
-            else ""
-        )
-        rest = (row.identifiers or [])[1:]
-        identifiers = ", ".join(rest) if rest else t("booster.react.list.no_aliases")
-        lines.append(
-            t(
-                "booster.react.list.line",
-                emoji=row.emoji,
-                user=f"<@{row.discord_user_id}>",
-                identifiers=identifiers,
-                boosting=boosting,
+        member = await resolve_member(interaction.guild, row.discord_user_id)
+        embeds.append(_react_embed(row, member))
+
+    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
+    total = len(pages)
+    for index, page in enumerate(pages):
+        page[-1].set_footer(
+            text=t(
+                "booster.react.list.footer",
+                current=index + 1,
+                total=total,
+                count=len(records),
             )
         )
 
-    chunks = list(chunked(lines, PAGE_SIZE))
-    total = len(chunks)
-    embeds = []
-    for index, chunk in enumerate(chunks):
-        embed = discord.Embed(
-            title=t("booster.react.list.title", count=len(records)),
-            description="\n".join(chunk),
-        )
-        embed.set_footer(
-            text=t("booster.pagination.page_footer", current=index + 1, total=total)
-        )
-        embeds.append(embed)
-
-    await send_paginated(interaction, embeds)
+    await send_paginated(interaction, pages)

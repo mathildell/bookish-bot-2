@@ -16,7 +16,7 @@ from ..services.booster_react import CUSTOM_EMOJI_RE
 from ..services.booster_role import resolve_notify_channel
 from ..texts import t
 from .checks import denial_message, is_admin
-from .pagination import chunked, get_boosting_since, send_paginated
+from .pagination import chunked, resolve_member, send_paginated
 
 role_group = app_commands.Group(
     name="role",
@@ -26,6 +26,9 @@ role_group = app_commands.Group(
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
 _NONE_VALUES = {"none", "clear"}
 PAGE_SIZE = 15
+
+
+EMBEDS_PER_PAGE = 6
 
 
 def _is_none(value: str | None) -> bool:
@@ -317,36 +320,21 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
         return
 
-    lines = []
     for row in records:
-        since = await get_boosting_since(interaction.guild, row.discord_user_id)
-        boosting = (
-            t("booster.role.list.boosting", ts=int(since.timestamp()))
-            if since is not None
-            else ""
-        )
+        member = await resolve_member(interaction.guild, row.discord_user_id)
         role = interaction.guild.get_role(row.role_id)
-        role_label = role.mention if role is not None else f"<@&{row.role_id}>"
-        lines.append(
-            t(
-                "booster.role.list.line",
-                role=role_label,
-                user=f"<@{row.discord_user_id}>",
-                boosting=boosting,
+        embeds.append(_role_embed(row, member, role))
+
+    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
+    total = len(pages)
+    for index, page in enumerate(pages):
+        page[-1].set_footer(
+            text=t(
+                "booster.role.list.footer",
+                current=index + 1,
+                total=total,
+                count=len(records),
             )
         )
 
-    chunks = list(chunked(lines, PAGE_SIZE))
-    total = len(chunks)
-    embeds = []
-    for index, chunk in enumerate(chunks):
-        embed = discord.Embed(
-            title=t("booster.role.list.title", count=len(records)),
-            description="\n".join(chunk),
-        )
-        embed.set_footer(
-            text=t("booster.pagination.page_footer", current=index + 1, total=total)
-        )
-        embeds.append(embed)
-
-    await send_paginated(interaction, embeds)
+    await send_paginated(interaction, pages)

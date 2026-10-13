@@ -7,7 +7,6 @@ button view is implemented here instead.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Iterator, Sequence
 
 import discord
@@ -21,31 +20,38 @@ def chunked(items: Sequence, size: int) -> Iterator[list]:
         yield list(items[start : start + size])
 
 
-async def get_boosting_since(
+async def resolve_member(
     guild: discord.Guild | None, user_id: int
-) -> datetime | None:
-    """Return when ``user_id`` started boosting, or ``None`` if not boosting.
+) -> discord.Member | None:
+    """Return ``user_id``'s member object, or ``None`` if it can't be resolved.
 
-    Uses the single-member fetch, which does not require the privileged Members
-    intent. Best-effort: returns ``None`` on any API failure.
+    Prefers the local cache (populated when the Members intent is on) and falls
+    back to the single-member fetch, which is not gated by the privileged
+    Members intent. Best-effort: returns ``None`` on any API failure.
     """
     if guild is None:
         return None
+    member = guild.get_member(user_id)
+    if member is not None:
+        return member
     try:
-        member = await guild.fetch_member(user_id)
+        return await guild.fetch_member(user_id)
     except discord.HTTPException:
         return None
-    return member.premium_since
 
 
 class Paginator(discord.ui.View):
-    """Button pagination over a fixed list of embeds."""
+    """Button pagination over a fixed list of pages, each a list of embeds."""
 
     def __init__(
-        self, pages: Sequence[discord.Embed], *, author_id: int, timeout: float = 120.0
+        self,
+        pages: Sequence[Sequence[discord.Embed]],
+        *,
+        author_id: int,
+        timeout: float = 120.0,
     ) -> None:
         super().__init__(timeout=timeout)
-        self.pages = list(pages)
+        self.pages = [list(page) for page in pages]
         self.author_id = author_id
         self.index = 0
         self.message: discord.Message | None = None
@@ -71,7 +77,7 @@ class Paginator(discord.ui.View):
     async def _show(self, interaction: discord.Interaction) -> None:
         self._refresh()
         await interaction.response.edit_message(
-            embed=self.pages[self.index], view=self
+            embeds=self.pages[self.index], view=self
         )
 
     async def on_timeout(self) -> None:
@@ -119,13 +125,14 @@ class Paginator(discord.ui.View):
 
 
 async def send_paginated(
-    interaction: discord.Interaction, pages: Sequence[discord.Embed]
+    interaction: discord.Interaction,
+    pages: Sequence[Sequence[discord.Embed]],
 ) -> None:
     """Send the first page (ephemeral) with pagination buttons if needed."""
     if len(pages) <= 1:
-        await interaction.followup.send(embed=pages[0], ephemeral=True)
+        await interaction.followup.send(embeds=list(pages[0]), ephemeral=True)
         return
     view = Paginator(pages, author_id=interaction.user.id)
     view.message = await interaction.followup.send(
-        embed=pages[0], view=view, ephemeral=True
+        embeds=list(pages[0]), view=view, ephemeral=True
     )

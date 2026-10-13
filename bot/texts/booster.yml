@@ -3,6 +3,8 @@ booster:
   pagination:
     not_author: "Only the command author can use these buttons."
     page_footer: "Page %{current}/%{total}"
+    boost_field: "Boost date"
+    not_boosting: "Not boosting"
   react:
     group_description: "Manage custom booster reacts"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
@@ -40,6 +42,8 @@ booster:
       no_aliases: "(no extra aliases)"
       line: "%{emoji} %{user} — %{identifiers}%{boosting}"
       boosting: " · boosting <t:%{ts}:R>"
+      names_field: "Names"
+      footer: "Page %{current}/%{total} • %{count} booster reacts"
   role:
     group_description: "Manage your custom booster role"
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
@@ -86,5 +90,7 @@ booster:
       empty: "No booster roles linked."
       line: "%{role} → %{user}%{boosting}"
       boosting: " · boosting <t:%{ts}:R>"
+      user_field: "User"
+      footer: "Page %{current}/%{total} • %{count} booster roles"
     cleanup:
       notice: "%{user} is no longer boosting; unlinked their role %{role}. Delete it if you want to clean up."
