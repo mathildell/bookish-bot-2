@@ -17,6 +17,7 @@ from ..services.booster_role import resolve_notify_channel
 from ..texts import t
 from .checks import denial_message, is_admin
 from .pagination import chunked, resolve_member, send_paginated
+from ..config import load_config
 
 role_group = app_commands.Group(
     name="role",
@@ -30,6 +31,7 @@ PAGE_SIZE = 15
 
 EMBEDS_PER_PAGE = 6
 
+config = load_config()
 
 def _is_none(value: str | None) -> bool:
     return value is not None and value.strip().lower() in _NONE_VALUES
