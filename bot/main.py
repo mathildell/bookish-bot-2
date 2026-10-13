@@ -15,7 +15,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from .commands.admin import register_commands
+from .commands.booster import register_commands
 from .config import load_config
 from .db import close_db, create_tables, init_db
 from .services.booster_react import BoosterReactService, parse_emoji
@@ -43,6 +43,7 @@ async def run() -> None:
 
     bot = commands.Bot(command_prefix="", intents=intents)
     bot.booster_reacts = reactor
+    bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))

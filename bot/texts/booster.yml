@@ -1,0 +1,32 @@
+booster:
+  group_description: "Booster reactions"
+  react:
+    group_description: "Manage custom booster reactions"
+    no_permission: "You don't have permission to do that."
+    cannot_manage_others: "You can only manage your own booster reaction."
+    add:
+      description: "Add a custom reaction emoji"
+      param_emoji: "Emoji to react with (unicode or <:name:id>)"
+      param_user: "Who to add it for (defaults to you; others need Manage Server)"
+      param_nicknames: "Optional comma-separated nicknames to also match"
+      invalid_emoji: "`%{emoji}` doesn't look like a valid emoji."
+      success: "%{emoji} **%{user}** is registered (id `%{id}`)%{extra}"
+    edit:
+      description: "Change a reaction emoji or nicknames"
+      param_user: "Who to update (defaults to you; others need Manage Server)"
+      param_emoji: "New emoji (leave empty to keep the current one)"
+      param_nicknames: "New comma-separated nicknames (leave empty to keep current)"
+      not_found: "%{user} has no booster reaction registered."
+      invalid_emoji: "`%{emoji}` doesn't look like a valid emoji."
+      nothing_to_change: "Provide a new emoji and/or nicknames to change."
+      success: "%{emoji} **%{user}** updated (id `%{id}`)%{extra}"
+    view:
+      description: "Show a booster's reaction emoji and matching identifiers"
+      param_user: "Who to inspect (defaults to you)"
+      not_found: "%{user} has no booster reaction registered."
+      success: "%{emoji} %{user} (%{identifiers})"
+    remove:
+      description: "Remove a booster reaction"
+      param_user: "Who to remove it for (defaults to you; others need Manage Server)"
+      success: "Removed %{user}'s booster reaction."
+      not_found: "%{user} has no booster reaction registered."
