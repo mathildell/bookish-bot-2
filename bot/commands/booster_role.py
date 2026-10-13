@@ -353,6 +353,10 @@ def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
             icon_url=member.display_avatar.url,
         )
 
+    embed.set_image(
+        url=config.get("transparent_embed_image")
+    )
+    
     if role is not None:
         fields = []
         # fields.append(("Role", role.mention, True))
