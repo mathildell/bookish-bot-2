@@ -342,6 +342,10 @@ async def list_roles(interaction: discord.Interaction) -> None:
 
     await send_paginated(interaction, pages)
 
+def _boost_value(member: discord.Member | None) -> str:
+    if member is not None and member.premium_since is not None:
+        return f"<t:{int(member.premium_since.timestamp())}:f>"
+    return t("booster.pagination.not_boosting")
 
 def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
     embed = discord.Embed()
@@ -356,7 +360,7 @@ def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
     embed.set_image(
         url=config.get("transparent_embed_image")
     )
-    
+
     if role is not None:
         fields = []
         # fields.append(("Role", role.mention, True))
@@ -377,6 +381,9 @@ def _role_embed(row, member: discord.Member | None, role) -> discord.Embed:
         else:
             icon_text = str(icon_val)
         fields.append(("Emoji/Icon", icon_text, True))
+
+        fields.append((t("booster.pagination.boost_field"), _boost_value(member), True))
+
         # image field - if it's an asset with url, show it; otherwise maybe indicate image
         if isinstance(icon_val, discord.Asset) and icon_val.url:
             # put image link or just note - but embed can have image; maybe also add field

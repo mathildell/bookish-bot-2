@@ -75,12 +75,12 @@ def _react_embed(row, member: discord.Member | None) -> discord.Embed:
         else t("booster.react.list.no_aliases")
     )
     embed.add_field(
-        name=t("booster.react.list.names_field"), value=value, inline=True
+        name=t("booster.react.list.names_field"), value=value, inline=False
     )
     embed.add_field(
         name=t("booster.pagination.boost_field"),
         value=_boost_value(member),
-        inline=True,
+        inline=False,
     )
     embed.set_image(
         url=config.get("transparent_embed_image")
