@@ -11,7 +11,7 @@ from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import EMBEDS_PER_PAGE, new_embed, send_paginated, set_transparent_image, set_author
+from .listing import EMBEDS_PER_PAGE, chunked, new_embed, send_paginated, set_transparent_image, set_author
 
 xp_group = app_commands.Group(
     name="xp",
