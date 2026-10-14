@@ -108,15 +108,9 @@ async def xp_level(
     )
 
     current, needed = _progress_values(user_xp)
-    # embed.description = t(
-    #     "level.xp.level.progress_bar",
-    #     bar=_progress_bar(current, needed),
-    #     current=current,
-    #     needed=needed,
-    # )
     embed.description = f"# {_progress_bar(current, needed)}"
     
-    embed.add_field(name=t("level.level_progress"), value=f"{str(current)}/{str(needed)}", inline=False)
+    embed.add_field(name=t("level.progress"), value=f"{str(current)}/{str(needed)}", inline=False)
     embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
     for name, value in _progress_fields(
         user_xp, _rewards(interaction), interaction.guild
