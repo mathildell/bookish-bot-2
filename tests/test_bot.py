@@ -298,6 +298,31 @@ class _FakeSource:
         return self.pages[index]
 
 
+class _FakeResponse:
+    def __init__(self) -> None:
+        self.deferred = False
+        self.edited: dict | None = None
+
+    async def defer(self) -> None:
+        self.deferred = True
+
+    async def edit_message(self, **kwargs) -> None:
+        self.edited = kwargs
+
+
+class _FakeMessage:
+    def __init__(self) -> None:
+        self.edits: list[dict] = []
+
+    async def edit(self, **kwargs) -> None:
+        self.edits.append(kwargs)
+
+
+class _FakeInteraction:
+    def __init__(self) -> None:
+        self.response = _FakeResponse()
+
+
 class LazyPaginatorTests(unittest.IsolatedAsyncioTestCase):
     async def test_pages_load_on_demand_and_cache(self) -> None:
         source = _FakeSource([[discord.Embed()] for _ in range(3)])
@@ -324,6 +349,31 @@ class LazyPaginatorTests(unittest.IsolatedAsyncioTestCase):
         view._refresh()
         self.assertFalse(view.prev_button.disabled)
         self.assertTrue(view.next_button.disabled)
+
+    async def test_next_button_loads_next_page(self) -> None:
+        source = _FakeSource([[discord.Embed()], [discord.Embed()]])
+        view = Paginator(source=source, author_id=1)
+        view.message = _FakeMessage()
+        interaction = _FakeInteraction()
+
+        await view.next_button.callback(interaction)
+
+        self.assertEqual(view.index, 1)
+        self.assertEqual(source.fetched, [1])
+        self.assertTrue(interaction.response.deferred)
+        self.assertEqual(len(view.message.edits), 1)
+        self.assertTrue(view.next_button.disabled)
+        self.assertFalse(view.prev_button.disabled)
+
+    async def test_next_button_eager_edits_in_place(self) -> None:
+        view = Paginator([[discord.Embed()], [discord.Embed()]], author_id=1)
+        interaction = _FakeInteraction()
+
+        await view.next_button.callback(interaction)
+
+        self.assertEqual(view.index, 1)
+        self.assertIsNotNone(interaction.response.edited)
+        self.assertFalse(interaction.response.deferred)
 
 
 class LeaderboardSourceTests(unittest.TestCase):

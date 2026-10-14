@@ -189,7 +189,7 @@ class Paginator(discord.ui.View):
     async def next_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        self.index = min(len(self.pages) - 1, self.index + 1)
+        self.index = min(self.page_count - 1, self.index + 1)
         await self._show(interaction)
 
     @discord.ui.button(
