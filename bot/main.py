@@ -20,7 +20,7 @@ from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
-from .notifications import announce_level_change
+from .notifications import announce_level_up
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
@@ -67,7 +67,7 @@ async def _award_message_xp(
             "Level up: %s reached level %d", member.id, result.new_level
         )
 
-    await announce_level_change(message.channel, message.author, result.new_level)
+    await announce_level_up(message.channel, message.author, result.new_level)
 
 
 async def run() -> None:

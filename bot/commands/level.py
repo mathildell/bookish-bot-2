@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 
 from ..db import session_scope
-from ..notifications import announce_level_change
+from ..notifications import announce_level_up
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..services.members import resolve_members
@@ -199,6 +199,7 @@ async def add_xp(
 ) -> None:
     if not await require_admin(interaction):
         return
+    await interaction.response.defer()
     amount = max(0, amount)
     async with session_scope() as session:
         result = await level_service.add_xp(
@@ -213,8 +214,8 @@ async def add_xp(
             await sync_user_roles(
                 interaction.guild, user.id, result.new_level, _rewards(interaction)
             )
-        await announce_level_change(interaction.channel, user, result.new_level)
-    await interaction.response.send_message(
+        await announce_level_up(interaction.channel, user, result.new_level)
+    await interaction.followup.send(
         t(
             "level.xp_added",
             amount=amount,
@@ -235,13 +236,14 @@ async def remove_xp(
 ) -> None:
     if not await require_admin(interaction):
         return
+    await interaction.response.defer()
     amount = max(0, amount)
     async with session_scope() as session:
         user_xp = await level_service.get_user_xp(
             session, guild_id=interaction.guild_id, user_id=user.id
         )
         if user_xp is None or user_xp.total_xp < amount:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 t("level.cannot_remove_more", user=user.mention)
             )
             return
@@ -252,13 +254,11 @@ async def remove_xp(
         user_xp = await level_service.get_user_xp(
             session, guild_id=interaction.guild_id, user_id=user.id
         )
-    if result.new_level != result.old_level:
-        if interaction.guild:
-            await sync_user_roles(
-                interaction.guild, user.id, result.new_level, _rewards(interaction)
-            )
-        await announce_level_change(interaction.channel, user, result.new_level)
-    await interaction.response.send_message(
+    if result.new_level != result.old_level and interaction.guild:
+        await sync_user_roles(
+            interaction.guild, user.id, result.new_level, _rewards(interaction)
+        )
+    await interaction.followup.send(
         t(
             "level.xp_removed",
             amount=amount,
