@@ -31,10 +31,11 @@ def total_xp_for_level(level: int) -> int:
     """Cumulative XP accumulated to finish level ``level``.
 
     Level 0 -> 0, level 1 -> 75, level 2 -> 250, level 3 -> 525, ...
+    Closed form of the sum of ``xp_increment_to_reach_level`` over each level.
     """
     if level <= 0:
         return 0
-    return sum(xp_increment_to_reach_level(l) for l in range(level))
+    return 50 * level * (level - 1) + 75 * level
 
 
 def level_from_total_xp(xp: int) -> int:
@@ -56,7 +57,6 @@ def random_xp_gain() -> int:
 class LevelChangeResult:
     old_level: int
     new_level: int
-    levels_gained: int
 
 
 def _apply_total_xp(user_xp: UserXP, amount: int) -> LevelChangeResult:
@@ -64,11 +64,7 @@ def _apply_total_xp(user_xp: UserXP, amount: int) -> LevelChangeResult:
     user_xp.total_xp = max(0, user_xp.total_xp + amount)
     new_level = level_from_total_xp(user_xp.total_xp)
     user_xp.level = new_level
-    return LevelChangeResult(
-        old_level=old_level,
-        new_level=new_level,
-        levels_gained=max(0, new_level - old_level),
-    )
+    return LevelChangeResult(old_level=old_level, new_level=new_level)
 
 
 async def _get_or_create(session, *, guild_id: int, user_id: int) -> UserXP:

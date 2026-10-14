@@ -7,11 +7,8 @@ from discord import app_commands
 
 from ..db import session_scope
 from ..services import level as level_service
-from ..services.level_rewards import (
-    LevelRewardService,
-    resolve_member,
-    sync_member_roles,
-)
+from ..services.level_rewards import LevelRewardService, sync_member_roles
+from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import new_embed, set_transparent_image
@@ -108,9 +105,9 @@ def register_rewards_group(xp_group: app_commands.Group) -> None:
         async with session_scope() as session:
             rows = await level_service.all_user_xp(session, guild_id=guild.id)
 
+        members = await resolve_members(guild, [row.user_id for row in rows])
         count = 0
-        for user_xp in rows:
-            member = await resolve_member(guild, user_xp.user_id)
+        for user_xp, member in zip(rows, members):
             if member is None:
                 continue
             if await sync_member_roles(guild, member, user_xp.level, service):

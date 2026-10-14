@@ -12,6 +12,7 @@ import discord
 from discord import app_commands, PartialEmoji
 
 from ..services.booster_react import build_identifiers, parse_emoji
+from ..services.members import resolve_members
 from ..texts import t
 from .checks import denial_message, require_admin
 from .listing import (
@@ -19,7 +20,6 @@ from .listing import (
     boost_value,
     chunked,
     new_embed,
-    resolve_member,
     send_paginated,
     set_author,
     set_transparent_image,
@@ -307,10 +307,13 @@ async def list_reacts(interaction: discord.Interaction) -> None:
         )
         return
 
-    embeds = []
-    for row in records:
-        member = await resolve_member(interaction.guild, row.discord_user_id)
-        embeds.append(_react_embed(row, member, interaction.client))
+    members = await resolve_members(
+        interaction.guild, [row.discord_user_id for row in records]
+    )
+    embeds = [
+        _react_embed(row, member, interaction.client)
+        for row, member in zip(records, members)
+    ]
 
     await send_paginated(
         interaction,

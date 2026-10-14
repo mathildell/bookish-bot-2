@@ -2,21 +2,19 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import discord
 from discord import app_commands
 
 from ..db import session_scope
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_user_roles
+from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
 from .listing import (
     EMBEDS_PER_PAGE,
     new_embed,
-    resolve_member,
     send_paginated,
     set_author,
     set_transparent_image,
@@ -119,14 +117,12 @@ async def xp_level(
 
     current, needed = _progress_values(user_xp)
     embed.description = f"# {_progress_bar(current, needed)}"
-    
+
     for name, value in _progress_fields(
         user_xp, rank, _rewards(interaction), interaction.guild
     ):
         embed.add_field(name=name, value=value, inline=False)
-    
-    # embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
-    
+
     set_transparent_image(embed, interaction.client)
     await interaction.response.send_message(embed=embed)
 
@@ -148,8 +144,8 @@ class _LeaderboardSource:
                 limit=EMBEDS_PER_PAGE,
                 offset=index * EMBEDS_PER_PAGE,
             )
-        members = await asyncio.gather(
-            *(resolve_member(interaction.guild, row.user_id) for row, _ in rows)
+        members = await resolve_members(
+            interaction.guild, [row.user_id for row, _ in rows]
         )
         service = _rewards(interaction)
         embeds = []

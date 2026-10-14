@@ -15,6 +15,7 @@ from sqlalchemy import delete, select
 from ..db import session_scope
 from ..models import LevelReward
 from ..texts import t
+from .members import resolve_member
 
 logger = logging.getLogger("bh2.level_rewards")
 
@@ -92,19 +93,6 @@ class LevelRewardService:
             await session.commit()
         existed = self._rewards.pop(level, None) is not None
         return existed or bool(result.rowcount)
-
-
-async def resolve_member(
-    guild: discord.Guild, user_id: int
-) -> discord.Member | None:
-    """Return a guild member by id, fetching them if not in the cache."""
-    member = guild.get_member(user_id)
-    if member is not None:
-        return member
-    try:
-        return await guild.fetch_member(user_id)
-    except discord.HTTPException:
-        return None
 
 
 async def sync_member_roles(

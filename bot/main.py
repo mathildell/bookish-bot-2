@@ -79,7 +79,6 @@ async def _award_message_xp(
                 t(
                     "level.level_up",
                     user=message.author.mention,
-                    old=result.old_level,
                     new=result.new_level,
                 )
             )

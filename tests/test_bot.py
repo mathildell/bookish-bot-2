@@ -399,6 +399,12 @@ class LevelFormulaTests(unittest.TestCase):
         self.assertEqual(level_service.total_xp_for_level(2), 250)
         self.assertEqual(level_service.total_xp_for_level(3), 525)
 
+    def test_cumulative_matches_increment_sum(self) -> None:
+        total = 0
+        for level in range(50):
+            self.assertEqual(level_service.total_xp_for_level(level), total)
+            total += level_service.xp_increment_to_reach_level(level)
+
     def test_level_from_total_xp(self) -> None:
         self.assertEqual(level_service.level_from_total_xp(0), 0)
         self.assertEqual(level_service.level_from_total_xp(74), 0)

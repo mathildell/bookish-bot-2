@@ -12,6 +12,7 @@ from discord import app_commands
 
 from ..services.booster_react import CUSTOM_EMOJI_RE
 from ..services.booster_role import resolve_notify_channel
+from ..services.members import resolve_members
 from ..texts import t
 from .checks import denial_message, require_admin
 from .listing import (
@@ -20,7 +21,6 @@ from .listing import (
     chunked,
     new_embed,
     parse_hex_colour,
-    resolve_member,
     send_paginated,
     set_author,
     set_transparent_image,
@@ -364,11 +364,15 @@ async def list_roles(interaction: discord.Interaction) -> None:
         )
         return
 
-    embeds = []
-    for row in records:
-        member = await resolve_member(interaction.guild, row.discord_user_id)
-        role = interaction.guild.get_role(row.role_id)
-        embeds.append(_role_embed(member, role, interaction.client))
+    members = await resolve_members(
+        interaction.guild, [row.discord_user_id for row in records]
+    )
+    embeds = [
+        _role_embed(
+            member, interaction.guild.get_role(row.role_id), interaction.client
+        )
+        for row, member in zip(records, members)
+    ]
 
     await send_paginated(
         interaction,

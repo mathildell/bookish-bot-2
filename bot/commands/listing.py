@@ -1,9 +1,8 @@
-"""Shared plumbing for the paginated booster list commands.
+"""Shared plumbing for the paginated list commands.
 
-``/booster react list`` and ``/booster role list`` both resolve members, render
-one embed per row, then chunk and paginate the result. This module owns that
-shared logic along with the embed fragments (author header, boost date,
-transparent background) that both listings display.
+Listings render one embed per row, then chunk and paginate the result. This
+module owns that shared logic along with the embed fragments (author header,
+boost date, transparent background) and the default-embed helpers.
 """
 
 from __future__ import annotations
@@ -46,26 +45,6 @@ def chunked(items: Sequence, size: int) -> Iterator[list]:
     """Yield ``items`` in lists of at most ``size`` elements."""
     for start in range(0, len(items), size):
         yield list(items[start : start + size])
-
-
-async def resolve_member(
-    guild: discord.Guild | None, user_id: int
-) -> discord.Member | None:
-    """Return ``user_id``'s member object, or ``None`` if it can't be resolved.
-
-    Prefers the local cache and falls back to the single-member fetch, which is
-    not gated by the privileged Members intent. Best-effort: returns ``None`` on
-    any API failure.
-    """
-    if guild is None:
-        return None
-    member = guild.get_member(user_id)
-    if member is not None:
-        return member
-    try:
-        return await guild.fetch_member(user_id)
-    except discord.HTTPException:
-        return None
 
 
 def set_author(

@@ -46,7 +46,13 @@ class BoosterRoleService:
     async def all(self) -> list[BoosterRole]:
         async with session_scope() as session:
             return list(
-                (await session.execute(select(BoosterRole))).scalars().all()
+                (
+                    await session.execute(
+                        select(BoosterRole).order_by(BoosterRole.id)
+                    )
+                )
+                .scalars()
+                .all()
             )
 
     async def find_by_user(self, discord_user_id: int) -> BoosterRole | None:
