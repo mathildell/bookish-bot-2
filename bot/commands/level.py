@@ -23,7 +23,7 @@ def _rewards(interaction: discord.Interaction) -> LevelRewardService:
     return interaction.client.level_rewards
 
 
-PROGRESS_BAR_SEGMENTS = 10
+PROGRESS_BAR_SEGMENTS = 12
 
 
 def _progress_values(user_xp) -> tuple[int, int]:
@@ -106,14 +106,17 @@ async def xp_level(
         target,
         target.display_name if target is not None else t("booster.unknown_name"),
     )
-    
+
     current, needed = _progress_values(user_xp)
-    embed.description = t(
-        "level.xp.level.progress_bar",
-        bar=_progress_bar(current, needed),
-        current=current,
-        needed=needed,
-    )
+    # embed.description = t(
+    #     "level.xp.level.progress_bar",
+    #     bar=_progress_bar(current, needed),
+    #     current=current,
+    #     needed=needed,
+    # )
+    embed.description = f"# {_progress_bar(current, needed)}"
+    
+    embed.add_field(name=t("level.level_progress"), value=f"{str(current)}/{str(needed)}", inline=False)
     embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
     for name, value in _progress_fields(
         user_xp, _rewards(interaction), interaction.guild
