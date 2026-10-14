@@ -286,6 +286,54 @@ class PaginatorTests(unittest.TestCase):
         self.assertTrue(view.next_button.disabled)
 
 
+class _FakeSource:
+    def __init__(self, pages: list[list[discord.Embed]]) -> None:
+        self.pages = pages
+        self.page_count = len(pages)
+        self.total_results = sum(len(page) for page in pages)
+        self.fetched: list[int] = []
+
+    async def get_page(self, index: int) -> list[discord.Embed]:
+        self.fetched.append(index)
+        return self.pages[index]
+
+
+class LazyPaginatorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pages_load_on_demand_and_cache(self) -> None:
+        source = _FakeSource([[discord.Embed()] for _ in range(3)])
+        view = Paginator(source=source, author_id=1)
+
+        self.assertEqual(source.fetched, [])
+        self.assertEqual(view.page_count, 3)
+        self.assertEqual(view.total_results, 3)
+
+        await view.load_page(0)
+        self.assertEqual(source.fetched, [0])
+        await view.load_page(0)
+        self.assertEqual(source.fetched, [0])
+
+        await view.load_page(2)
+        self.assertEqual(source.fetched, [0, 2])
+
+    def test_source_navigation_state(self) -> None:
+        source = _FakeSource([[discord.Embed()] for _ in range(2)])
+        view = Paginator(source=source, author_id=1)
+        self.assertTrue(view.prev_button.disabled)
+        self.assertFalse(view.next_button.disabled)
+        view.index = 1
+        view._refresh()
+        self.assertFalse(view.prev_button.disabled)
+        self.assertTrue(view.next_button.disabled)
+
+
+class LeaderboardSourceTests(unittest.TestCase):
+    def test_page_count_rounds_up(self) -> None:
+        self.assertEqual(level_cmds._LeaderboardSource(None, 1).page_count, 1)
+        self.assertEqual(level_cmds._LeaderboardSource(None, 6).page_count, 1)
+        self.assertEqual(level_cmds._LeaderboardSource(None, 7).page_count, 2)
+        self.assertEqual(level_cmds._LeaderboardSource(None, 13).page_count, 3)
+
+
 class LevelFormulaTests(unittest.TestCase):
     """The XP curve described in the feature spec."""
 

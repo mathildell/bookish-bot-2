@@ -9,7 +9,7 @@ transparent background) that both listings display.
 from __future__ import annotations
 
 import re
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Iterator, Protocol, Sequence
 
 import discord
 
@@ -17,6 +17,16 @@ from ..texts import t
 
 EMBEDS_PER_PAGE = 6
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
+
+
+class PaginatedSource(Protocol):
+    """Supplies embed pages on demand so the paginator can load lazily."""
+
+    page_count: int
+    total_results: int
+
+    async def get_page(self, index: int) -> list[discord.Embed]:
+        ...
 
 
 def parse_hex_colour(value: str) -> discord.Colour:
@@ -84,23 +94,42 @@ def set_transparent_image(embed: discord.Embed, client: discord.Client) -> None:
 
 
 class Paginator(discord.ui.View):
-    """Button pagination over a fixed list of pages, each a list of embeds."""
+    """Button pagination over a fixed list of pages or a lazy page source.
+
+    Pass ``pages`` (each a list of embeds) when everything is already built, or
+    ``source`` to load each page only when the viewer navigates to it.
+    """
 
     def __init__(
         self,
-        pages: Sequence[Sequence[discord.Embed]],
+        pages: Sequence[Sequence[discord.Embed]] | None = None,
         *,
+        source: PaginatedSource | None = None,
         author_id: int,
         timeout: float = 120.0,
         total_results: int | None = None,
     ) -> None:
         super().__init__(timeout=timeout)
-        self.pages = [list(page) for page in pages]
+        self.source = source
         self.author_id = author_id
         self.index = 0
         self.message: discord.Message | None = None
-        self.total_results = total_results or sum(len(p) for p in self.pages)
+        self._cache: dict[int, list[discord.Embed]] = {}
+        if source is not None:
+            self.page_count = source.page_count
+            self.total_results = source.total_results
+        else:
+            eager = [list(page) for page in pages or []]
+            self._cache = dict(enumerate(eager))
+            self.page_count = len(eager)
+            self.total_results = total_results or sum(len(p) for p in eager)
         self._refresh()
+
+    async def load_page(self, index: int) -> list[discord.Embed]:
+        """Return a page, fetching it from the source the first time."""
+        if index not in self._cache:
+            self._cache[index] = list(await self.source.get_page(index))
+        return self._cache[index]
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author_id:
@@ -111,22 +140,26 @@ class Paginator(discord.ui.View):
         return True
 
     def _refresh(self) -> None:
-        last = len(self.pages) - 1
+        last = self.page_count - 1
         single = last <= 0
         self.prev_button.disabled = single or self.index == 0
         self.next_button.disabled = single or self.index == last
         self.page_label.label = t(
             "components.pagination.page_x_of_y",
             current=self.index + 1,
-            total=len(self.pages),
+            total=self.page_count,
             results=self.total_results,
         )
 
     async def _show(self, interaction: discord.Interaction) -> None:
         self._refresh()
-        await interaction.response.edit_message(
-            embeds=self.pages[self.index], view=self
-        )
+        if self.source is not None and self.message is not None:
+            await interaction.response.defer()
+            page = await self.load_page(self.index)
+            await self.message.edit(embeds=page, view=self)
+        else:
+            page = await self.load_page(self.index)
+            await interaction.response.edit_message(embeds=page, view=self)
 
     async def on_timeout(self) -> None:
         for child in self.children:
@@ -172,11 +205,28 @@ class Paginator(discord.ui.View):
 
 async def send_paginated(
     interaction: discord.Interaction,
-    pages: Iterable[Sequence[discord.Embed]],
+    pages: Iterable[Sequence[discord.Embed]] | None = None,
     total_results: int | None = None,
+    *,
+    source: PaginatedSource | None = None,
 ) -> None:
-    """Send the first page (ephemeral) with pagination buttons if needed."""
-    pages = [list(page) for page in pages]
+    """Send the first page (ephemeral), with pagination buttons if needed.
+
+    Pass ``pages`` for fully-built pages, or ``source`` to load pages lazily.
+    """
+    if source is not None:
+        if source.page_count == 1:
+            await interaction.followup.send(
+                embeds=await source.get_page(0), ephemeral=True
+            )
+            return
+        view = Paginator(source=source, author_id=interaction.user.id)
+        view.message = await interaction.followup.send(
+            embeds=await view.load_page(0), view=view, ephemeral=True
+        )
+        return
+
+    pages = [list(page) for page in pages or []]
     if not pages:
         return
     if len(pages) == 1:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import discord
 from discord import app_commands
 
@@ -13,7 +15,6 @@ from .checks import require_admin
 from .level_rewards import register_rewards_group
 from .listing import (
     EMBEDS_PER_PAGE,
-    chunked,
     new_embed,
     resolve_member,
     send_paginated,
@@ -130,48 +131,59 @@ async def xp_level(
     await interaction.response.send_message(embed=embed)
 
 
+class _LeaderboardSource:
+    """Lazy page source: one query and one member lookup batch per page."""
+
+    def __init__(self, interaction: discord.Interaction, total: int) -> None:
+        self._interaction = interaction
+        self.page_count = max(1, -(-total // EMBEDS_PER_PAGE))
+        self.total_results = total
+
+    async def get_page(self, index: int) -> list[discord.Embed]:
+        interaction = self._interaction
+        async with session_scope() as session:
+            rows = await level_service.page_of_user_xp(
+                session,
+                guild_id=interaction.guild_id,
+                limit=EMBEDS_PER_PAGE,
+                offset=index * EMBEDS_PER_PAGE,
+            )
+        members = await asyncio.gather(
+            *(resolve_member(interaction.guild, row.user_id) for row, _ in rows)
+        )
+        service = _rewards(interaction)
+        embeds = []
+        for (row, rank), member in zip(rows, members):
+            name = member.display_name if member else str(row.user_id)
+            embed = new_embed(interaction.client)
+            set_author(embed, member, name)
+            for field_name, value in _progress_fields(
+                row, rank, service, interaction.guild
+            ):
+                embed.add_field(name=field_name, value=value, inline=True)
+            set_transparent_image(embed, interaction.client)
+            embeds.append(embed)
+        return embeds
+
+
 @xp_group.command(
     name="leaderboard", description=t("level.xp.leaderboard.description")
 )
 async def leaderboard(interaction: discord.Interaction) -> None:
     async with session_scope() as session:
-        rows = await level_service.all_user_xp(
+        total = await level_service.count_user_xp(
             session, guild_id=interaction.guild_id
         )
-    ordered = sorted(rows, key=lambda r: (-r.total_xp, r.user_id))
 
-    if not ordered:
+    if total == 0:
         await interaction.response.send_message(
             t("level.xp.leaderboard.empty"), ephemeral=True
         )
         return
 
     await interaction.response.defer()
-    service = _rewards(interaction)
-    embeds = []
-    previous_xp = None
-    rank = 0
-    for position, row in enumerate(ordered, start=1):
-        if row.total_xp != previous_xp:
-            rank = position
-            previous_xp = row.total_xp
-        member = await resolve_member(interaction.guild, row.user_id)
-        name = member.display_name if member else str(row.user_id)
-        embed = new_embed(interaction.client)
-        set_author(
-            embed,
-            member,
-            name,
-        )
-        for field_name, value in _progress_fields(row, rank, service, interaction.guild):
-            embed.add_field(name=field_name, value=value, inline=True)
-        set_transparent_image(embed, interaction.client)
-        embeds.append(embed)
-
     await send_paginated(
-        interaction,
-        chunked(embeds, EMBEDS_PER_PAGE),
-        total_results=len(ordered),
+        interaction, source=_LeaderboardSource(interaction, total)
     )
 
 

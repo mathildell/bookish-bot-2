@@ -143,5 +143,37 @@ async def get_rank(session, *, guild_id: int, total_xp: int) -> int:
 
 
 async def all_user_xp(session, *, guild_id: int) -> list[UserXP]:
-    stmt = select(UserXP).where(UserXP.guild_id == guild_id)
+    stmt = (
+        select(UserXP)
+        .where(UserXP.guild_id == guild_id)
+        .order_by(UserXP.total_xp.desc(), UserXP.user_id.asc())
+    )
     return list((await session.execute(stmt)).scalars())
+
+
+async def count_user_xp(session, *, guild_id: int) -> int:
+    """Number of ranked members, for sizing the leaderboard pagination."""
+    stmt = select(func.count()).select_from(UserXP).where(
+        UserXP.guild_id == guild_id
+    )
+    return int((await session.execute(stmt)).scalar_one())
+
+
+async def page_of_user_xp(
+    session, *, guild_id: int, limit: int, offset: int
+) -> list[tuple[UserXP, int]]:
+    """One leaderboard page: members ordered by XP, with their competition rank.
+
+    Ordering and ranking happen in MySQL, so only ``limit`` rows cross the wire.
+    Ties on total XP share a rank (``RANK()``).
+    """
+    rank_expr = func.rank().over(order_by=UserXP.total_xp.desc()).label("rank")
+    stmt = (
+        select(UserXP, rank_expr)
+        .where(UserXP.guild_id == guild_id)
+        .order_by(UserXP.total_xp.desc(), UserXP.user_id.asc())
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return [(user_xp, int(rank)) for user_xp, rank in result]
