@@ -31,9 +31,10 @@ logger = logging.getLogger("bh2")
 XP_COOLDOWN_SECONDS = 60
 
 
-async def _award_message_xp(message: discord.Message) -> None:
+async def _award_message_xp(
+    bot: commands.Bot, message: discord.Message
+) -> None:
     """Roll XP for a message, apply reward roles on level up, and report it."""
-    bot = message.client
     guild_id = message.guild.id
     user_id = message.author.id
     now = level_service.utcnow()
@@ -133,7 +134,7 @@ async def run() -> None:
             return
 
         # XP gain: one roll per message, 60s cooldown globally per member.
-        await _award_message_xp(message)
+        await _award_message_xp(bot, message)
 
         if not message.content:
             return
