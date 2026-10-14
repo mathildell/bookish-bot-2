@@ -11,7 +11,15 @@ from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import EMBEDS_PER_PAGE, chunked, new_embed, send_paginated, set_transparent_image, set_author
+from .listing import (
+    EMBEDS_PER_PAGE,
+    chunked,
+    new_embed,
+    resolve_member,
+    send_paginated,
+    set_author,
+    set_transparent_image,
+)
 
 xp_group = app_commands.Group(
     name="xp",
@@ -146,7 +154,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         if row.total_xp != previous_xp:
             rank = position
             previous_xp = row.total_xp
-        member = interaction.guild.get_member(row.user_id) if interaction.guild else None
+        member = await resolve_member(interaction.guild, row.user_id)
         name = member.display_name if member else str(row.user_id)
         embed = new_embed(interaction.client)
         set_author(
@@ -155,7 +163,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
             name,
         )
         for field_name, value in _progress_fields(row, rank, service, interaction.guild):
-            embed.add_field(name=field_name, value=value, inline=False)
+            embed.add_field(name=field_name, value=value, inline=True)
         set_transparent_image(embed, interaction.client)
         embeds.append(embed)
 

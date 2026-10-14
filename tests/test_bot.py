@@ -342,16 +342,16 @@ class LevelProgressTests(unittest.TestCase):
         service = LevelRewardService(1)
         service._rewards = {1: 10}
         row = self.Row(level, total_xp)
-        return dict(level_cmds._progress_fields(row, service, None))
+        return dict(level_cmds._progress_fields(row, 1, service, None))
 
     def test_starts_at_zero(self) -> None:
-        self.assertEqual(self._fields(0, 0)["Level progress"], "0/75")
-        self.assertEqual(self._fields(1, 75)["Level progress"], "0/175")
-        self.assertEqual(self._fields(2, 250)["Level progress"], "0/275")
+        self.assertEqual(self._fields(0, 0)["Level progress"], "0/75 XP")
+        self.assertEqual(self._fields(1, 75)["Level progress"], "0/175 XP")
+        self.assertEqual(self._fields(2, 250)["Level progress"], "0/275 XP")
 
     def test_partial_progress(self) -> None:
-        self.assertEqual(self._fields(0, 30)["Level progress"], "30/75")
-        self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175")
+        self.assertEqual(self._fields(0, 30)["Level progress"], "30/75 XP")
+        self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175 XP")
 
     def test_progress_bar_segments(self) -> None:
         segments = level_cmds.PROGRESS_BAR_SEGMENTS
