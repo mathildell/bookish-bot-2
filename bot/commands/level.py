@@ -11,7 +11,7 @@ from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import new_embed, send_paginated, set_transparent_image, set_author
+from .listing import EMBEDS_PER_PAGE, new_embed, send_paginated, set_transparent_image, set_author
 
 xp_group = app_commands.Group(
     name="xp",
@@ -65,11 +65,11 @@ def _progress_fields(
 ) -> list[tuple[str, str]]:
     """Return the (name, value) fields describing a member's level progress."""
     current_level = user_xp.level
-    progress, needed = _progress_values(user_xp)
+    current, needed = _progress_values(user_xp)
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
     return [
-        (t("level.progress"), f"{progress}/{needed}"),
+        (t("level.progress"), t("level.xp.level.progress", current=current, needed=needed)),
         (t("level.rank"), f"#{str(rank)}"),
         (t("level.level"), str(current_level)),
         (t("level.reward_role"), role.mention if role else t("level.none")),
@@ -149,14 +149,24 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         member = interaction.guild.get_member(row.user_id) if interaction.guild else None
         name = member.display_name if member else str(row.user_id)
         embed = new_embed(interaction.client)
-        embed.title = f"#{rank} {name}"
+        set_author(
+            embed,
+            member,
+            name,
+        )
         for field_name, value in _progress_fields(row, rank, service, interaction.guild):
-            embed.add_field(name=field_name, value=value)
+            embed.add_field(name=field_name, value=value, inline=False)
         set_transparent_image(embed, interaction.client)
         pages.append([embed])
 
     await interaction.response.defer()
-    await send_paginated(interaction, pages, total_results=len(ordered))
+    await send_paginated(
+        interaction,
+        chunked(pages, EMBEDS_PER_PAGE),
+        total_results=len(ordered),
+    )
+
+    # await send_paginated(interaction, pages, total_results=len(ordered))
 
 
 register_rewards_group(xp_group)
