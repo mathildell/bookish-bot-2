@@ -11,7 +11,7 @@ from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import new_embed, send_paginated, set_transparent_image
+from .listing import new_embed, send_paginated, set_transparent_image, set_author
 
 xp_group = app_commands.Group(
     name="xp",
@@ -100,7 +100,13 @@ async def xp_level(
         "level.xp.level.embed_title",
         user=discord.utils.escape_markdown(target.display_name),
     )
-    embed.set_thumbnail(url=target.display_avatar.url)
+
+    set_author(
+        embed,
+        target,
+        target.display_name if target is not None else t("booster.unknown_name"),
+    )
+    
     current, needed = _progress_values(user_xp)
     embed.description = t(
         "level.xp.level.progress_bar",
