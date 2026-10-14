@@ -35,9 +35,9 @@ def _progress_fields(
     role = guild.get_role(role_id) if guild and role_id else None
     return [
         (t("level.level"), str(current_level)),
-        (t("level.total_xp"), str(user_xp.total_xp)),
         (t("level.progress"), f"{progress}/{needed}"),
-        (t("level.reward_role"), role.name if role else t("level.none")),
+        (t("level.reward_role"), role.mention if role else t("level.none")),
+        (t("level.total_xp"), f"{str(user_xp.total_xp)} XP"),
     ]
 
 
@@ -66,7 +66,7 @@ async def xp_level(
         user=discord.utils.escape_markdown(target.display_name),
     )
     embed.set_thumbnail(url=target.display_avatar.url)
-    embed.add_field(name=t("level.rank"), value=str(rank))
+    embed.add_field(name=t("level.rank"), value=f"# {str(rank)}")
     for name, value in _progress_fields(
         user_xp, _rewards(interaction), interaction.guild
     ):
@@ -105,7 +105,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         embed.title = f"#{rank} {name}"
         embed.add_field(name=t("level.rank"), value=str(rank))
         for field_name, value in _progress_fields(row, service, interaction.guild):
-            embed.add_field(name=field_name, value=value)
+            embed.add_field(name=field_name, value=value, inline=False)
         set_transparent_image(embed, interaction.client)
         pages.append([embed])
 

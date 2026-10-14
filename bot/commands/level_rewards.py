@@ -85,7 +85,7 @@ def register_rewards_group(xp_group: app_commands.Group) -> None:
             embed.add_field(
                 name=f"{t('level.rewards.level_field')} {lvl}",
                 value=value,
-                inline=True,
+                inline=False,
             )
         set_transparent_image(embed, interaction.client)
         await interaction.response.send_message(embed=embed)
