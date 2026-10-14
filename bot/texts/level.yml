@@ -17,7 +17,7 @@ level:
       param_user: "Member to show (defaults to you)"
       embed_title: "%{user}'s level"
       no_xp: "%{user} has no XP recorded yet."
-      progress_bar: "# %{bar}\n### %{current}/%{needed}"
+      progress: "%{current}/%{needed} XP"
       bar_start_filled: "<:loadingBarStartFilled:1560005839518040174>"
       bar_middle_filled: "<:loadingBarMiddleFillled:1560005858975285268>"
       bar_end_filled: "<:loadingBarEndFilled:1560005876964786256>"

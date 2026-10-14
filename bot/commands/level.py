@@ -61,7 +61,7 @@ def _progress_bar(current: int, needed: int) -> str:
 
 
 def _progress_fields(
-    user_xp, service: LevelRewardService, guild: discord.Guild | None
+    user_xp, rank, service: LevelRewardService, guild: discord.Guild | None
 ) -> list[tuple[str, str]]:
     """Return the (name, value) fields describing a member's level progress."""
     current_level = user_xp.level
@@ -69,8 +69,9 @@ def _progress_fields(
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
     return [
-        (t("level.level"), str(current_level)),
         (t("level.progress"), f"{progress}/{needed}"),
+        (t("level.rank"), f"#{str(rank)}"),
+        (t("level.level"), str(current_level)),
         (t("level.reward_role"), role.mention if role else t("level.none")),
         (t("level.total_xp"), f"{str(user_xp.total_xp)} XP"),
     ]
@@ -110,12 +111,13 @@ async def xp_level(
     current, needed = _progress_values(user_xp)
     embed.description = f"# {_progress_bar(current, needed)}"
     
-    embed.add_field(name=t("level.progress"), value=f"{str(current)}/{str(needed)}", inline=False)
-    embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
     for name, value in _progress_fields(
-        user_xp, _rewards(interaction), interaction.guild
+        user_xp, rank, _rewards(interaction), interaction.guild
     ):
         embed.add_field(name=name, value=value, inline=False)
+    
+    # embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
+    
     set_transparent_image(embed, interaction.client)
     await interaction.response.send_message(embed=embed)
 
@@ -148,8 +150,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         name = member.display_name if member else str(row.user_id)
         embed = new_embed(interaction.client)
         embed.title = f"#{rank} {name}"
-        embed.add_field(name=t("level.rank"), value=str(rank))
-        for field_name, value in _progress_fields(row, service, interaction.guild):
+        for field_name, value in _progress_fields(row, rank, service, interaction.guild):
             embed.add_field(name=field_name, value=value)
         set_transparent_image(embed, interaction.client)
         pages.append([embed])
