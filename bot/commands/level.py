@@ -8,7 +8,7 @@ from discord import app_commands
 from ..db import session_scope
 from ..notifications import announce_level_up
 from ..services import level as level_service
-from ..services.level_rewards import LevelRewardService, sync_user_roles
+from ..services.level_rewards import LevelRewardService, sync_member_roles
 from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
@@ -195,7 +195,7 @@ register_rewards_group(xp_group)
     amount=t("level.xp.add.param_amount"),
 )
 async def add_xp(
-    interaction: discord.Interaction, user: discord.User, amount: int
+    interaction: discord.Interaction, user: discord.Member, amount: int
 ) -> None:
     if not await require_admin(interaction):
         return
@@ -211,8 +211,8 @@ async def add_xp(
         )
     if result.new_level != result.old_level:
         if interaction.guild:
-            await sync_user_roles(
-                interaction.guild, user.id, result.new_level, _rewards(interaction)
+            await sync_member_roles(
+                interaction.guild, user, result.new_level, _rewards(interaction)
             )
         await announce_level_up(interaction.channel, user, result.new_level)
     await interaction.followup.send(
@@ -232,7 +232,7 @@ async def add_xp(
     amount=t("level.xp.remove.param_amount"),
 )
 async def remove_xp(
-    interaction: discord.Interaction, user: discord.User, amount: int
+    interaction: discord.Interaction, user: discord.Member, amount: int
 ) -> None:
     if not await require_admin(interaction):
         return
@@ -255,8 +255,8 @@ async def remove_xp(
             session, guild_id=interaction.guild_id, user_id=user.id
         )
     if result.new_level != result.old_level and interaction.guild:
-        await sync_user_roles(
-            interaction.guild, user.id, result.new_level, _rewards(interaction)
+        await sync_member_roles(
+            interaction.guild, user, result.new_level, _rewards(interaction)
         )
     await interaction.followup.send(
         t(

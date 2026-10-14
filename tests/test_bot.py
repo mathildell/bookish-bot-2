@@ -549,12 +549,15 @@ class FakeLevelMember:
     def __init__(self, *roles: FakeLevelRole) -> None:
         self.id = 42
         self.roles = list(roles)
+        self.calls: list[str] = []
 
     async def add_roles(self, role: FakeLevelRole, **_: object) -> None:
+        self.calls.append("add")
         if role not in self.roles:
             self.roles.append(role)
 
     async def remove_roles(self, *roles: FakeLevelRole, **_: object) -> None:
+        self.calls.append("remove")
         for role in roles:
             if role in self.roles:
                 self.roles.remove(role)
@@ -597,6 +600,12 @@ class SyncMemberRolesTests(unittest.IsolatedAsyncioTestCase):
         member = FakeLevelMember(self.roles[10], self.roles[999])
         await sync_member_roles(self.guild, member, 10, self.service)
         self.assertEqual({r.id for r in member.roles}, {999, 100})
+
+    async def test_no_api_call_when_reward_unchanged(self) -> None:
+        member = FakeLevelMember(self.roles[10])
+        ok = await sync_member_roles(self.guild, member, 4, self.service)
+        self.assertTrue(ok)
+        self.assertEqual(member.calls, [])
 
 
 class ImportOldXpTests(unittest.TestCase):

@@ -15,7 +15,6 @@ from sqlalchemy import delete, select
 from ..db import session_scope
 from ..models import LevelReward
 from ..texts import t
-from .members import resolve_member
 
 logger = logging.getLogger("bh2.level_rewards")
 
@@ -107,31 +106,21 @@ async def sync_member_roles(
     """
     target_id = service.role_for_level(level)
     add_role = guild.get_role(target_id) if target_id is not None else None
+    held = {role.id for role in member.roles}
     remove_roles = [
         role
         for role_id in service.role_ids
-        if role_id != target_id and (role := guild.get_role(role_id)) is not None
+        if role_id != target_id
+        and role_id in held
+        and (role := guild.get_role(role_id)) is not None
     ]
     reason = t("level.rewards.reason")
     try:
         if remove_roles:
-            await member.remove_roles(*remove_roles, reason=reason)
+            await member.remove_roles(*remove_roles, atomic=False, reason=reason)
         if add_role is not None and add_role not in member.roles:
-            await member.add_roles(add_role, reason=reason)
+            await member.add_roles(add_role, atomic=False, reason=reason)
     except discord.HTTPException:
         logger.warning("Could not sync level roles for %s", member.id, exc_info=True)
         return False
     return True
-
-
-async def sync_user_roles(
-    guild: discord.Guild,
-    user_id: int,
-    level: int,
-    service: LevelRewardService,
-) -> bool:
-    """Resolve a member then sync their reward role; ``False`` if unresolved."""
-    member = await resolve_member(guild, user_id)
-    if member is None:
-        return False
-    return await sync_member_roles(guild, member, level, service)
