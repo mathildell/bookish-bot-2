@@ -27,6 +27,7 @@ level:
     leaderboard:
       description: "Show XP leaderboard"
       empty: "No XP data yet."
+      frozen: "🧊 XP has been frozen"
     add:
       description: "Add XP to a user"
       param_user: "User to add XP to"

@@ -158,8 +158,9 @@ class _LeaderboardSource:
                 row, rank, service, interaction.guild
             ):
                 embed.add_field(name=field_name, value=value, inline=True)
-            # Add an empty field to make the layout prettier
-            embed.add_field(name=" ‎ ", value=" ‎ ", inline=True)
+            # Third column flags frozen members, otherwise keeps the row height.
+            status = t("level.xp.leaderboard.frozen") if row.xp_frozen else " ‎ "
+            embed.add_field(name=" ‎ ", value=status, inline=True)
             set_transparent_image(embed, interaction.client)
             embeds.append(embed)
         return embeds
