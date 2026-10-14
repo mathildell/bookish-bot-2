@@ -15,9 +15,6 @@ booster_role_id: 0
 # role is unlinked (0 disables the notice)
 bot_updates_channel_id: 0
 
-# Channel where the bot announces level-ups (0 disables the notice)
-level_up_channel_id: 0
-
 # MySQL database (the compose file provisions these defaults)
 mysql:
   host: "127.0.0.1"

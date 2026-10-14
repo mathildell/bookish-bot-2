@@ -20,11 +20,11 @@ from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
+from .notifications import announce_level_change
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.level_rewards import LevelRewardService, sync_member_roles
-from .texts import t
 
 logger = logging.getLogger("bh2")
 
@@ -56,7 +56,7 @@ async def _award_message_xp(
         )
         await session.commit()
 
-    if result.new_level <= result.old_level:
+    if result.new_level == result.old_level:
         return
 
     member = message.author
@@ -67,21 +67,7 @@ async def _award_message_xp(
             "Level up: %s reached level %d", member.id, result.new_level
         )
 
-    if bot.level_up_channel_id:
-        channel = message.guild.get_channel(bot.level_up_channel_id)
-        if channel is None:
-            try:
-                channel = await message.guild.fetch_channel(bot.level_up_channel_id)
-            except discord.HTTPException:
-                channel = None
-        if channel is not None:
-            await channel.send(
-                t(
-                    "level.level_up",
-                    user=message.author.mention,
-                    new=result.new_level,
-                )
-            )
+    await announce_level_change(message.channel, message.author, result.new_level)
 
 
 async def run() -> None:
@@ -109,7 +95,6 @@ async def run() -> None:
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
     bot.booster_roles = booster_roles
     bot.level_rewards = level_rewards
-    bot.level_up_channel_id = int(config.get("level_up_channel_id", 0) or 0)
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )

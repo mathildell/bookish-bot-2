@@ -80,6 +80,8 @@ Paginated list of every linked booster role.
 ## Levels
 
 Members earn XP from messages; each level grants the configured reward role.
+Whenever a member's level changes, the bot posts a congratulations message in the
+channel where it happened (or where the admin ran `/xp add`/`/xp remove`).
 
 ```
 /xp level [user:]

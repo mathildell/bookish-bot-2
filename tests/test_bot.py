@@ -18,6 +18,7 @@ from pathlib import Path
 
 import discord
 
+from bot import notifications
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
 from bot.commands import level as level_cmds
@@ -432,6 +433,46 @@ class LevelRewardServiceTests(unittest.TestCase):
 
     def test_role_ids(self) -> None:
         self.assertEqual(self.service.role_ids, {10, 50, 100})
+
+
+class _FakeHTTPResponse:
+    status = 403
+    reason = "Forbidden"
+
+
+class FakeNotifyChannel:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.sent: list[str] = []
+        self._fail = fail
+
+    async def send(self, content: str) -> None:
+        if self._fail:
+            raise discord.HTTPException(
+                _FakeHTTPResponse(), {"message": "no", "code": 50013}
+            )
+        self.sent.append(content)
+
+
+class FakeNotifyUser:
+    mention = "<@42>"
+
+
+class AnnounceLevelChangeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_posts_formatted_message(self) -> None:
+        channel = FakeNotifyChannel()
+        await notifications.announce_level_change(channel, FakeNotifyUser(), 3)
+        self.assertEqual(
+            channel.sent,
+            [t("level.level_change", user="<@42>", level=3)],
+        )
+
+    async def test_missing_channel_is_ignored(self) -> None:
+        await notifications.announce_level_change(None, FakeNotifyUser(), 3)
+
+    async def test_send_failure_is_swallowed(self) -> None:
+        channel = FakeNotifyChannel(fail=True)
+        await notifications.announce_level_change(channel, FakeNotifyUser(), 3)
+        self.assertEqual(channel.sent, [])
 
 
 class LevelProgressTests(unittest.TestCase):
