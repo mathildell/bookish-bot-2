@@ -146,8 +146,7 @@ async def add_xp(
             user=user.mention,
             level=user_xp.level,
             total_xp=user_xp.total_xp,
-        ),
-        ephemeral=True,
+        )
     )
 
 
@@ -168,7 +167,7 @@ async def remove_xp(
         )
         if user_xp is None or user_xp.total_xp < amount:
             await interaction.response.send_message(
-                t("level.cannot_remove_more", user=user.mention), ephemeral=True
+                t("level.cannot_remove_more", user=user.mention)
             )
             return
         result = await level_service.remove_xp(
@@ -189,8 +188,7 @@ async def remove_xp(
             user=user.mention,
             level=user_xp.level,
             total_xp=user_xp.total_xp,
-        ),
-        ephemeral=True,
+        )
     )
 
 
