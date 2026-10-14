@@ -157,6 +157,8 @@ class _LeaderboardSource:
                 row, rank, service, interaction.guild
             ):
                 embed.add_field(name=field_name, value=value, inline=True)
+            # Add an empty field to make the layout prettier
+            embed.add_field(name=" ‎ ", value=" ‎ ", inline=True)
             set_transparent_image(embed, interaction.client)
             embeds.append(embed)
         return embeds
