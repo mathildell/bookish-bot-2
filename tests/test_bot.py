@@ -35,6 +35,7 @@ from bot.services.booster_react import (
     parse_emoji,
 )
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
+from bot.texts import t
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -351,6 +352,40 @@ class LevelProgressTests(unittest.TestCase):
     def test_partial_progress(self) -> None:
         self.assertEqual(self._fields(0, 30)["Level progress"], "30/75")
         self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175")
+
+    def test_progress_bar_segments(self) -> None:
+        segments = level_cmds.PROGRESS_BAR_SEGMENTS
+        empty = level_cmds._progress_bar(0, 100)
+        full = level_cmds._progress_bar(100, 100)
+        self.assertEqual(empty.count("<:"), segments)
+        self.assertEqual(full.count("<:"), segments)
+        self.assertTrue(
+            empty.startswith(t("level.xp.level.bar_start_empty"))
+            and empty.endswith(t("level.xp.level.bar_end_empty"))
+        )
+        self.assertTrue(
+            full.startswith(t("level.xp.level.bar_start_filled"))
+            and full.endswith(t("level.xp.level.bar_end_filled"))
+        )
+
+    def test_progress_bar_partial_has_both_states(self) -> None:
+        bar = level_cmds._progress_bar(50, 100)
+        self.assertIn(t("level.xp.level.bar_middle_filled"), bar)
+        self.assertIn(t("level.xp.level.bar_middle_empty"), bar)
+        self.assertTrue(bar.startswith(t("level.xp.level.bar_start_filled")))
+        self.assertTrue(bar.endswith(t("level.xp.level.bar_end_empty")))
+
+    def test_progress_bar_clamps(self) -> None:
+        segments = level_cmds.PROGRESS_BAR_SEGMENTS
+        self.assertEqual(
+            level_cmds._progress_bar(500, 100).count(
+                t("level.xp.level.bar_middle_filled")
+            ),
+            segments - 2,
+        )
+        self.assertEqual(
+            level_cmds._progress_bar(-5, 100), level_cmds._progress_bar(0, 100)
+        )
 
 
 class FakeLevelRole:

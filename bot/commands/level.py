@@ -23,14 +23,49 @@ def _rewards(interaction: discord.Interaction) -> LevelRewardService:
     return interaction.client.level_rewards
 
 
+PROGRESS_BAR_SEGMENTS = 10
+
+
+def _progress_values(user_xp) -> tuple[int, int]:
+    """XP earned since reaching the current level, and what this level needs."""
+    current = user_xp.total_xp - level_service.total_xp_for_level(user_xp.level)
+    needed = level_service.xp_increment_to_reach_level(user_xp.level)
+    return current, needed
+
+
+def _progress_bar(current: int, needed: int) -> str:
+    """Build the emoji progress bar: a cap, middle segments, then a cap."""
+    segments = PROGRESS_BAR_SEGMENTS
+    if needed <= 0:
+        filled = segments
+    else:
+        filled = max(0, min(segments, int(current / needed * segments)))
+    middle_filled = max(0, min(segments - 2, filled - 1))
+    middle_empty = (segments - 2) - middle_filled
+    start = (
+        t("level.xp.level.bar_start_filled")
+        if filled > 0
+        else t("level.xp.level.bar_start_empty")
+    )
+    end = (
+        t("level.xp.level.bar_end_filled")
+        if filled >= segments
+        else t("level.xp.level.bar_end_empty")
+    )
+    return (
+        start
+        + t("level.xp.level.bar_middle_filled") * middle_filled
+        + t("level.xp.level.bar_middle_empty") * middle_empty
+        + end
+    )
+
+
 def _progress_fields(
     user_xp, service: LevelRewardService, guild: discord.Guild | None
 ) -> list[tuple[str, str]]:
     """Return the (name, value) fields describing a member's level progress."""
     current_level = user_xp.level
-    # XP earned since reaching the current level, out of what this level needs.
-    progress = user_xp.total_xp - level_service.total_xp_for_level(current_level)
-    needed = level_service.xp_increment_to_reach_level(current_level)
+    progress, needed = _progress_values(user_xp)
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
     return [
@@ -66,11 +101,18 @@ async def xp_level(
         user=discord.utils.escape_markdown(target.display_name),
     )
     embed.set_thumbnail(url=target.display_avatar.url)
-    embed.add_field(name=t("level.rank"), value=f"# {str(rank)}")
+    current, needed = _progress_values(user_xp)
+    embed.description = t(
+        "level.xp.level.progress_bar",
+        bar=_progress_bar(current, needed),
+        current=current,
+        needed=needed,
+    )
+    embed.add_field(name=t("level.rank"), value=f"#{str(rank)}", inline=False)
     for name, value in _progress_fields(
         user_xp, _rewards(interaction), interaction.guild
     ):
-        embed.add_field(name=name, value=value)
+        embed.add_field(name=name, value=value, inline=False)
     set_transparent_image(embed, interaction.client)
     await interaction.response.send_message(embed=embed)
 
@@ -105,7 +147,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         embed.title = f"#{rank} {name}"
         embed.add_field(name=t("level.rank"), value=str(rank))
         for field_name, value in _progress_fields(row, service, interaction.guild):
-            embed.add_field(name=field_name, value=value, inline=False)
+            embed.add_field(name=field_name, value=value)
         set_transparent_image(embed, interaction.client)
         pages.append([embed])
 
