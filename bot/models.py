@@ -107,21 +107,3 @@ class LevelReward(Base):
     __table_args__ = (
         Index("ix_level_rewards_guild_level_unique", "guild_id", "level", unique=True),
     )
-
-
-class LevelSettings(Base):
-    """Per-guild leveling settings (e.g. whether defaults were seeded)."""
-
-    __tablename__ = "level_settings"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-
-    guild_id: Mapped[int] = mapped_column(
-        BigInteger, unique=True, index=True, nullable=False
-    )
-    rewards_seeded: Mapped[bool] = mapped_column(default=False, nullable=False)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now()
-    )

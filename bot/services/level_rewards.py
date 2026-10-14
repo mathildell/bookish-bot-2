@@ -1,8 +1,8 @@
 """Level reward roles: level -> role mapping, persisted per guild.
 
-The mapping is seeded with the server's defaults on first run and is fully
-admin-editable afterwards. An in-memory registry mirrors the database so the
-message listener can resolve a member's reward role without a query.
+The mapping starts empty and is fully admin-editable. An in-memory registry
+mirrors the database so the message listener can resolve a member's reward role
+without a query.
 """
 
 from __future__ import annotations
@@ -13,28 +13,10 @@ import discord
 from sqlalchemy import delete, select
 
 from ..db import session_scope
-from ..models import LevelReward, LevelSettings
+from ..models import LevelReward
 from ..texts import t
 
 logger = logging.getLogger("bh2.level_rewards")
-
-DEFAULT_REWARD_ROLES: dict[int, int] = {
-    1: 1406739488616615987,
-    5: 1406739608158339162,
-    10: 1406739687191875625,
-    20: 1406739750475268226,
-    30: 1410284676584833165,
-    40: 1406739803159924737,
-    50: 1406739837461069914,
-    65: 1410284783229206570,
-    80: 1406739925633859764,
-    95: 1410284882113855602,
-    110: 1406740011784732903,
-    130: 1406740078964772904,
-    150: 1406740133377605704,
-    175: 1406740197596725370,
-    200: 1406740273899376670,
-}
 
 
 class LevelRewardService:
@@ -64,32 +46,6 @@ class LevelRewardService:
 
     async def reload(self) -> None:
         async with session_scope() as session:
-            settings = (
-                await session.execute(
-                    select(LevelSettings).where(
-                        LevelSettings.guild_id == self.guild_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if settings is None:
-                settings = LevelSettings(
-                    guild_id=self.guild_id, rewards_seeded=False
-                )
-                session.add(settings)
-            if not settings.rewards_seeded:
-                for level, role_id in DEFAULT_REWARD_ROLES.items():
-                    session.add(
-                        LevelReward(
-                            guild_id=self.guild_id, level=level, role_id=role_id
-                        )
-                    )
-                settings.rewards_seeded = True
-                await session.commit()
-                self._rewards = dict(DEFAULT_REWARD_ROLES)
-                logger.info(
-                    "Seeded %d default level reward(s)", len(DEFAULT_REWARD_ROLES)
-                )
-                return
             rows = list(
                 (
                     await session.execute(
@@ -101,7 +57,8 @@ class LevelRewardService:
                 .scalars()
                 .all()
             )
-            self._rewards = {row.level: row.role_id for row in rows}
+        self._rewards = {row.level: row.role_id for row in rows}
+        logger.info("Loaded %d level reward(s)", len(self._rewards))
 
     async def set(self, level: int, role_id: int) -> None:
         async with session_scope() as session:
