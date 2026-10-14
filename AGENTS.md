@@ -12,6 +12,8 @@ For now, we only have two features implemented:
 - **Booster roles** — let boosters rename/recolour a custom role an admin linked
   to them.
 
+The list of commands from the bot lives in the README.md.
+
 Stack: Python 3.14, [discord.py](https://discordpy.readthedocs.io/) 2.x,
 SQLAlchemy 2 (async) + aiomysql, MySQL, PyYAML.
 
