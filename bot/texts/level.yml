@@ -1,8 +1,6 @@
 # Leveling system texts
 level:
-  group_description: "Leveling system"
-  admin_group_description: "Leveling admin commands"
-  you_have_no_xp: "You have no XP recorded yet."
+  xp_group_description: "XP and leveling commands"
   cannot_remove_more: "Cannot remove more XP than %{user} has."
   xp_added: "Added %{amount} XP to %{user}. New level: %{level} (Total XP: %{total_xp})"
   xp_removed: "Removed %{amount} XP from %{user}. New level: %{level} (Total XP: %{total_xp})"
@@ -13,18 +11,20 @@ level:
   progress: "Level progress"
   reward_role: "Reward role"
   none: "None"
-  me:
-    description: "Show your level progress and rank"
-    embed_title: "Your level"
-  leaderboard:
-    description: "Show XP leaderboard"
-    empty: "No XP data yet."
-  admin:
-    add_xp:
+  xp:
+    level:
+      description: "Show a member's level progress and rank"
+      param_user: "Member to show (defaults to you)"
+      embed_title: "%{user}'s level"
+      no_xp: "%{user} has no XP recorded yet."
+    leaderboard:
+      description: "Show XP leaderboard"
+      empty: "No XP data yet."
+    add:
       description: "Add XP to a user"
       param_user: "User to add XP to"
       param_amount: "Amount of XP to add"
-    remove_xp:
+    remove:
       description: "Remove XP from a user"
       param_user: "User to remove XP from"
       param_amount: "Amount of XP to remove"

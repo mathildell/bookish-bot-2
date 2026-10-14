@@ -1,4 +1,4 @@
-"""Level reward admin commands (``/level rewards ...``)."""
+"""Level reward admin commands (``/xp rewards ...``)."""
 
 from __future__ import annotations
 
@@ -14,17 +14,18 @@ from ..services.level_rewards import (
 )
 from ..texts import t
 from .checks import require_admin
+from .listing import new_embed, set_transparent_image
 
 
 def _rewards(interaction: discord.Interaction) -> LevelRewardService:
     return interaction.client.level_rewards
 
 
-def register_rewards_group(level_group: app_commands.Group) -> None:
+def register_rewards_group(xp_group: app_commands.Group) -> None:
     rewards_group = app_commands.Group(
         name="rewards",
         description=t("level.rewards.group_description"),
-        parent=level_group,
+        parent=xp_group,
     )
 
     @rewards_group.command(
@@ -43,8 +44,7 @@ def register_rewards_group(level_group: app_commands.Group) -> None:
             level = 0
         await _rewards(interaction).set(level, role.id)
         await interaction.response.send_message(
-            t("level.rewards.set.success", level=level, role=role.mention),
-            ephemeral=True,
+            t("level.rewards.set.success", level=level, role=role.mention)
         )
 
     @rewards_group.command(
@@ -73,11 +73,10 @@ def register_rewards_group(level_group: app_commands.Group) -> None:
             return
         rewards = _rewards(interaction).rewards
         if not rewards:
-            await interaction.response.send_message(
-                t("level.rewards.list.empty"), ephemeral=True
-            )
+            await interaction.response.send_message(t("level.rewards.list.empty"))
             return
-        embed = discord.Embed(title=t("level.rewards.list.title"))
+        embed = new_embed(interaction.client)
+        embed.title = t("level.rewards.list.title")
         guild = interaction.guild
         for lvl in sorted(rewards):
             role_id = rewards[lvl]
@@ -88,7 +87,8 @@ def register_rewards_group(level_group: app_commands.Group) -> None:
                 value=value,
                 inline=True,
             )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        set_transparent_image(embed, interaction.client)
+        await interaction.response.send_message(embed=embed)
 
     @rewards_group.command(
         name="resync", description=t("level.rewards.resync.description")

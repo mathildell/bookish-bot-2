@@ -16,7 +16,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
-from .commands.level import level_group
+from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
@@ -122,7 +122,8 @@ async def run() -> None:
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
-    bot.tree.add_command(level_group, guild=discord.Object(id=int(config.guild_id)))
+    guild = discord.Object(id=int(config.guild_id))
+    bot.tree.add_command(xp_group, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event

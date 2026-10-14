@@ -1,4 +1,4 @@
-"""Level commands (/level ...)."""
+"""XP and level reward commands (/xp ..., /xp rewards ...)."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from ..services.level_rewards import LevelRewardService, sync_user_roles
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import send_paginated
+from .listing import new_embed, send_paginated, set_transparent_image
 
-level_group = app_commands.Group(
-    name="level",
-    description=t("level.group_description"),
+xp_group = app_commands.Group(
+    name="xp",
+    description=t("level.xp_group_description"),
 )
 
 
@@ -41,33 +41,42 @@ def _progress_fields(
     ]
 
 
-@level_group.command(name="me", description=t("level.me.description"))
-async def me(interaction: discord.Interaction) -> None:
+@xp_group.command(name="level", description=t("level.xp.level.description"))
+@app_commands.describe(user=t("level.xp.level.param_user"))
+async def xp_level(
+    interaction: discord.Interaction, user: discord.User | None = None
+) -> None:
+    target = user or interaction.user
     async with session_scope() as session:
         user_xp = await level_service.get_user_xp(
-            session, guild_id=interaction.guild_id, user_id=interaction.user.id
+            session, guild_id=interaction.guild_id, user_id=target.id
         )
         if user_xp is None:
             await interaction.response.send_message(
-                t("level.you_have_no_xp"), ephemeral=True
+                t("level.xp.level.no_xp", user=target.mention)
             )
             return
         rank = await level_service.get_rank(
             session, guild_id=interaction.guild_id, total_xp=user_xp.total_xp
         )
 
-    embed = discord.Embed(title=t("level.me.embed_title"))
-    embed.set_thumbnail(url=interaction.user.display_avatar.url)
+    embed = new_embed(interaction.client)
+    embed.title = t(
+        "level.xp.level.embed_title",
+        user=discord.utils.escape_markdown(target.display_name),
+    )
+    embed.set_thumbnail(url=target.display_avatar.url)
     embed.add_field(name=t("level.rank"), value=str(rank))
     for name, value in _progress_fields(
         user_xp, _rewards(interaction), interaction.guild
     ):
         embed.add_field(name=name, value=value)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    set_transparent_image(embed, interaction.client)
+    await interaction.response.send_message(embed=embed)
 
 
-@level_group.command(
-    name="leaderboard", description=t("level.leaderboard.description")
+@xp_group.command(
+    name="leaderboard", description=t("level.xp.leaderboard.description")
 )
 async def leaderboard(interaction: discord.Interaction) -> None:
     async with session_scope() as session:
@@ -78,7 +87,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
 
     if not ordered:
         await interaction.response.send_message(
-            t("level.leaderboard.empty"), ephemeral=True
+            t("level.xp.leaderboard.empty"), ephemeral=True
         )
         return
 
@@ -92,29 +101,25 @@ async def leaderboard(interaction: discord.Interaction) -> None:
             previous_xp = row.total_xp
         member = interaction.guild.get_member(row.user_id) if interaction.guild else None
         name = member.display_name if member else str(row.user_id)
-        embed = discord.Embed(title=f"#{rank} {name}")
+        embed = new_embed(interaction.client)
+        embed.title = f"#{rank} {name}"
         embed.add_field(name=t("level.rank"), value=str(rank))
         for field_name, value in _progress_fields(row, service, interaction.guild):
             embed.add_field(name=field_name, value=value)
+        set_transparent_image(embed, interaction.client)
         pages.append([embed])
 
     await interaction.response.defer()
     await send_paginated(interaction, pages, total_results=len(ordered))
 
 
-admin_group = app_commands.Group(
-    name="admin",
-    description=t("level.admin_group_description"),
-    parent=level_group,
-)
-
-register_rewards_group(level_group)
+register_rewards_group(xp_group)
 
 
-@admin_group.command(name="add_xp", description=t("level.admin.add_xp.description"))
+@xp_group.command(name="add", description=t("level.xp.add.description"))
 @app_commands.describe(
-    user=t("level.admin.add_xp.param_user"),
-    amount=t("level.admin.add_xp.param_amount"),
+    user=t("level.xp.add.param_user"),
+    amount=t("level.xp.add.param_amount"),
 )
 async def add_xp(
     interaction: discord.Interaction, user: discord.User, amount: int
@@ -146,12 +151,10 @@ async def add_xp(
     )
 
 
-@admin_group.command(
-    name="remove_xp", description=t("level.admin.remove_xp.description")
-)
+@xp_group.command(name="remove", description=t("level.xp.remove.description"))
 @app_commands.describe(
-    user=t("level.admin.remove_xp.param_user"),
-    amount=t("level.admin.remove_xp.param_amount"),
+    user=t("level.xp.remove.param_user"),
+    amount=t("level.xp.remove.param_amount"),
 )
 async def remove_xp(
     interaction: discord.Interaction, user: discord.User, amount: int
@@ -191,9 +194,9 @@ async def remove_xp(
     )
 
 
-@admin_group.command(name="xp_freeze", description=t("level.admin.freeze.description"))
-@app_commands.describe(user=t("level.admin.freeze.param_user"))
-async def xp_freeze(interaction: discord.Interaction, user: discord.User) -> None:
+@xp_group.command(name="freeze", description=t("level.xp.freeze.description"))
+@app_commands.describe(user=t("level.xp.freeze.param_user"))
+async def freeze_xp(interaction: discord.Interaction, user: discord.User) -> None:
     if not await require_admin(interaction):
         return
     async with session_scope() as session:
@@ -202,15 +205,13 @@ async def xp_freeze(interaction: discord.Interaction, user: discord.User) -> Non
         )
         await session.commit()
     await interaction.response.send_message(
-        t("level.admin.frozen", user=user.mention), ephemeral=True
+        t("level.xp.frozen", user=user.mention), ephemeral=True
     )
 
 
-@admin_group.command(
-    name="xp_unfreeze", description=t("level.admin.unfreeze.description")
-)
-@app_commands.describe(user=t("level.admin.unfreeze.param_user"))
-async def xp_unfreeze(interaction: discord.Interaction, user: discord.User) -> None:
+@xp_group.command(name="unfreeze", description=t("level.xp.unfreeze.description"))
+@app_commands.describe(user=t("level.xp.unfreeze.param_user"))
+async def unfreeze_xp(interaction: discord.Interaction, user: discord.User) -> None:
     if not await require_admin(interaction):
         return
     async with session_scope() as session:
@@ -219,5 +220,5 @@ async def xp_unfreeze(interaction: discord.Interaction, user: discord.User) -> N
         )
         await session.commit()
     await interaction.response.send_message(
-        t("level.admin.unfrozen", user=user.mention), ephemeral=True
+        t("level.xp.unfrozen", user=user.mention), ephemeral=True
     )

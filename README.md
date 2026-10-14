@@ -62,63 +62,66 @@ Change a linked role's name, primary colour, gradient, or emoji/image icon.
 **Permissions:** 🔒 Admin
 Delete a booster's role and remove the link.
 
+***
+
 ## Levels
 ```
-/level me
+/xp level [user:]
 ```
 **Permissions:** Everyone
-Show your XP, level, progress to the next level, reward role, and leaderboard rank.
+Show XP, level, progress to the next level, reward role, and leaderboard rank.
+Defaults to you; pass a user to see someone else's card.
 
 ```
-/level leaderboard
+/xp leaderboard
 ```
 **Permissions:** Everyone
 Paginated leaderboard of every member by total XP.
 
 ```
-/level admin add_xp user: amount:
+/xp add user: amount:
 ```
 **Permissions:** 🔒 Admin
 Add XP to a member.
 
 ```
-/level admin remove_xp user: amount:
+/xp remove user: amount:
 ```
 **Permissions:** 🔒 Admin
 Remove XP from a member (never below 0).
 
 ```
-/level admin xp_freeze user:
+/xp freeze user:
 ```
 **Permissions:** 🔒 Admin
 Stop a member from earning XP from messages (admin grants still apply).
 
 ```
-/level admin xp_unfreeze user:
+/xp unfreeze user:
 ```
 **Permissions:** 🔒 Admin
 Allow a frozen member to earn XP from messages again.
 
 ```
-/level rewards set level: role:
+/xp rewards set level: role:
 ```
 **Permissions:** 🔒 Admin
 Set (or edit) the reward role granted at a level.
 
 ```
-/level rewards remove level:
+/xp rewards remove level:
 ```
 **Permissions:** 🔒 Admin
 Remove the reward role configured for a level.
 
 ```
-/level rewards list
+/xp rewards list
 ```
 **Permissions:** 🔒 Admin
 Show every level and its reward role.
 
 ```
-/level rewards resync
+/xp rewards resync
 ```
 **Permissions:** 🔒 Admin
 Reapply reward roles so they match every member's current level.
