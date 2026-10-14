@@ -139,7 +139,6 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         return
 
     service = _rewards(interaction)
-    # pages = []
     embeds = []
     previous_xp = None
     rank = 0
@@ -163,11 +162,9 @@ async def leaderboard(interaction: discord.Interaction) -> None:
     await interaction.response.defer()
     await send_paginated(
         interaction,
-        chunked(pages, EMBEDS_PER_PAGE),
+        chunked(embeds, EMBEDS_PER_PAGE),
         total_results=len(ordered),
     )
-
-    # await send_paginated(interaction, pages, total_results=len(ordered))
 
 
 register_rewards_group(xp_group)
