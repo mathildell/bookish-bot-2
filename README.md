@@ -38,7 +38,7 @@ Remove a booster's react registration.
 ```
 /booster react list
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Paginated list of every registered booster react.
 
 ## Booster roles
@@ -49,7 +49,7 @@ recolour it.
 ```
 /booster role link user: role:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Link an admin-created role to a booster.
 
 ```
@@ -61,20 +61,20 @@ Change a linked role's name, colour, gradient, or emoji/image icon.
 ```
 /booster role remove user:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Delete a booster's role and remove the link.
 
 ```
 /booster role sync
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Check for boosters who stopped boosting, unlink them, and notify the updates
 channel.
 
 ```
 /booster role list
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Paginated list of every linked booster role.
 
 ## Levels
@@ -96,47 +96,47 @@ Paginated XP leaderboard.
 ```
 /xp add user: amount:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Add XP to a member.
 
 ```
 /xp remove user: amount:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Remove XP from a member.
 
 ```
 /xp freeze user:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Stop a member earning XP from messages.
 
 ```
 /xp unfreeze user:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Let a frozen member earn XP from messages again.
 
 ```
 /xp rewards set level: role:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Set (or edit) the reward role granted at a level.
 
 ```
 /xp rewards remove level:
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Remove the reward role configured for a level.
 
 ```
 /xp rewards list
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Show every level and its reward role.
 
 ```
 /xp rewards resync
 ```
-**Permissions:** Admin
+**Permissions:** 🔒 Admin
 Reapply reward roles so they match every member's current level.
