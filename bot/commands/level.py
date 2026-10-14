@@ -139,7 +139,8 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         return
 
     service = _rewards(interaction)
-    pages = []
+    # pages = []
+    embeds = []
     previous_xp = None
     rank = 0
     for position, row in enumerate(ordered, start=1):
@@ -157,7 +158,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         for field_name, value in _progress_fields(row, rank, service, interaction.guild):
             embed.add_field(name=field_name, value=value, inline=False)
         set_transparent_image(embed, interaction.client)
-        pages.append([embed])
+        embeds.append(embed)
 
     await interaction.response.defer()
     await send_paginated(
