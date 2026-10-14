@@ -146,6 +146,7 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         )
         return
 
+    await interaction.response.defer()
     service = _rewards(interaction)
     embeds = []
     previous_xp = None
@@ -167,7 +168,6 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         set_transparent_image(embed, interaction.client)
         embeds.append(embed)
 
-    await interaction.response.defer()
     await send_paginated(
         interaction,
         chunked(embeds, EMBEDS_PER_PAGE),
