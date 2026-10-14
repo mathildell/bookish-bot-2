@@ -30,7 +30,7 @@ def xp_increment_to_reach_level(level: int) -> int:
 def total_xp_for_level(level: int) -> int:
     """Cumulative XP accumulated to finish level ``level``.
 
-    Level 0 -> 0, level 1 -> 75, level 2 -> 250, level 3 -> 625, ...
+    Level 0 -> 0, level 1 -> 75, level 2 -> 250, level 3 -> 525, ...
     """
     if level <= 0:
         return 0

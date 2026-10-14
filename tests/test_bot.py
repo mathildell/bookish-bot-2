@@ -11,7 +11,10 @@ stand-in objects and assert on the resulting embeds/values.
 from __future__ import annotations
 
 import datetime
+import importlib.util
+import sys
 import unittest
+from pathlib import Path
 
 import discord
 
@@ -32,6 +35,15 @@ from bot.services.booster_react import (
     parse_emoji,
 )
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
+
+ROOT = Path(__file__).resolve().parent.parent
+
+_spec = importlib.util.spec_from_file_location(
+    "import_old_xp", ROOT / "scripts" / "import_old_xp.py"
+)
+import_old_xp = importlib.util.module_from_spec(_spec)
+sys.modules["import_old_xp"] = import_old_xp
+_spec.loader.exec_module(import_old_xp)
 
 
 class FakeClient:
@@ -405,6 +417,35 @@ class SyncMemberRolesTests(unittest.IsolatedAsyncioTestCase):
         member = FakeLevelMember(self.roles[10], self.roles[999])
         await sync_member_roles(self.guild, member, 10, self.service)
         self.assertEqual({r.id for r in member.roles}, {999, 100})
+
+
+class ImportOldXpTests(unittest.TestCase):
+    """The old-XP importer reconstructs total XP from level + progress."""
+
+    def test_parse_amount(self) -> None:
+        self.assertEqual(import_old_xp.parse_amount("20"), 20)
+        self.assertEqual(import_old_xp.parse_amount("1,200"), 1200)
+        self.assertEqual(import_old_xp.parse_amount("3.6k"), 3600)
+        self.assertEqual(import_old_xp.parse_amount("22.8k"), 22800)
+
+    def test_parse_table_skips_header_and_separator(self) -> None:
+        rows = import_old_xp.parse_table(ROOT / "backup_old_xp.md")
+        self.assertTrue(rows)
+        self.assertEqual(rows[0].user_id, 477581832611954690)
+        self.assertEqual(rows[0].level, 1)
+        self.assertEqual(rows[0].progress, 20)
+
+    def test_total_xp_round_trips_to_same_level(self) -> None:
+        rows = import_old_xp.parse_table(ROOT / "backup_old_xp.md")
+        for row in rows:
+            total = (
+                level_service.total_xp_for_level(row.level) + row.progress
+            )
+            self.assertEqual(
+                level_service.level_from_total_xp(total),
+                row.level,
+                msg=f"level {row.level} progress {row.progress}",
+            )
 
 
 if __name__ == "__main__":
