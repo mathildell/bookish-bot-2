@@ -1,0 +1,59 @@
+# Leveling system texts
+level:
+  group_description: "Leveling system"
+  admin_group_description: "Leveling admin commands"
+  you_have_no_xp: "You have no XP recorded yet."
+  cannot_remove_more: "Cannot remove more XP than %{user} has."
+  xp_added: "Added %{amount} XP to %{user}. New level: %{level} (Total XP: %{total_xp})"
+  xp_removed: "Removed %{amount} XP from %{user}. New level: %{level} (Total XP: %{total_xp})"
+  level_up: "%{user} reached level %{new}!"
+  rank: "Rank"
+  level: "Level"
+  total_xp: "Total XP"
+  progress: "Level progress"
+  reward_role: "Reward role"
+  none: "None"
+  me:
+    description: "Show your level progress and rank"
+    embed_title: "Your level"
+  leaderboard:
+    description: "Show XP leaderboard"
+    empty: "No XP data yet."
+  admin:
+    add_xp:
+      description: "Add XP to a user"
+      param_user: "User to add XP to"
+      param_amount: "Amount of XP to add"
+    remove_xp:
+      description: "Remove XP from a user"
+      param_user: "User to remove XP from"
+      param_amount: "Amount of XP to remove"
+    freeze:
+      description: "Stop a user from earning XP from messages"
+      param_user: "User to freeze"
+    unfreeze:
+      description: "Allow a frozen user to earn XP from messages again"
+      param_user: "User to unfreeze"
+    frozen: "XP gain frozen for %{user}."
+    unfrozen: "XP gain unfrozen for %{user}."
+  rewards:
+    group_description: "Manage level reward roles"
+    reason: "Level reward update"
+    level_field: "Level"
+    set:
+      description: "Set the reward role for a level"
+      param_level: "Level threshold"
+      param_role: "Reward role"
+      success: "Level %{level} reward set to %{role}."
+    remove:
+      description: "Remove the reward role for a level"
+      param_level: "Level threshold"
+      success: "Removed the reward for level %{level}."
+      fail: "No reward is configured for level %{level}."
+    list:
+      description: "List every level and its reward role"
+      title: "Level rewards"
+      empty: "No level rewards configured."
+    resync:
+      description: "Reapply reward roles to match every member's level"
+      done: "Resynced reward roles for %{count} member(s)."

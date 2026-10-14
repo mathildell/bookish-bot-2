@@ -35,7 +35,7 @@ async def require_admin(interaction: discord.Interaction) -> bool:
     if is_admin(interaction):
         return True
     await interaction.response.send_message(
-        t("booster.permissions.no_permission"), ephemeral=True
+        t("components.permissions.no_permission"), ephemeral=True
     )
     return False
 
@@ -54,4 +54,4 @@ def denial_message(
         if target.id == interaction.user.id:
             return None
         return t("booster.permissions.cannot_manage_others", kind=scope)
-    return t("booster.permissions.no_permission")
+    return t("components.permissions.no_permission")

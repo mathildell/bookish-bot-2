@@ -16,13 +16,72 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
+from .commands.level import level_group
 from .commands.listing import parse_hex_colour
 from .config import load_config
-from .db import close_db, create_tables, init_db
+from .db import close_db, create_tables, init_db, session_scope
+from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
+from .services.level_rewards import LevelRewardService, sync_member_roles
+from .texts import t
 
 logger = logging.getLogger("bh2")
+
+XP_COOLDOWN_SECONDS = 60
+
+
+async def _award_message_xp(message: discord.Message) -> None:
+    """Roll XP for a message, apply reward roles on level up, and report it."""
+    bot = message.client
+    guild_id = message.guild.id
+    user_id = message.author.id
+    now = level_service.utcnow()
+
+    async with session_scope() as session:
+        user_xp = await level_service.get_user_xp(
+            session, guild_id=guild_id, user_id=user_id
+        )
+        if not level_service.can_gain_message_xp(user_xp, now, XP_COOLDOWN_SECONDS):
+            return
+        result = await level_service.add_xp(
+            session,
+            guild_id=guild_id,
+            user_id=user_id,
+            amount=level_service.random_xp_gain(),
+        )
+        await level_service.mark_xp_gained(
+            session, guild_id=guild_id, user_id=user_id, now=now
+        )
+        await session.commit()
+
+    if result.new_level <= result.old_level:
+        return
+
+    member = message.author
+    if await sync_member_roles(
+        message.guild, member, result.new_level, bot.level_rewards
+    ):
+        logger.info(
+            "Level up: %s reached level %d", member.id, result.new_level
+        )
+
+    if bot.level_up_channel_id:
+        channel = message.guild.get_channel(bot.level_up_channel_id)
+        if channel is None:
+            try:
+                channel = await message.guild.fetch_channel(bot.level_up_channel_id)
+            except discord.HTTPException:
+                channel = None
+        if channel is not None:
+            await channel.send(
+                t(
+                    "level.level_up",
+                    user=message.author.mention,
+                    old=result.old_level,
+                    new=result.new_level,
+                )
+            )
 
 
 async def run() -> None:
@@ -37,9 +96,10 @@ async def run() -> None:
     init_db(config.mysql_url)
     await create_tables()
 
-    # Reactor service (shared instance exposed on the bot for commands)
+    # Services (shared instances exposed on the bot for commands)
     reactor = BoosterReactService()
     booster_roles = BoosterRoleService()
+    level_rewards = LevelRewardService(int(config.guild_id))
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -48,6 +108,8 @@ async def run() -> None:
     bot.booster_reacts = reactor
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
     bot.booster_roles = booster_roles
+    bot.level_rewards = level_rewards
+    bot.level_up_channel_id = int(config.get("level_up_channel_id", 0) or 0)
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )
@@ -59,15 +121,20 @@ async def run() -> None:
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
+    bot.tree.add_command(level_group, guild=discord.Object(id=int(config.guild_id)))
 
     # ------------------------ message reactor ------------------------
     @bot.event
     async def on_message(message: discord.Message) -> None:
-        # Only act on plain text messages inside the configured server
+        # Only act inside the configured server, and never on bots.
         if message.author.bot:
             return
         if message.guild is None or message.guild.id != int(config.guild_id):
             return
+
+        # XP gain: one roll per message, 60s cooldown globally per member.
+        await _award_message_xp(message)
+
         if not message.content:
             return
 
@@ -120,6 +187,9 @@ async def run() -> None:
 
         await reactor.reload()
         logger.info("Loaded %d booster reaction(s)", len(reactor.records))
+
+        await level_rewards.reload()
+        logger.info("Loaded %d level reward(s)", len(level_rewards.rewards))
 
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()

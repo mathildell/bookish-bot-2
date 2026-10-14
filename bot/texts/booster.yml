@@ -2,9 +2,8 @@
 booster:
   group_description: "Booster features"
 
-  # Shared permission denials (see bot/commands/checks.py).
+  # Booster-specific permission denials (see bot/commands/checks.py).
   permissions:
-    no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"
     cannot_manage_others: "You can only manage your own booster %{kind} <:BunnyDizzy:1509264355714400316>"
 
   # Shared boost-status labels used by the react and role listings.

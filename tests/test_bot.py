@@ -17,18 +17,21 @@ import discord
 
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
+from bot.commands import level as level_cmds
 from bot.commands.listing import (
     Paginator,
     boost_value,
     chunked,
     parse_hex_colour,
 )
+from bot.services import level as level_service
 from bot.services.booster_react import (
     BoosterReactService,
     build_identifiers,
     clean_identifier,
     parse_emoji,
 )
+from bot.services.level_rewards import LevelRewardService, sync_member_roles
 
 
 class FakeClient:
@@ -268,6 +271,140 @@ class PaginatorTests(unittest.TestCase):
         view = Paginator(self._pages(1), author_id=1)
         self.assertTrue(view.prev_button.disabled)
         self.assertTrue(view.next_button.disabled)
+
+
+class LevelFormulaTests(unittest.TestCase):
+    """The XP curve described in the feature spec."""
+
+    def test_increment_per_level(self) -> None:
+        self.assertEqual(level_service.xp_increment_to_reach_level(0), 75)
+        self.assertEqual(level_service.xp_increment_to_reach_level(1), 175)
+        self.assertEqual(level_service.xp_increment_to_reach_level(2), 275)
+        self.assertEqual(level_service.xp_increment_to_reach_level(5), 575)
+
+    def test_cumulative_totals(self) -> None:
+        self.assertEqual(level_service.total_xp_for_level(0), 0)
+        self.assertEqual(level_service.total_xp_for_level(1), 75)
+        self.assertEqual(level_service.total_xp_for_level(2), 250)
+        self.assertEqual(level_service.total_xp_for_level(3), 525)
+
+    def test_level_from_total_xp(self) -> None:
+        self.assertEqual(level_service.level_from_total_xp(0), 0)
+        self.assertEqual(level_service.level_from_total_xp(74), 0)
+        self.assertEqual(level_service.level_from_total_xp(75), 1)
+        self.assertEqual(level_service.level_from_total_xp(249), 1)
+        self.assertEqual(level_service.level_from_total_xp(250), 2)
+
+    def test_random_gain_within_bounds(self) -> None:
+        for _ in range(200):
+            self.assertGreaterEqual(level_service.random_xp_gain(), 15)
+            self.assertLessEqual(level_service.random_xp_gain(), 40)
+
+
+class LevelRewardServiceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.service = LevelRewardService(1)
+        self.service._rewards = {1: 10, 5: 50, 10: 100}
+
+    def test_role_for_level_picks_highest_reached(self) -> None:
+        self.assertIsNone(self.service.role_for_level(0))
+        self.assertEqual(self.service.role_for_level(1), 10)
+        self.assertEqual(self.service.role_for_level(4), 10)
+        self.assertEqual(self.service.role_for_level(5), 50)
+        self.assertEqual(self.service.role_for_level(999), 100)
+
+    def test_role_ids(self) -> None:
+        self.assertEqual(self.service.role_ids, {10, 50, 100})
+
+
+class LevelProgressTests(unittest.TestCase):
+    """The progress shown starts at 0 for every level."""
+
+    class Row:
+        def __init__(self, level: int, total_xp: int) -> None:
+            self.level = level
+            self.total_xp = total_xp
+
+    def _fields(self, level: int, total_xp: int) -> dict[str, str]:
+        service = LevelRewardService(1)
+        service._rewards = {1: 10}
+        row = self.Row(level, total_xp)
+        return dict(level_cmds._progress_fields(row, service, None))
+
+    def test_starts_at_zero(self) -> None:
+        self.assertEqual(self._fields(0, 0)["Level progress"], "0/75")
+        self.assertEqual(self._fields(1, 75)["Level progress"], "0/175")
+        self.assertEqual(self._fields(2, 250)["Level progress"], "0/275")
+
+    def test_partial_progress(self) -> None:
+        self.assertEqual(self._fields(0, 30)["Level progress"], "30/75")
+        self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175")
+
+
+class FakeLevelRole:
+    def __init__(self, role_id: int) -> None:
+        self.id = role_id
+        self.mention = f"<@&{role_id}>"
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, FakeLevelRole) and other.id == self.id
+
+    def __hash__(self) -> int:
+        return hash(self.id)
+
+
+class FakeLevelMember:
+    def __init__(self, *roles: FakeLevelRole) -> None:
+        self.id = 42
+        self.roles = list(roles)
+
+    async def add_roles(self, role: FakeLevelRole, **_: object) -> None:
+        if role not in self.roles:
+            self.roles.append(role)
+
+    async def remove_roles(self, *roles: FakeLevelRole, **_: object) -> None:
+        for role in roles:
+            if role in self.roles:
+                self.roles.remove(role)
+
+
+class FakeLevelGuild:
+    def __init__(self, *roles: FakeLevelRole) -> None:
+        self._roles = {role.id: role for role in roles}
+
+    def get_role(self, role_id: int) -> FakeLevelRole | None:
+        return self._roles.get(role_id)
+
+
+class SyncMemberRolesTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.service = LevelRewardService(1)
+        self.service._rewards = {1: 10, 5: 50, 10: 100}
+        self.roles = {
+            rid: FakeLevelRole(rid) for rid in (10, 50, 100, 999)
+        }
+        self.guild = FakeLevelGuild(*self.roles.values())
+
+    async def test_promotes_and_removes_previous_reward(self) -> None:
+        member = FakeLevelMember(self.roles[10])
+        ok = await sync_member_roles(self.guild, member, 5, self.service)
+        self.assertTrue(ok)
+        self.assertEqual({r.id for r in member.roles}, {50})
+
+    async def test_demotion_removes_higher_reward(self) -> None:
+        member = FakeLevelMember(self.roles[100])
+        await sync_member_roles(self.guild, member, 1, self.service)
+        self.assertEqual({r.id for r in member.roles}, {10})
+
+    async def test_below_first_reward_clears_all(self) -> None:
+        member = FakeLevelMember(self.roles[10], self.roles[999])
+        await sync_member_roles(self.guild, member, 0, self.service)
+        self.assertEqual({r.id for r in member.roles}, {999})
+
+    async def test_non_reward_roles_are_left_alone(self) -> None:
+        member = FakeLevelMember(self.roles[10], self.roles[999])
+        await sync_member_roles(self.guild, member, 10, self.service)
+        self.assertEqual({r.id for r in member.roles}, {999, 100})
 
 
 if __name__ == "__main__":
