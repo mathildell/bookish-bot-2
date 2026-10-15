@@ -399,8 +399,12 @@ class ReviewService:
             row = await self._find_feed(session, discord_user_id)
             changed = row is None or row.feed_url != feed_url
             if row is None:
-                row = ReviewFeed(discord_user_id=discord_user_id)
+                row = ReviewFeed(
+                    discord_user_id=discord_user_id, feed_url=feed_url
+                )
                 session.add(row)
+            else:
+                row.feed_url = feed_url
             if changed:
                 row.feed_since = utcnow()
                 await session.execute(
@@ -408,7 +412,6 @@ class ReviewService:
                         ReviewEntry.discord_user_id == discord_user_id
                     )
                 )
-            row.feed_url = feed_url
             await session.commit()
             await session.refresh(row)
         return row, changed
