@@ -27,6 +27,7 @@ reviews:
   embed:
     untitled_book: "Untitled"
     unknown_shelf: "Goodreads"
+    shelf_arc: "🌟 %{shelf}"
     unknown_member: "Unknown member"
     author_none: "Unknown"
     title_suffix: " ‎ ↗️"

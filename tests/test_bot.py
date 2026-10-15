@@ -717,7 +717,7 @@ FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
 class ParseFeedTests(unittest.TestCase):
     def test_parses_shelf_logo_and_entries(self) -> None:
         feed = reviews_service.parse_feed(FEED_XML)
-        self.assertEqual(feed.shelf, "all")
+        self.assertEqual(feed.shelf, "alice's bookshelf: all")
         self.assertTrue(feed.logo_url.endswith("goodreads_logo_144.jpg"))
         self.assertEqual(len(feed.entries), 1)
         entry = feed.entries[0]
@@ -810,6 +810,71 @@ class FormatRatingTests(unittest.TestCase):
         self.assertEqual(reviews_service.format_date_read(None), "Unknown")
 
 
+class FormatShelfTests(unittest.TestCase):
+    def test_arc_shelf_gets_star(self) -> None:
+        name = "mtrics's bookshelf: arc"
+        self.assertEqual(
+            reviews_service.format_shelf(name),
+            t("reviews.embed.shelf_arc", shelf=name),
+        )
+
+    def test_arc_variants(self) -> None:
+        for name in ("shelf: ARC", "shelf: arcs", "shelf: ARCs"):
+            self.assertEqual(
+                reviews_service.format_shelf(name),
+                t("reviews.embed.shelf_arc", shelf=name),
+            )
+
+    def test_non_arc_shelf_is_unchanged(self) -> None:
+        self.assertEqual(reviews_service.format_shelf("all"), "all")
+        self.assertEqual(reviews_service.format_shelf("arcade"), "arcade")
+
+    def test_empty_shelf(self) -> None:
+        self.assertEqual(reviews_service.format_shelf(""), "")
+
+
+class _FakeLogoResponse:
+    def __init__(self, status: int) -> None:
+        self.status = status
+
+    async def __aenter__(self) -> "_FakeLogoResponse":
+        return self
+
+    async def __aexit__(self, *_: object) -> bool:
+        return False
+
+
+class _FakeHTTP:
+    def __init__(self, status: int) -> None:
+        self.status = status
+        self.calls = 0
+
+    def get(self, _url: str) -> _FakeLogoResponse:
+        self.calls += 1
+        return _FakeLogoResponse(self.status)
+
+
+class ResolveLogoTests(unittest.IsolatedAsyncioTestCase):
+    async def test_uses_url_when_reachable(self) -> None:
+        logo = await reviews_service.resolve_logo(_FakeHTTP(200), "https://logo", {})
+        self.assertEqual(logo, "https://logo")
+
+    async def test_falls_back_on_404(self) -> None:
+        logo = await reviews_service.resolve_logo(_FakeHTTP(404), "https://logo", {})
+        self.assertEqual(logo, reviews_service.FALLBACK_LOGO_URL)
+
+    async def test_missing_url_uses_fallback(self) -> None:
+        logo = await reviews_service.resolve_logo(_FakeHTTP(200), None, {})
+        self.assertEqual(logo, reviews_service.FALLBACK_LOGO_URL)
+
+    async def test_result_is_cached(self) -> None:
+        http = _FakeHTTP(200)
+        cache: dict[str, str] = {}
+        await reviews_service.resolve_logo(http, "https://logo", cache)
+        await reviews_service.resolve_logo(http, "https://logo", cache)
+        self.assertEqual(http.calls, 1)
+
+
 class ShouldPostTests(unittest.TestCase):
     class Entry:
         def __init__(self, pub_date: datetime.datetime) -> None:
@@ -894,7 +959,7 @@ class BuildReviewEmbedTests(unittest.TestCase):
 
     def _feed(self) -> FeedData:
         return FeedData(
-            shelf="all",
+            shelf="mtrics's bookshelf: arc",
             logo_url="https://www.goodreads.com/logo.jpg",
             entries=[],
         )
@@ -916,7 +981,10 @@ class BuildReviewEmbedTests(unittest.TestCase):
         self.assertEqual(embed.fields[0].value, "Author A")
         self.assertEqual(embed.fields[2].value, "3.5 ⭐")
         self.assertIn("**Great**", embed.fields[3].value)
-        self.assertEqual(embed.footer.text, "all")
+        self.assertEqual(
+            embed.footer.text,
+            t("reviews.embed.shelf_arc", shelf="mtrics's bookshelf: arc"),
+        )
         self.assertEqual(embed.footer.icon_url, "https://www.goodreads.com/logo.jpg")
         self.assertEqual(embed.colour.value, 0x97A97C)
 

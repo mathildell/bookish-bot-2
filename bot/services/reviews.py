@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
@@ -34,7 +34,13 @@ logger = logging.getLogger("bh2.reviews")
 FEED_COOLDOWN = timedelta(hours=24)
 REVIEW_FIELD_LIMIT = 1024
 GOODREADS_HOST = "goodreads.com"
+# Used when a feed's own footer image cannot be loaded (e.g. a 404)
+FALLBACK_LOGO_URL = (
+    "https://encrypted-tbn0.gstatic.com/images"
+    "?q=tbn:ANd9GcQcUlHk6BJ3pn20upzMcRofDF1wNeBRMCLN466YWOdcn4WqI36z-pT7ql8&s=10"
+)
 _ENTRY_ID_RE = re.compile(r"/review/show/(\d+)")
+_ARC_SHELF_RE = re.compile(r"\b(arc|arcs)\b", re.IGNORECASE)
 _WS_BEFORE_NEWLINE_RE = re.compile(r"[ \t]+\n")
 _BLANK_LINES_RE = re.compile(r"\n{3,}")
 
@@ -110,8 +116,7 @@ def parse_feed(xml_text: str) -> FeedData:
     if channel is None:
         raise ValueError("Not an RSS feed")
 
-    title = _text(channel, "title") or ""
-    shelf = title.rsplit(": ", 1)[-1] if ": " in title else title
+    shelf = _text(channel, "title") or ""
     image = channel.find("image")
     logo_url = _text(image, "url") if image is not None else None
 
@@ -234,6 +239,13 @@ def format_date_read(value: datetime | None) -> str:
     return f"<t:{timestamp}:D>"
 
 
+def format_shelf(name: str) -> str:
+    """Return the shelf name, starring it when it names an ARC shelf."""
+    if name and _ARC_SHELF_RE.search(name):
+        return t("reviews.embed.shelf_arc", shelf=name)
+    return name
+
+
 def _truncate(value: str, limit: int = REVIEW_FIELD_LIMIT) -> str:
     if len(value) <= limit:
         return value
@@ -314,7 +326,7 @@ def build_review_embed(
     )
 
     embed.set_footer(
-        text=feed.shelf or t("reviews.embed.unknown_shelf"),
+        text=format_shelf(feed.shelf) or t("reviews.embed.unknown_shelf"),
         icon_url=feed.logo_url,
     )
     return embed
@@ -327,12 +339,37 @@ async def fetch_feed(http: aiohttp.ClientSession, url: str) -> str:
         return await response.text()
 
 
+async def resolve_logo(
+    http: aiohttp.ClientSession,
+    url: str | None,
+    cache: dict[str, str],
+) -> str:
+    """Return a usable footer logo URL, falling back when the feed's 404s.
+
+    Results are cached by URL so each feed's logo is only checked once.
+    """
+    if not url:
+        return FALLBACK_LOGO_URL
+    if url in cache:
+        return cache[url]
+    resolved = url
+    try:
+        async with http.get(url) as response:
+            if response.status >= 400:
+                resolved = FALLBACK_LOGO_URL
+    except (aiohttp.ClientError, TimeoutError):
+        resolved = FALLBACK_LOGO_URL
+    cache[url] = resolved
+    return resolved
+
+
 class ReviewService:
     """CRUD for feeds/entries/settings plus the polling worker."""
 
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         self._channel_id: int | None = None
+        self._logo_cache: dict[str, str] = {}
 
     @property
     def channel_id(self) -> int | None:
@@ -529,7 +566,12 @@ class ReviewService:
                                 feed.discord_user_id,
                             )
                             continue
-                        embed = build_review_embed(entry, data, member, client)
+                        logo = await resolve_logo(
+                            http, data.logo_url, self._logo_cache
+                        )
+                        embed = build_review_embed(
+                            entry, replace(data, logo_url=logo), member, client
+                        )
                         try:
                             await channel.send(embed=embed)
                         except discord.HTTPException:
