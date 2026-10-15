@@ -76,12 +76,16 @@ def _progress_fields(
     current, needed = _progress_values(user_xp)
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
+    total_xp = f"{user_xp.total_xp} XP"
+    if user_xp.xp_frozen:
+        total_xp += f"\n{t('level.frozen')}"
+
     return [
         (t("level.progress"), t("level.xp.level.progress", current=current, needed=needed)),
         (t("level.rank"), f"#{str(rank)}"),
         (t("level.level"), str(current_level)),
         (t("level.reward_role"), role.mention if role else t("level.none")),
-        (t("level.total_xp"), f"{str(user_xp.total_xp)} XP"),
+        (t("level.total_xp"), total_xp),
     ]
 
 
@@ -158,9 +162,8 @@ class _LeaderboardSource:
                 row, rank, service, interaction.guild
             ):
                 embed.add_field(name=field_name, value=value, inline=True)
-            # Third column flags frozen members, otherwise keeps the row height.
-            status = t("level.xp.leaderboard.frozen") if row.xp_frozen else " ‎ "
-            embed.add_field(name=" ‎ ", value=status, inline=True)
+            # Add an empty field to make the layout prettier
+            embed.add_field(name=" ‎ ", value=" ‎ ", inline=True)
             set_transparent_image(embed, interaction.client)
             embeds.append(embed)
         return embeds
@@ -210,19 +213,22 @@ async def add_xp(
         user_xp = await level_service.get_user_xp(
             session, guild_id=interaction.guild_id, user_id=user.id
         )
-    if result.new_level != result.old_level:
-        if interaction.guild:
-            await sync_member_roles(
-                interaction.guild, user, result.new_level, _rewards(interaction)
-            )
+        current, needed = _progress_values(user_xp)
+
+    if result.new_level != result.old_level and interaction.guild:
+        await sync_member_roles(
+            interaction.guild, user, result.new_level, _rewards(interaction)
+        )
         await announce_level_up(interaction.channel, user, result.new_level)
+
     await interaction.followup.send(
         t(
             "level.xp_added",
             amount=amount,
             user=user.mention,
             level=user_xp.level,
-            total_xp=user_xp.total_xp,
+            current=current,
+            needed=needed
         )
     )
 
@@ -255,17 +261,21 @@ async def remove_xp(
         user_xp = await level_service.get_user_xp(
             session, guild_id=interaction.guild_id, user_id=user.id
         )
+        current, needed = _progress_values(user_xp)
+
     if result.new_level != result.old_level and interaction.guild:
         await sync_member_roles(
             interaction.guild, user, result.new_level, _rewards(interaction)
         )
+
     await interaction.followup.send(
         t(
             "level.xp_removed",
             amount=amount,
             user=user.mention,
             level=user_xp.level,
-            total_xp=user_xp.total_xp,
+            current=current,
+            needed=needed
         )
     )
 

@@ -2,12 +2,13 @@
 level:
   xp_group_description: "XP and leveling commands"
   cannot_remove_more: "Cannot remove more XP than %{user} has."
-  xp_added: "Added %{amount} XP to %{user}. New level: %{level} (Total XP: %{total_xp})"
-  xp_removed: "Removed %{amount} XP from %{user}. New level: %{level} (Total XP: %{total_xp})"
+  xp_added: "Added `%{amount}` XP to %{user}. New level: %{level} (%{current}/%{needed})"
+  xp_removed: "Removed `%{amount}` XP from %{user}. New level: %{level} (%{current}/%{needed})"
   level_up: "**Congratulations %{user}!** You made it to level %{level}! <a:aMushroomJump:1407185627472203818> :sparkles:"
   rank: "Rank"
   level: "Level"
   total_xp: "Total XP"
+  frozen: "🧊 Frozen"
   progress: "Level progress"
   reward_role: "Reward role"
   none: "None"
@@ -27,7 +28,6 @@ level:
     leaderboard:
       description: "Show XP leaderboard"
       empty: "No XP data yet."
-      frozen: "🧊 XP has been frozen"
     add:
       description: "Add XP to a user"
       param_user: "User to add XP to"

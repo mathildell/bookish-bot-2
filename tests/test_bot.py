@@ -482,6 +482,7 @@ class LevelProgressTests(unittest.TestCase):
         def __init__(self, level: int, total_xp: int) -> None:
             self.level = level
             self.total_xp = total_xp
+            self.xp_frozen = False
 
     def _fields(self, level: int, total_xp: int) -> dict[str, str]:
         service = LevelRewardService(1)
