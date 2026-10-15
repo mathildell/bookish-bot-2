@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 
 from ..services.booster_role import resolve_notify_channel
+from ..services.members import resolve_members
 from ..services.reviews import (
     ReviewService,
     is_goodreads_feed_url,
@@ -18,6 +19,14 @@ from ..services.reviews import (
 )
 from ..texts import t
 from .checks import is_admin, require_admin
+from .listing import (
+    EMBEDS_PER_PAGE,
+    chunked,
+    new_embed,
+    send_paginated,
+    set_author,
+    set_transparent_image,
+)
 
 reviews_group = app_commands.Group(
     name="reviews",
@@ -41,12 +50,12 @@ def _service(interaction: discord.Interaction) -> ReviewService:
     return interaction.client.reviews
 
 
-@feed_group.command(name="set", description=t("reviews.feed.set.description"))
+@feed_group.command(name="add", description=t("reviews.feed.add.description"))
 @app_commands.describe(
-    url=t("reviews.feed.set.param_url"),
-    user=t("reviews.feed.set.param_user"),
+    url=t("reviews.feed.add.param_url"),
+    user=t("reviews.feed.add.param_user"),
 )
-async def set_feed(
+async def add_feed(
     interaction: discord.Interaction,
     url: str,
     user: discord.User | None = None,
@@ -60,17 +69,82 @@ async def set_feed(
 
     if not is_goodreads_feed_url(url):
         await interaction.response.send_message(
-            t("reviews.feed.set.invalid_url"), ephemeral=True
+            t("reviews.feed.add.invalid_url"), ephemeral=True
         )
         return
 
     _, changed = await _service(interaction).set_feed(target.id, url.strip())
     key = (
-        "reviews.feed.set.success_reset"
+        "reviews.feed.add.success_reset"
         if changed
-        else "reviews.feed.set.success"
+        else "reviews.feed.add.success"
     )
     await interaction.response.send_message(t(key, user=target.mention))
+
+
+@feed_group.command(name="remove", description=t("reviews.feed.remove.description"))
+@app_commands.describe(user=t("reviews.feed.remove.param_user"))
+async def remove_feed(
+    interaction: discord.Interaction,
+    user: discord.User | None = None,
+) -> None:
+    target = user if user is not None else interaction.user
+    if target.id != interaction.user.id and not is_admin(interaction):
+        await interaction.response.send_message(
+            t("components.permissions.no_permission"), ephemeral=True
+        )
+        return
+
+    if await _service(interaction).remove_feed(target.id):
+        await interaction.response.send_message(
+            t("reviews.feed.remove.success", user=target.mention)
+        )
+    else:
+        await interaction.response.send_message(
+            t("reviews.feed.remove.not_found", user=target.mention),
+            ephemeral=True,
+        )
+
+
+def _feed_embed(feed, member: discord.Member | None, client: discord.Client):
+    embed = new_embed(client)
+    name = member.display_name if member is not None else str(feed.discord_user_id)
+    set_author(embed, member, name)
+    embed.add_field(
+        name=t("reviews.feed.list.url_field"),
+        value=feed.feed_url,
+        inline=False,
+    )
+    set_transparent_image(embed, client)
+    return embed
+
+
+@feed_group.command(name="list", description=t("reviews.feed.list.description"))
+async def list_feeds(interaction: discord.Interaction) -> None:
+    if not await require_admin(interaction):
+        return
+
+    await interaction.response.defer(ephemeral=True)
+
+    feeds = await _service(interaction).all_feeds()
+    if not feeds:
+        await interaction.followup.send(
+            t("reviews.feed.list.empty"), ephemeral=True
+        )
+        return
+
+    members = await resolve_members(
+        interaction.guild, [feed.discord_user_id for feed in feeds]
+    )
+    embeds = [
+        _feed_embed(feed, member, interaction.client)
+        for feed, member in zip(feeds, members)
+    ]
+    await send_paginated(
+        interaction,
+        chunked(embeds, EMBEDS_PER_PAGE),
+        total_results=len(feeds),
+    )
 
 
 @channel_group.command(name="set", description=t("reviews.channel.set.description"))

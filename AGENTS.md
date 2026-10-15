@@ -83,7 +83,7 @@ bot/
     booster_role.py        /booster role ...
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
-    reviews.py             /reviews root group + feed/channel/repost
+    reviews.py             /reviews root group + feed add/remove/list, channel, repost
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
   services/

@@ -152,10 +152,22 @@ posted at most once every 24 hours. Reviews already on the feed when it is
 linked are never posted.
 
 ```
-/reviews feed set url: [user:]
+/reviews feed add url: [user:]
 ```
 **Permissions:** Admin (anyone) / Everyone (self only)
 Link a member's Goodreads `list_rss` reviews feed.
+
+```
+/reviews feed remove [user:]
+```
+**Permissions:** Admin (anyone) / Everyone (self only)
+Unlink a member's Goodreads reviews feed.
+
+```
+/reviews feed list
+```
+**Permissions:** 🔒 Admin
+Paginated list of every registered Goodreads reviews feed.
 
 ```
 /reviews channel set channel:

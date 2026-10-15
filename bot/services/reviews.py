@@ -475,6 +475,22 @@ class ReviewService:
             await session.refresh(row)
         return row, changed
 
+    async def remove_feed(self, discord_user_id: int) -> bool:
+        """Delete a member's feed and the tracking for its entries."""
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(ReviewFeed).where(
+                    ReviewFeed.discord_user_id == discord_user_id
+                )
+            )
+            await session.execute(
+                delete(ReviewEntry).where(
+                    ReviewEntry.discord_user_id == discord_user_id
+                )
+            )
+            await session.commit()
+        return result.rowcount > 0
+
     # ------------------------------------------------------------ entries
 
     async def force_repost(self, discord_user_id: int, entry_id: str) -> bool:

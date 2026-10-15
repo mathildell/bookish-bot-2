@@ -3,13 +3,22 @@ reviews:
   group_description: "Share members' new Goodreads reviews"
   feed:
     group_description: "Manage a member's Goodreads reviews feed"
-    set:
+    add:
       description: "Link a Goodreads reviews RSS feed"
       param_url: "Goodreads 'list_rss' reviews feed URL"
       param_user: "Member to set the feed for (admins only; defaults to you)"
       success: "Saved %{user}'s Goodreads feed."
       success_reset: "Saved %{user}'s Goodreads feed. Existing reviews won't be posted, only new ones."
       invalid_url: "That doesn't look like a Goodreads reviews RSS feed. Copy the URL from Goodreads under My Books, then the shelf's RSS link."
+    remove:
+      description: "Unlink a Goodreads reviews RSS feed"
+      param_user: "Member whose feed to remove (admins only; defaults to you)"
+      success: "Removed %{user}'s Goodreads feed."
+      not_found: "%{user} has no Goodreads feed registered."
+    list:
+      description: "List every registered Goodreads reviews feed"
+      empty: "No Goodreads feeds are registered."
+      url_field: "Feed URL"
   channel:
     group_description: "Where review updates are posted"
     set:
