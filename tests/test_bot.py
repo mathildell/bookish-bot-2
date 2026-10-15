@@ -721,20 +721,34 @@ class ImportOldIntrosTests(unittest.TestCase):
             "\n", rows[1].answers["Name & Pronouns"]
         )
 
-    def test_resolve_header_map_is_case_insensitive(self) -> None:
-        mapping, missing = import_old_intros.resolve_header_map(
-            ["Fun Fact", "name & pronouns"],
-            [(1, "Name & Pronouns"), (2, "Favorite Reads")],
+    def test_resolve_header_map_matches_ignoring_emojis(self) -> None:
+        mapping, unmatched, ambiguous = import_old_intros.resolve_header_map(
+            ["Favorite Reads", "name & pronouns"],
+            [(1, "📚 Favorite Reads"), (2, "🌸 Name & Pronouns 🌸")],
         )
-        self.assertEqual(mapping, {"name & pronouns": 1})
-        self.assertEqual(missing, ["Fun Fact"])
+        self.assertEqual(mapping, {"Favorite Reads": 1, "name & pronouns": 2})
+        self.assertEqual(unmatched, [])
+        self.assertEqual(ambiguous, [])
 
-    def test_resolve_header_map_reports_all_missing(self) -> None:
-        mapping, missing = import_old_intros.resolve_header_map(
-            ["A", "B"], []
+    def test_resolve_header_map_prefers_exact_match(self) -> None:
+        mapping, unmatched, ambiguous = import_old_intros.resolve_header_map(
+            ["Favorite Reads"],
+            [(1, "Favorite Reads"), (2, "Favorite Reads (fiction)")],
+        )
+        self.assertEqual(mapping, {"Favorite Reads": 1})
+        self.assertEqual(unmatched, [])
+        self.assertEqual(ambiguous, [])
+
+    def test_resolve_header_map_reports_unmatched_and_ambiguous(self) -> None:
+        mapping, unmatched, ambiguous = import_old_intros.resolve_header_map(
+            ["Fun Fact", "Reads"],
+            [(1, "Favorite Reads"), (2, "Recent Reads")],
         )
         self.assertEqual(mapping, {})
-        self.assertEqual(missing, ["A", "B"])
+        self.assertEqual(unmatched, ["Fun Fact"])
+        self.assertEqual(
+            ambiguous, [("Reads", ["Favorite Reads", "Recent Reads"])]
+        )
 
 
 FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>

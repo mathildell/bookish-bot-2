@@ -1,9 +1,13 @@
 """Import the old introduction posts into the new ``intro_posts`` table.
 
 Reads the CSV exported from the old bot (a ``User (ID)`` column followed by one
-column per question), creates any missing questions, posts each introduction to
-the configured intro channel as the related member, and records it so the member
-can edit or delete their own post.
+column per question), matches each column to an existing intro question in the
+database, posts each introduction to the configured intro channel as the related
+member, and records it so the member can edit or delete their own post.
+
+Questions are never created: a CSV column is matched to the database question
+whose text contains it (ignoring case, punctuation and emojis). Every column
+must resolve to exactly one question, otherwise the script aborts.
 
 Run it with the main bot stopped: a second gateway connection with the same
 token would briefly disconnect it, and the bot caches the sticky message id.
@@ -21,6 +25,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,27 +72,49 @@ def parse_csv(path: Path) -> tuple[list[str], list[OldIntro]]:
     return questions, rows
 
 
+def _normalize(text: str) -> str:
+    """Lowercase and keep only word characters, dropping emojis/punctuation."""
+    return " ".join(re.findall(r"\w+", text.lower()))
+
+
 def resolve_header_map(
     headers: list[str], existing: list[tuple[int, str]]
-) -> tuple[dict[str, int], list[str]]:
-    """Match CSV headers to question ids; report headers with no question.
+) -> tuple[dict[str, int], list[str], list[tuple[str, list[str]]]]:
+    """Match CSV headers to database questions by partial, normalized text.
 
-    Matching is case-insensitive on the question content, so an admin who
-    already configured the same questions doesn't get duplicates.
+    A header matches every question whose text contains it once emojis and
+    punctuation are stripped, so a database question like "Favorite Reads :books:"
+    still matches the CSV column "Favorite Reads". Returns the header -> id map,
+    the headers with no match, and the headers matching several questions.
     """
-    by_content: dict[str, int] = {}
-    for question_id, content in existing:
-        by_content.setdefault(content.strip().lower(), question_id)
+    candidates = [
+        (question_id, content, _normalize(content))
+        for question_id, content in existing
+    ]
 
     mapping: dict[str, int] = {}
-    missing: list[str] = []
+    unmatched: list[str] = []
+    ambiguous: list[tuple[str, list[str]]] = []
     for header in headers:
-        question_id = by_content.get(header.strip().lower())
-        if question_id is None:
-            missing.append(header)
+        needle = _normalize(header)
+        matches = [
+            (question_id, content)
+            for question_id, content, haystack in candidates
+            if needle and needle in haystack
+        ]
+        exact = [
+            (question_id, content)
+            for question_id, content in matches
+            if _normalize(content) == needle
+        ]
+        chosen = exact or matches
+        if len(chosen) == 1:
+            mapping[header] = chosen[0][0]
+        elif not chosen:
+            unmatched.append(header)
         else:
-            mapping[header] = question_id
-    return mapping, missing
+            ambiguous.append((header, [content for _, content in chosen]))
+    return mapping, unmatched, ambiguous
 
 
 async def _resolve_user(
@@ -193,21 +220,32 @@ async def run(args: argparse.Namespace) -> None:
     await service.reload()
 
     existing = await service.all_questions()
-    mapping, missing = resolve_header_map(
+    mapping, unmatched, ambiguous = resolve_header_map(
         headers, [(question.id, question.content) for question in existing]
     )
+    content_by_id = {question.id: question.content for question in existing}
 
     print(f"Guild: {guild_id}")
     print(f"Source: {args.path} ({len(rows)} introduction(s))")
-    print(f"Questions: {', '.join(headers)}")
-    if missing:
-        action = "will be created" if args.create_questions else "will be skipped"
-        print(f"Unmatched questions ({action}): {', '.join(missing)}")
-    if not args.create_questions:
-        for header in missing:
-            mapping.pop(header, None)
+    for header in headers:
+        if header in mapping:
+            print(f"  {header}  ->  {content_by_id[mapping[header]]}")
     print(f"Mode: {'dry-run' if args.dry_run else 'write'}"
           f"{', overwrite' if args.overwrite else ''}\n")
+
+    if unmatched:
+        print("No database question matches these CSV columns:")
+        for header in unmatched:
+            print(f"  {header}")
+    if ambiguous:
+        print("These CSV columns match several database questions:")
+        for header, contents in ambiguous:
+            print(f"  {header}: {', '.join(contents)}")
+    if unmatched or ambiguous:
+        print("\nAdd or rename the questions so each column matches exactly one,"
+              " then run the script again. No changes were written.")
+        await close_db()
+        return
 
     if args.dry_run:
         for row in rows:
@@ -215,12 +253,6 @@ async def run(args: argparse.Namespace) -> None:
         print("\nDry run: no changes written.")
         await close_db()
         return
-
-    if missing and args.create_questions:
-        for header in missing:
-            question = await service.add_question(header, None, True)
-            mapping[header] = question.id
-            print(f"  created question #{question.position}: {header}")
 
     if not service.channel_id:
         print("No intro channel is set; run /intro channel set first.")
@@ -282,14 +314,9 @@ def main() -> None:
         help="Re-import members who already have an introduction",
     )
     parser.add_argument(
-        "--no-create-questions", dest="create_questions", action="store_false",
-        help="Don't create questions that are missing (skip those columns)",
-    )
-    parser.add_argument(
         "--no-sticky", action="store_true",
         help="Don't repost the sticky message afterwards",
     )
-    parser.set_defaults(create_questions=True)
     args = parser.parse_args()
     asyncio.run(run(args))
 
