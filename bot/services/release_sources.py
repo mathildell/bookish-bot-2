@@ -472,18 +472,25 @@ class ReleaseScraper:
         except ImportError as exc:
             raise BookScrapeError("releases.errors.browser_missing") from exc
 
-        self._playwright = await async_playwright().start()
-        self._browser = await self._playwright.chromium.launch(
-            headless=self._headless
-        )
-        self._context = await self._browser.new_context(
-            locale="en-US",
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-        )
+        try:
+            self._playwright = await async_playwright().start()
+            self._browser = await self._playwright.chromium.launch(
+                headless=self._headless
+            )
+            self._context = await self._browser.new_context(
+                locale="en-US",
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+            )
+        except Exception as exc:
+            logger.error(
+                "Could not launch the release scraper browser: %s", exc
+            )
+            await self.close()
+            raise BookScrapeError("releases.errors.browser_missing") from exc
 
     async def close(self) -> None:
         for closer in (self._context, self._browser):
@@ -493,7 +500,12 @@ class ReleaseScraper:
                 except Exception:  # pragma: no cover - best effort teardown
                     logger.debug("Error closing scraper resource", exc_info=True)
         if self._playwright is not None:
-            await self._playwright.stop()
+            try:
+                await self._playwright.stop()
+            except Exception:  # pragma: no cover - best effort teardown
+                logger.debug(
+                    "Error stopping Playwright", exc_info=True
+                )
         self._context = None
         self._browser = None
         self._playwright = None
@@ -507,24 +519,13 @@ class ReleaseScraper:
         return build_book_data(url, source, source_id, parse_book_html(source, html))
 
     async def _load_html(self, url: str, source: str) -> str:
-        from playwright.async_api import (
-            Error as PlaywrightError,
-            TimeoutError as PlaywrightTimeoutError,
-        )
+        from playwright.async_api import Error as PlaywrightError
 
         page = await self._context.new_page()
         try:
-            try:
-                await page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=self._timeout_ms,
-                )
-            except PlaywrightTimeoutError as exc:
-                raise BookScrapeError("releases.errors.scrape_failed") from exc
-            except PlaywrightError as exc:
-                raise BookScrapeError("releases.errors.scrape_failed") from exc
-
+            await page.goto(
+                url, wait_until="domcontentloaded", timeout=self._timeout_ms
+            )
             if source == "netgalley":
                 await self._dismiss_consent(page)
 
@@ -533,21 +534,25 @@ class ReleaseScraper:
             )
             try:
                 await page.wait_for_selector(selector, timeout=15000)
-            except (PlaywrightTimeoutError, PlaywrightError):
+            except PlaywrightError:
                 pass
             return await page.content()
+        except BookScrapeError:
+            raise
+        except PlaywrightError as exc:
+            raise BookScrapeError("releases.errors.scrape_failed") from exc
         finally:
-            await page.close()
+            try:
+                await page.close()
+            except PlaywrightError:
+                pass
 
     async def _dismiss_consent(self, page) -> None:
-        from playwright.async_api import (
-            Error as PlaywrightError,
-            TimeoutError as PlaywrightTimeoutError,
-        )
+        from playwright.async_api import Error as PlaywrightError
 
         try:
             await page.locator(
                 '[data-testid="uc-accept-all-button"]'
             ).click(timeout=3000)
-        except (PlaywrightTimeoutError, PlaywrightError):
+        except PlaywrightError:
             pass

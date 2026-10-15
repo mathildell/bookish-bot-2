@@ -7,6 +7,7 @@ Permissions:
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from math import ceil
 
@@ -24,6 +25,8 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import EMBEDS_PER_PAGE, Paginator, chunked, send_paginated
+
+logger = logging.getLogger("bh2.releases")
 
 releases_group = app_commands.Group(
     name="releases",
@@ -56,6 +59,12 @@ async def _scrape(
     except BookScrapeError as exc:
         await interaction.followup.send(
             t(exc.key, **exc.variables), ephemeral=True
+        )
+        return None
+    except Exception:
+        logger.exception("Unexpected error scraping %s", url)
+        await interaction.followup.send(
+            t("releases.errors.scrape_failed"), ephemeral=True
         )
         return None
 

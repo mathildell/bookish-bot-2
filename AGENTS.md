@@ -41,6 +41,10 @@ Dependencies live in the repo-local virtualenv (`.venv`):
 .venv/bin/playwright install chromium  # browser used by the book release scraper
 ```
 
+On Linux the browser also needs system libraries; `update.sh` runs
+`playwright install-deps chromium` (via sudo) for that. Without them Chromium
+fails with "error while loading shared libraries".
+
 Configuration is a single `config.yaml` (gitignored). Copy the example and fill
 it in:
 
