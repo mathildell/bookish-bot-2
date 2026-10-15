@@ -78,7 +78,7 @@ def _progress_fields(
     role = guild.get_role(role_id) if guild and role_id else None
     total_xp = f"{user_xp.total_xp} XP"
     if user_xp.xp_frozen:
-        total_xp += f"\n{t('level.frozen')}"
+        total_xp += t('level.frozen')
 
     return [
         (t("level.progress"), t("level.xp.level.progress", current=current, needed=needed)),

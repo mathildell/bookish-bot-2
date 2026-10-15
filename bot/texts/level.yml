@@ -8,7 +8,7 @@ level:
   rank: "Rank"
   level: "Level"
   total_xp: "Total XP"
-  frozen: "🧊 Frozen"
+  frozen: "🧊"
   progress: "Level progress"
   reward_role: "Reward role"
   none: "None"
