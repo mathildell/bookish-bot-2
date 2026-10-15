@@ -15,6 +15,9 @@ Implemented features:
   reward role.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
+- **Introductions** — admins configure an intro channel and its questions; a
+  sticky message's button lets members post (and later edit) a single
+  introduction.
 - **Pinned forum reference** — when a new thread/post is created in the
   configured forum channel, repost a fixed reference message into it and pin it.
 - **Bot speaks** — `/say` lets admins post a message as the bot into any
@@ -80,15 +83,17 @@ bot/
   config.py                config.yaml loader
   db.py                    async engine/session helpers
   models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
-                           LevelReward, ReviewFeed, ReviewEntry, ReviewSetting)
+                           LevelReward, ReviewFeed, ReviewEntry, ReviewSetting,
+                           IntroQuestion, IntroSetting, IntroPost)
   notifications.py         level-up announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...
-    booster_role.py        /booster role ...
+    booster_role.py       /booster role ...
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
+    intro.py               /intro group + sticky button/modal + question manager
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
@@ -101,6 +106,7 @@ bot/
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads
     reviews.py             Goodreads RSS fetch/parse + review poll
+    intro.py               intro channel/questions/answers + embed building
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
 scripts/                   one-off utilities (e.g. import_old_xp.py)

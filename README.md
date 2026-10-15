@@ -182,6 +182,40 @@ Set the channel where review updates are posted.
 Force the bot to repost a review immediately, even if the Goodreads feed entry
 has not changed.
 
+## Introductions
+
+Admins configure an intro channel and the questions for the intro form. A
+sticky message in the channel holds a button members use to post (or edit)
+their introduction. A member can have a single introduction; editing updates
+the existing post. The embed is authored by the member and shows one field per
+question. Configure the channel to be read-only for members so only the bot can
+post there.
+
+```
+/intro channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set the channel where introductions are posted and post the sticky message.
+
+```
+/intro sticky
+```
+**Permissions:** 🔒 Admin
+Delete and repost the sticky introduction message.
+
+```
+/intro questions add content: [placeholder:] [active:]
+```
+**Permissions:** 🔒 Admin
+Add a question to the intro form.
+
+```
+/intro questions list
+```
+**Permissions:** 🔒 Admin
+List and manage the questions: select one to edit, toggle it active, reorder it,
+or remove it. Only the first 5 active questions are shown in the form.
+
 ## Admin tools
 
 Fun tools for admins.

@@ -184,3 +184,70 @@ class ReviewSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class IntroQuestion(Base):
+    """A question shown in the introduction form (posted by admins)."""
+
+    __tablename__ = "intro_questions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    placeholder: Mapped[str | None] = mapped_column(Text, nullable=True)
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    active: Mapped[bool] = mapped_column(default=True, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IntroSetting(Base):
+    """Per-guild settings for the introduction feature (channel + sticky message)."""
+
+    __tablename__ = "intro_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    sticky_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class IntroPost(Base):
+    """A member's posted introduction and the answers they gave."""
+
+    __tablename__ = "intro_posts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # The member's Discord user id (snowflake)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # The member's answers keyed by question id (as strings): {question_id: answer}
+    answers: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    first_posted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_edited_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_intro_posts_guild_user_unique", "guild_id", "user_id", unique=True),
+    )

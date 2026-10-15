@@ -6,6 +6,7 @@ components:
     next: "Next"
     next_emoji: "<:chevronNext:1559682424940797992>"
     page_x_of_y: "Page %{current} of %{total} • %{results} results"
-    not_author: "Only the command author can use these buttons."
+  # Shared by any component whose buttons are usable only by the invoker.
+  not_author: "Only the command author can use these buttons."
   permissions:
     no_permission: "You don't have permission to do that <:BunnySad:1407224572100608150>"

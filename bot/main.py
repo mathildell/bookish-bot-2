@@ -16,6 +16,12 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
+from .commands.intro import (
+    IntroduceView,
+    intro_group,
+    repost_sticky,
+    resolve_intro_channel,
+)
 from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
 from .commands.ping import ping_command
@@ -27,6 +33,7 @@ from .notifications import announce_level_up
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
+from .services.intro import IntroService
 from .services.level_rewards import LevelRewardService, sync_member_roles
 from .services.reference import post_reference
 from .services.reviews import ReviewService
@@ -34,6 +41,19 @@ from .services.reviews import ReviewService
 logger = logging.getLogger("bh2")
 
 XP_COOLDOWN_SECONDS = 60
+
+
+async def _sticky_exists(
+    channel: discord.TextChannel, intros: IntroService
+) -> bool:
+    """Whether the stored intro sticky message still exists in the channel."""
+    if not intros.sticky_message_id:
+        return False
+    try:
+        await channel.fetch_message(intros.sticky_message_id)
+        return True
+    except discord.HTTPException:
+        return False
 
 
 async def _award_message_xp(
@@ -92,6 +112,7 @@ async def run() -> None:
     booster_roles = BoosterRoleService()
     level_rewards = LevelRewardService(int(config.guild_id))
     reviews = ReviewService(int(config.guild_id))
+    intros = IntroService(int(config.guild_id))
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -102,6 +123,9 @@ async def run() -> None:
     bot.booster_roles = booster_roles
     bot.level_rewards = level_rewards
     bot.reviews = reviews
+    bot.intros = intros
+    # Persistent button on the intro sticky message (works after restarts).
+    bot.add_view(IntroduceView())
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )
@@ -121,6 +145,7 @@ async def run() -> None:
     guild = discord.Object(id=int(config.guild_id))
     bot.tree.add_command(xp_group, guild=guild)
     bot.tree.add_command(reviews_group, guild=guild)
+    bot.tree.add_command(intro_group, guild=guild)
     bot.tree.add_command(say_command, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
 
@@ -221,6 +246,13 @@ async def run() -> None:
 
         await reviews.reload()
         logger.info("Review channel: %s", reviews.channel_id)
+
+        await intros.reload()
+        logger.info("Intro channel: %s", intros.channel_id)
+        channel = await resolve_intro_channel(bot, intros.channel_id)
+        if channel is not None and not await _sticky_exists(channel, intros):
+            await repost_sticky(bot, channel)
+            logger.info("Reposted missing intro sticky message")
 
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()

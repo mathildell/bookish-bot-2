@@ -38,6 +38,7 @@ from bot.services.booster_react import (
 )
 from bot.services import reviews as reviews_service
 from bot.services import reference as reference_service
+from bot.services import intro as intro_service
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
 from bot.services.reviews import FeedData, FeedEntry
@@ -1174,6 +1175,109 @@ class PostReferenceTests(unittest.IsolatedAsyncioTestCase):
         target = FakeReferenceTarget(pin_fail=True)
         self.assertTrue(await reference_service.post_reference(bot, target))
         self.assertFalse(target.messages[0].pinned)
+
+
+class FakeIntroQuestion:
+    def __init__(
+        self,
+        question_id: int,
+        content: str,
+        active: bool = True,
+        placeholder: str | None = None,
+    ) -> None:
+        self.id = question_id
+        self.content = content
+        self.active = active
+        self.placeholder = placeholder
+
+
+class FakeIntroAvatar:
+    url = "https://example.com/avatar.png"
+
+
+class FakeIntroUser:
+    name = "alice"
+    id = 42
+    display_avatar = FakeIntroAvatar()
+
+
+class SelectModalQuestionsTests(unittest.TestCase):
+    def test_keeps_only_active_and_caps_at_five(self) -> None:
+        questions = [
+            FakeIntroQuestion(i, f"Q{i}", active=(i % 2 == 0))
+            for i in range(1, 11)
+        ]
+        selected = intro_service.select_modal_questions(questions)
+        self.assertEqual(len(selected), 5)
+        self.assertTrue(all(question.active for question in selected))
+        self.assertEqual([question.id for question in selected], [2, 4, 6, 8, 10])
+
+    def test_preserves_given_order(self) -> None:
+        questions = [
+            FakeIntroQuestion(3, "c"),
+            FakeIntroQuestion(1, "a"),
+            FakeIntroQuestion(2, "b"),
+        ]
+        selected = intro_service.select_modal_questions(questions)
+        self.assertEqual([question.id for question in selected], [3, 1, 2])
+
+
+class BlankAnswerTests(unittest.TestCase):
+    def test_is_not_just_whitespace(self) -> None:
+        # Discord drops an all-whitespace field value, so the placeholder must
+        # contain a non-space character to keep the field visible.
+        self.assertTrue(intro_service.blank_answer().strip())
+
+
+class BuildIntroEmbedTests(unittest.TestCase):
+    def _questions(self) -> list[FakeIntroQuestion]:
+        return [
+            FakeIntroQuestion(1, "Name", placeholder="Your name"),
+            FakeIntroQuestion(2, "Favourite book"),
+        ]
+
+    def test_layout(self) -> None:
+        first = datetime.datetime(2026, 10, 1, 12, 0, 0)
+        edited = datetime.datetime(2026, 10, 2, 13, 30, 0)
+        embed = intro_service.build_intro_embed(
+            FakeIntroUser(), self._questions(), {"1": "Alice"}, first, edited, FakeClient
+        )
+        self.assertIsNone(embed.title)
+        self.assertEqual(embed.author.name, "alice")
+        self.assertEqual(embed.author.icon_url, "https://example.com/avatar.png")
+        self.assertEqual(
+            [field.name for field in embed.fields], ["Name", "Favourite book"]
+        )
+        self.assertEqual(embed.fields[0].value, "Alice")
+        self.assertEqual(embed.fields[1].value, intro_service.blank_answer())
+        self.assertFalse(embed.fields[0].inline)
+        self.assertFalse(embed.fields[1].inline)
+        self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
+        self.assertEqual(embed.colour.value, 0x97A97C)
+
+    def test_footer_has_both_timestamps(self) -> None:
+        first = datetime.datetime(2026, 10, 1, 12, 0, 0)
+        edited = datetime.datetime(2026, 10, 2, 13, 30, 0)
+        embed = intro_service.build_intro_embed(
+            FakeIntroUser(), self._questions(), {}, first, edited, FakeClient
+        )
+        posted = int(first.replace(tzinfo=datetime.timezone.utc).timestamp())
+        last = int(edited.replace(tzinfo=datetime.timezone.utc).timestamp())
+        self.assertEqual(
+            embed.footer.text,
+            t("intro.embed.footer", posted=f"<t:{posted}:f>", edited=f"<t:{last}:f>"),
+        )
+
+    def test_empty_answer_falls_back_to_blank(self) -> None:
+        embed = intro_service.build_intro_embed(
+            FakeIntroUser(),
+            [FakeIntroQuestion(1, "Name")],
+            {"1": "   "},
+            datetime.datetime(2026, 10, 1),
+            datetime.datetime(2026, 10, 1),
+            FakeClient,
+        )
+        self.assertEqual(embed.fields[0].value, intro_service.blank_answer())
 
 
 class ParseMessageIdTests(unittest.TestCase):

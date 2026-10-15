@@ -1,0 +1,63 @@
+# Texts for the introduction form feature.
+intro:
+  group_description: "Manage the introduction channel and form"
+  # Placeholder shown in an intro embed for a question left unanswered.
+  blank_answer: " ‎ "
+  channel:
+    group_description: "Where introductions are posted"
+    set:
+      description: "Set the channel where introductions are posted"
+      param_channel: "Channel for member introductions"
+      success: "Introductions will be posted in %{channel}."
+      failed: "I couldn't post the sticky message in %{channel}. Check I can send messages and view the channel."
+  sticky:
+    description: "Repost the sticky introduction message"
+    reposted: "Reposted the sticky introduction message."
+    button: "Introduce yourself"
+    text: "Want to introduce yourself? Click the button below to post (or edit) your introduction."
+  questions:
+    group_description: "Manage the questions asked in the intro form"
+    select_placeholder: "Choose a question"
+    add:
+      description: "Add a question to the intro form"
+      param_content: "The question's text"
+      param_placeholder: "Text's helper to help the member answer"
+      param_active: "Whether the question is active"
+      success: "Added question #%{position}."
+    edit:
+      modal_title: "Edit question"
+      success: "Saved the question."
+      param_content: "The question's text"
+      param_placeholder: "Text's helper to help the member answer (leave empty to clear)"
+    list:
+      description: "List and manage the questions in the intro form"
+      title: "Questions from the intro form"
+      empty: "No questions have been added yet."
+      disclaimer: "Only the first 5 active questions are shown in the form; the others are never posted."
+      line: "Position %{position} • %{active} • %{status}"
+      placeholder: "Placeholder: %{placeholder}"
+      active: "Active"
+      inactive: "Inactive"
+      posted: "Shown in the form"
+      not_posted: "Not shown"
+    remove:
+      success: "Removed the question."
+    disabled_now: "That question is now inactive and won't be shown in the form."
+    disabled_active: "That question is now active."
+    button:
+      edit: "Edit"
+      toggle_active: "Toggle active"
+      move_up: "Move up"
+      move_down: "Move down"
+      remove: "Remove"
+  modal:
+    title: "Introduce yourself!"
+  post:
+    created: "Your introduction was posted. You can edit it any time with the sticky button."
+    edited: "Your introduction was updated."
+    failed: "I couldn't post your introduction. Please try again later."
+  errors:
+    no_channel: "No introduction channel is set up yet."
+    no_questions: "The introduction form has no questions yet."
+  embed:
+    footer: "First posted %{posted} • Last edited %{edited}"
