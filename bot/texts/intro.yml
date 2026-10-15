@@ -23,7 +23,8 @@ intro:
       param_content: "The question's text"
       param_placeholder: "Text's helper to help the member answer"
       param_active: "Whether the question is active"
-      success: "Added question #%{position}."
+      success: "Added question #%{position}:\n**%{content}**"
+      success_placeholder: "Added question #%{position}:\n**%{content}**\n-# %{placeholder}"
     edit:
       modal_title: "Edit question"
       success: "Saved the question."

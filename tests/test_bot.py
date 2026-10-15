@@ -23,6 +23,7 @@ from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
 from bot.commands import level as level_cmds
 from bot.commands import say as say_cmds
+from bot.commands import intro as intro_cmds
 from bot.commands.listing import (
     Paginator,
     boost_value,
@@ -1278,6 +1279,59 @@ class BuildIntroEmbedTests(unittest.TestCase):
             FakeClient,
         )
         self.assertEqual(embed.fields[0].value, intro_service.blank_answer())
+
+
+class QuestionsViewTests(unittest.TestCase):
+    def _view(
+        self, questions: list[FakeIntroQuestion]
+    ) -> "intro_cmds.QuestionsView":
+        return intro_cmds.QuestionsView(
+            intro_service.IntroService(1), author_id=1, questions=questions
+        )
+
+    def _buttons(self, view) -> list:
+        return [
+            child for child in view.children if isinstance(child, discord.ui.Button)
+        ]
+
+    def test_all_buttons_are_added(self) -> None:
+        view = self._view([FakeIntroQuestion(1, "Name")])
+        labels = [button.label for button in self._buttons(view)]
+        self.assertEqual(
+            labels,
+            [
+                t("intro.questions.button.edit"),
+                t("intro.questions.button.toggle_active"),
+                t("intro.questions.button.move_up"),
+                t("intro.questions.button.move_down"),
+                t("intro.questions.button.remove"),
+            ],
+        )
+
+    def test_buttons_disabled_until_selected(self) -> None:
+        view = self._view([FakeIntroQuestion(1, "Name")])
+        self.assertTrue(all(button.disabled for button in self._buttons(view)))
+
+    def test_move_buttons_disabled_at_boundaries(self) -> None:
+        questions = [FakeIntroQuestion(1, "a"), FakeIntroQuestion(2, "b")]
+        view = self._view(questions)
+        view.selected_id = 1
+        view.sync()
+        self.assertTrue(view.up_button.disabled)
+        self.assertFalse(view.down_button.disabled)
+        view.selected_id = 2
+        view.sync()
+        self.assertFalse(view.up_button.disabled)
+        self.assertTrue(view.down_button.disabled)
+
+    def test_single_question_disables_both_move_buttons(self) -> None:
+        view = self._view([FakeIntroQuestion(1, "only")])
+        view.selected_id = 1
+        view.sync()
+        self.assertTrue(view.up_button.disabled)
+        self.assertTrue(view.down_button.disabled)
+        self.assertFalse(view.edit_button.disabled)
+        self.assertFalse(view.remove_button.disabled)
 
 
 class ParseMessageIdTests(unittest.TestCase):

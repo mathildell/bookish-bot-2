@@ -312,9 +312,20 @@ async def add_question(
         (placeholder or "").strip() or None,
         active,
     )
-    await interaction.response.send_message(
-        t("intro.questions.add.success", position=row.position), ephemeral=True
-    )
+    if row.placeholder:
+        message = t(
+            "intro.questions.add.success_placeholder",
+            position=row.position,
+            content=row.content,
+            placeholder=row.placeholder,
+        )
+    else:
+        message = t(
+            "intro.questions.add.success",
+            position=row.position,
+            content=row.content,
+        )
+    await interaction.response.send_message(message, ephemeral=True)
 
 
 def _question_embed(view: "QuestionsView", client: discord.Client) -> discord.Embed:
@@ -416,6 +427,14 @@ class QuestionsView(discord.ui.View):
             2,
             self._on_remove,
         )
+        for button in (
+            self.edit_button,
+            self.toggle_button,
+            self.up_button,
+            self.down_button,
+            self.remove_button,
+        ):
+            self.add_item(button)
         self.sync()
 
     @staticmethod
@@ -442,14 +461,22 @@ class QuestionsView(discord.ui.View):
             for question in self.questions[:QUESTION_SELECT_LIMIT]
         ]
         self.select.disabled = not self.questions
-        for button in (
-            self.edit_button,
-            self.toggle_button,
-            self.up_button,
-            self.down_button,
-            self.remove_button,
-        ):
-            button.disabled = self.selected_id is None
+        index = next(
+            (
+                i
+                for i, question in enumerate(self.questions)
+                if question.id == self.selected_id
+            ),
+            None,
+        )
+        selected = index is not None
+        self.edit_button.disabled = not selected
+        self.toggle_button.disabled = not selected
+        self.remove_button.disabled = not selected
+        self.up_button.disabled = not selected or index == 0
+        self.down_button.disabled = (
+            not selected or index == len(self.questions) - 1
+        )
 
     async def reload(self) -> None:
         self.questions = await self.service.all_questions()
