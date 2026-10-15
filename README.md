@@ -147,7 +147,7 @@ Reapply reward roles so they match every member's current level.
 ## Book reviews
 
 Members link their Goodreads reviews RSS feed; the bot polls the feeds every
-10 minutes and posts new reviews to the configured channel. Each review is
+5 minutes and posts new reviews to the configured channel. Each review is
 posted at most once every 24 hours. Reviews already on the feed when it is
 linked are never posted.
 

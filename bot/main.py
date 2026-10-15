@@ -172,7 +172,7 @@ async def run() -> None:
         await bot.wait_until_ready()
 
     # ------------------- Goodreads review updates -------------------
-    @tasks.loop(minutes=10)
+    @tasks.loop(minutes=5)
     async def poll_reviews() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:

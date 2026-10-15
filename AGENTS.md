@@ -13,7 +13,7 @@ Implemented features:
   to them.
 - **Levels** — members earn XP from messages; each level grants the configured
   reward role.
-- **Book reviews** — poll members' Goodreads RSS feeds every 10 minutes and post
+- **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
 
 The list of commands from the bot lives in the README.md.
