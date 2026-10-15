@@ -94,7 +94,7 @@ class IntroduceView(discord.ui.View):
     @discord.ui.button(
         label=t("intro.sticky.button"),
         emoji=t("intro.sticky.button_emoji"),
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         custom_id="intro:open",
     )
     async def open_intro(
