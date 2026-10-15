@@ -412,6 +412,7 @@ class QuestionsView(discord.ui.View):
             discord.ButtonStyle.secondary,
             2,
             self._on_up,
+            emoji=t("intro.questions.button.move_up_emoji"),
         )
         self.down_button = self._button(
             "down",
@@ -419,6 +420,7 @@ class QuestionsView(discord.ui.View):
             discord.ButtonStyle.secondary,
             2,
             self._on_down,
+            emoji=t("intro.questions.button.move_down_emoji"),
         )
         self.remove_button = self._button(
             "remove",
@@ -438,9 +440,9 @@ class QuestionsView(discord.ui.View):
         self.sync()
 
     @staticmethod
-    def _button(custom_id, label, style, row, callback) -> discord.ui.Button:
+    def _button(custom_id, label, style, row, callback, emoji=None) -> discord.ui.Button:
         button = discord.ui.Button(
-            label=label, style=style, row=row, custom_id=custom_id
+            label=label, style=style, row=row, custom_id=custom_id, emoji=emoji
         )
         button.callback = callback
         return button

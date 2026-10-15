@@ -49,7 +49,9 @@ intro:
       edit: "Edit"
       toggle_active: "Toggle active"
       move_up: "Move up"
+      move_up_emoji: "⬆️"
       move_down: "Move down"
+      move_down_emoji: "⬇️"
       remove: "Remove"
   modal:
     title: "Introduce yourself!"
