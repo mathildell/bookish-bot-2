@@ -13,8 +13,24 @@ intro:
   sticky:
     description: "Repost the sticky introduction message"
     reposted: "Reposted the sticky introduction message."
-    button: "Introduce yourself"
+    button: "Post/Edit your introduction"
+    button_emoji: "✏️"
     text: "Want to introduce yourself? Click the button below to post (or edit) your introduction."
+  refresh:
+    button: "Refresh"
+    button_emoji: "🔄"
+    not_found: "I couldn't find the introduction for this post."
+  delete:
+    button: "Delete"
+    button_emoji: "🗑️"
+    confirm: "Are you sure you want to delete your introduction? This cannot be undone."
+    confirm_button: "Delete"
+    cancel_button: "Cancel"
+    done: "Your introduction was deleted."
+    cancelled: "No changes were made."
+    failed: "I couldn't delete your introduction. Please try again later."
+    not_author: "Only the author of this introduction can delete it."
+    not_found: "I couldn't find the introduction for this post."
   questions:
     group_description: "Manage the questions asked in the intro form"
     select_placeholder: "Choose a question"
@@ -62,5 +78,3 @@ intro:
   errors:
     no_channel: "No introduction channel is set up yet."
     no_questions: "The introduction form has no questions yet."
-  embed:
-    footer: "First posted %{posted} • Last edited %{edited}"

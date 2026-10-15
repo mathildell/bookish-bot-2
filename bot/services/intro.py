@@ -4,8 +4,9 @@ Ported from the old Ruby "Introduction" feature:
 - admins add ordered, toggleable questions;
 - a sticky message in the intro channel opens a modal form via a button;
 - each member posts at most one introduction, which they can edit afterwards;
-- introductions are embeds authored by the member, with the question as field
-  label and their answer as field value.
+- introductions are embeds titled with the member's display name and their
+  avatar as a thumbnail, with the question as field label and their answer as
+  field value.
 """
 
 from __future__ import annotations
@@ -43,26 +44,34 @@ def _truncate(value: str, limit: int) -> str:
     return value[: limit - 1].rstrip() + "…"
 
 
-def _timestamp(value) -> str:
-    return f"<t:{int(value.replace(tzinfo=timezone.utc).timestamp())}:f>"
+def _utc(value):
+    """Attach UTC to a naive datetime so Discord renders it correctly."""
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 
 def build_intro_embed(
     user: discord.abc.User,
     questions: list,
     answers: dict,
-    first_posted_at,
     last_edited_at,
     client: discord.Client,
 ) -> discord.Embed:
     """Build the embed posted for a member's introduction."""
-    embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
-
-    avatar = getattr(user, "display_avatar", None)
-    embed.set_author(
-        name=discord.utils.escape_markdown(getattr(user, "name", str(user.id))),
-        icon_url=getattr(avatar, "url", None),
+    embed = discord.Embed(
+        colour=getattr(client, "default_embed_color", None),
+        timestamp=_utc(last_edited_at),
     )
+
+    embed.title = discord.utils.escape_markdown(
+        getattr(user, "display_name", None)
+        or getattr(user, "name", str(user.id))
+    )
+    avatar = getattr(user, "display_avatar", None)
+    avatar_url = getattr(avatar, "url", None)
+    if avatar_url:
+        embed.set_thumbnail(url=avatar_url)
 
     for question in questions:
         answer = (answers.get(str(question.id)) or "").strip() or blank_answer()
@@ -76,13 +85,6 @@ def build_intro_embed(
     if image:
         embed.set_image(url=image)
 
-    embed.set_footer(
-        text=t(
-            "intro.embed.footer",
-            posted=_timestamp(first_posted_at),
-            edited=_timestamp(last_edited_at),
-        )
-    )
     return embed
 
 
@@ -294,6 +296,17 @@ class IntroService:
                 )
             ).scalar_one_or_none()
 
+    async def get_post_by_message(self, message_id: int) -> IntroPost | None:
+        async with session_scope() as session:
+            return (
+                await session.execute(
+                    select(IntroPost).where(
+                        IntroPost.guild_id == self.guild_id,
+                        IntroPost.message_id == message_id,
+                    )
+                )
+            ).scalar_one_or_none()
+
     async def create_post(
         self,
         user_id: int,
@@ -335,3 +348,11 @@ class IntroService:
             await session.commit()
             await session.refresh(row)
         return row
+
+    async def delete_post(self, post_id: int) -> bool:
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(IntroPost).where(IntroPost.id == post_id)
+            )
+            await session.commit()
+        return result.rowcount > 0

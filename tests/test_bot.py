@@ -1198,6 +1198,7 @@ class FakeIntroAvatar:
 
 class FakeIntroUser:
     name = "alice"
+    display_name = "Alice"
     id = 42
     display_avatar = FakeIntroAvatar()
 
@@ -1238,14 +1239,13 @@ class BuildIntroEmbedTests(unittest.TestCase):
         ]
 
     def test_layout(self) -> None:
-        first = datetime.datetime(2026, 10, 1, 12, 0, 0)
         edited = datetime.datetime(2026, 10, 2, 13, 30, 0)
         embed = intro_service.build_intro_embed(
-            FakeIntroUser(), self._questions(), {"1": "Alice"}, first, edited, FakeClient
+            FakeIntroUser(), self._questions(), {"1": "Alice"}, edited, FakeClient
         )
-        self.assertIsNone(embed.title)
-        self.assertEqual(embed.author.name, "alice")
-        self.assertEqual(embed.author.icon_url, "https://example.com/avatar.png")
+        self.assertEqual(embed.title, "Alice")
+        self.assertIsNone(embed.author.name)
+        self.assertEqual(embed.thumbnail.url, "https://example.com/avatar.png")
         self.assertEqual(
             [field.name for field in embed.fields], ["Name", "Favourite book"]
         )
@@ -1256,17 +1256,14 @@ class BuildIntroEmbedTests(unittest.TestCase):
         self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
         self.assertEqual(embed.colour.value, 0x97A97C)
 
-    def test_footer_has_both_timestamps(self) -> None:
-        first = datetime.datetime(2026, 10, 1, 12, 0, 0)
+    def test_timestamp_is_the_last_edit_in_utc(self) -> None:
         edited = datetime.datetime(2026, 10, 2, 13, 30, 0)
         embed = intro_service.build_intro_embed(
-            FakeIntroUser(), self._questions(), {}, first, edited, FakeClient
+            FakeIntroUser(), self._questions(), {}, edited, FakeClient
         )
-        posted = int(first.replace(tzinfo=datetime.timezone.utc).timestamp())
-        last = int(edited.replace(tzinfo=datetime.timezone.utc).timestamp())
         self.assertEqual(
-            embed.footer.text,
-            t("intro.embed.footer", posted=f"<t:{posted}:f>", edited=f"<t:{last}:f>"),
+            embed.timestamp,
+            edited.replace(tzinfo=datetime.timezone.utc),
         )
 
     def test_empty_answer_falls_back_to_blank(self) -> None:
@@ -1274,7 +1271,6 @@ class BuildIntroEmbedTests(unittest.TestCase):
             FakeIntroUser(),
             [FakeIntroQuestion(1, "Name")],
             {"1": "   "},
-            datetime.datetime(2026, 10, 1),
             datetime.datetime(2026, 10, 1),
             FakeClient,
         )
@@ -1332,6 +1328,39 @@ class QuestionsViewTests(unittest.TestCase):
         self.assertTrue(view.down_button.disabled)
         self.assertFalse(view.edit_button.disabled)
         self.assertFalse(view.remove_button.disabled)
+
+
+class IntroRefreshViewTests(unittest.TestCase):
+    def test_has_refresh_and_delete_buttons(self) -> None:
+        view = intro_cmds.IntroRefreshView()
+        buttons = {
+            child.custom_id: child
+            for child in view.children
+            if isinstance(child, discord.ui.Button)
+        }
+        self.assertEqual(set(buttons), {"intro:refresh", "intro:delete"})
+        self.assertEqual(buttons["intro:refresh"].label, t("intro.refresh.button"))
+        self.assertEqual(buttons["intro:delete"].label, t("intro.delete.button"))
+
+
+class DeleteConfirmViewTests(unittest.TestCase):
+    class _Post:
+        channel_id = 10
+        message_id = 20
+        id = 1
+
+    def test_has_confirm_and_cancel_buttons(self) -> None:
+        view = intro_cmds.DeleteConfirmView(
+            intro_service.IntroService(1), self._Post(), author_id=42
+        )
+        buttons = [
+            child for child in view.children if isinstance(child, discord.ui.Button)
+        ]
+        self.assertEqual(len(buttons), 2)
+        self.assertEqual(
+            buttons[0].label, t("intro.delete.confirm_button")
+        )
+        self.assertEqual(buttons[1].label, t("intro.delete.cancel_button"))
 
 
 class ParseMessageIdTests(unittest.TestCase):

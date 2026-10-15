@@ -18,6 +18,7 @@ from discord.ext import commands, tasks
 from .commands.booster import register_commands
 from .commands.intro import (
     IntroduceView,
+    IntroRefreshView,
     intro_group,
     repost_sticky,
     resolve_intro_channel,
@@ -126,6 +127,8 @@ async def run() -> None:
     bot.intros = intros
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
+    # Persistent refresh button on every intro embed (shares one custom id).
+    bot.add_view(IntroRefreshView())
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )

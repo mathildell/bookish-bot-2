@@ -18,6 +18,7 @@ from ..services.intro import (
     select_modal_questions,
 )
 from ..services.level import utcnow
+from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import new_embed, set_transparent_image
@@ -82,6 +83,7 @@ class IntroduceView(discord.ui.View):
 
     @discord.ui.button(
         label=t("intro.sticky.button"),
+        emoji=t("intro.sticky.button_emoji"),
         style=discord.ButtonStyle.primary,
         custom_id="intro:open",
     )
@@ -104,6 +106,136 @@ class IntroduceView(discord.ui.View):
         answers = dict(post.answers) if post is not None else {}
         await interaction.response.send_modal(
             IntroModal(service, questions, answers, post)
+        )
+
+
+class IntroRefreshView(discord.ui.View):
+    """Buttons shown on every introduction embed: refresh and (author) delete."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label=t("intro.refresh.button"),
+        emoji=t("intro.refresh.button_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id="intro:refresh",
+    )
+    async def refresh(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        service = _service(interaction)
+        post = await service.get_post_by_message(interaction.message.id)
+        if post is None or interaction.guild is None:
+            await interaction.response.send_message(
+                t("intro.refresh.not_found"), ephemeral=True
+            )
+            return
+        member = interaction.guild.get_member(post.user_id)
+        if member is None:
+            member = (await resolve_members(interaction.guild, [post.user_id]))[0]
+        if member is None:
+            await interaction.response.send_message(
+                t("intro.refresh.not_found"), ephemeral=True
+            )
+            return
+        questions = select_modal_questions(await service.active_questions())
+        embed = build_intro_embed(
+            member,
+            questions,
+            dict(post.answers),
+            post.last_edited_at,
+            interaction.client,
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(
+        label=t("intro.delete.button"),
+        emoji=t("intro.delete.button_emoji"),
+        style=discord.ButtonStyle.danger,
+        custom_id="intro:delete",
+    )
+    async def delete(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        service = _service(interaction)
+        post = await service.get_post_by_message(interaction.message.id)
+        if post is None:
+            await interaction.response.send_message(
+                t("intro.delete.not_found"), ephemeral=True
+            )
+            return
+        if interaction.user.id != post.user_id:
+            await interaction.response.send_message(
+                t("intro.delete.not_author"), ephemeral=True
+            )
+            return
+        await interaction.response.send_message(
+            t("intro.delete.confirm"),
+            view=DeleteConfirmView(service, post, interaction.user.id),
+            ephemeral=True,
+        )
+
+
+class DeleteConfirmView(discord.ui.View):
+    """Ephemeral confirmation for deleting an introduction."""
+
+    def __init__(self, service: IntroService, post, author_id: int) -> None:
+        super().__init__(timeout=120)
+        self.service = service
+        self.post = post
+        self.author_id = author_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message(
+                t("components.not_author"), ephemeral=True
+            )
+            return False
+        return True
+
+    @discord.ui.button(
+        label=t("intro.delete.confirm_button"),
+        style=discord.ButtonStyle.danger,
+        custom_id="intro:delete_confirm",
+    )
+    async def confirm(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        channel = await resolve_intro_channel(
+            interaction.client, self.post.channel_id
+        )
+        if channel is None:
+            await interaction.response.edit_message(
+                content=t("intro.delete.failed"), view=None
+            )
+            return
+        try:
+            message = await channel.fetch_message(self.post.message_id)
+            await message.delete()
+        except discord.NotFound:
+            pass
+        except discord.HTTPException:
+            logger.warning("Could not delete introduction", exc_info=True)
+            await interaction.response.edit_message(
+                content=t("intro.delete.failed"), view=None
+            )
+            return
+        await self.service.delete_post(self.post.id)
+        await interaction.response.edit_message(
+            content=t("intro.delete.done"), view=None
+        )
+
+    @discord.ui.button(
+        label=t("intro.delete.cancel_button"),
+        style=discord.ButtonStyle.secondary,
+        custom_id="intro:delete_cancel",
+    )
+    async def cancel(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await interaction.response.edit_message(
+            content=t("intro.delete.cancelled"), view=None
         )
 
 
@@ -161,10 +293,10 @@ class IntroModal(discord.ui.Modal):
         self, interaction, channel, answers, now
     ) -> None:
         embed = build_intro_embed(
-            interaction.user, self.questions, answers, now, now, interaction.client
+            interaction.user, self.questions, answers, now, interaction.client
         )
         try:
-            sent = await channel.send(embed=embed)
+            sent = await channel.send(embed=embed, view=IntroRefreshView())
         except discord.HTTPException:
             logger.warning("Could not post introduction", exc_info=True)
             await interaction.followup.send(
@@ -182,7 +314,6 @@ class IntroModal(discord.ui.Modal):
             interaction.user,
             self.questions,
             answers,
-            self.post.first_posted_at,
             now,
             interaction.client,
         )
@@ -190,11 +321,11 @@ class IntroModal(discord.ui.Modal):
         recreated = False
         try:
             message = await channel.fetch_message(message_id)
-            await message.edit(embed=embed)
+            await message.edit(embed=embed, view=IntroRefreshView())
         except discord.HTTPException:
             # The original post is gone: recreate it and remember the new id.
             try:
-                sent = await channel.send(embed=embed)
+                sent = await channel.send(embed=embed, view=IntroRefreshView())
             except discord.HTTPException:
                 logger.warning("Could not edit introduction", exc_info=True)
                 await interaction.followup.send(

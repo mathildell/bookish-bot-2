@@ -187,9 +187,11 @@ has not changed.
 Admins configure an intro channel and the questions for the intro form. A
 sticky message in the channel holds a button members use to post (or edit)
 their introduction. A member can have a single introduction; editing updates
-the existing post. The embed is authored by the member and shows one field per
-question. Configure the channel to be read-only for members so only the bot can
-post there.
+the existing post. The embed is titled with the member's display name, uses
+their avatar as a thumbnail, and shows one field per question; each post has a
+Refresh button anyone can use to re-render it, and a Delete button its author
+can use (after an ephemeral confirmation) to remove it. Configure the channel to
+be read-only for members so only the bot can post there.
 
 ```
 /intro channel set channel:
