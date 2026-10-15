@@ -9,6 +9,10 @@ Questions are never created: a CSV column is matched to the database question
 whose text contains it (ignoring case, punctuation and emojis). Every column
 must resolve to exactly one question, otherwise the script aborts.
 
+Discord groups consecutive messages from the same author, so posts are spaced
+out by 8m5s by default (override with ``--delay``) to keep each introduction
+standalone.
+
 Run it with the main bot stopped: a second gateway connection with the same
 token would briefly disconnect it, and the bot caches the sticky message id.
 
@@ -29,6 +33,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from time import monotonic
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -42,6 +47,10 @@ from bot.config import load_config  # noqa: E402
 from bot.db import close_db, create_tables, init_db  # noqa: E402
 from bot.services.intro import IntroService, build_intro_embed  # noqa: E402
 from bot.services.level import utcnow  # noqa: E402
+
+# Discord groups consecutive messages from the same author; a group ends 8
+# minutes after it starts, so spacing posts out by 8m5s keeps each one separate.
+DEFAULT_DELAY = 485.0
 
 
 @dataclass
@@ -140,6 +149,22 @@ async def _delete_message(channel, message_id: int) -> None:
         pass
 
 
+def seconds_until_next(
+    last_sent_at: float | None, delay: float, now: float
+) -> float:
+    """Seconds to wait so the next message starts a fresh Discord group."""
+    if last_sent_at is None or delay <= 0:
+        return 0.0
+    return max(0.0, delay - (now - last_sent_at))
+
+
+async def _pause(last_sent_at: float | None, delay: float) -> None:
+    remaining = seconds_until_next(last_sent_at, delay, monotonic())
+    if remaining > 0:
+        print(f"  waiting {remaining:.0f}s so the next message isn't grouped...")
+        await asyncio.sleep(remaining)
+
+
 async def _import(
     client: discord.Client,
     service: IntroService,
@@ -149,6 +174,7 @@ async def _import(
     mapping: dict[str, int],
     overwrite: bool,
     repost: bool,
+    delay: float,
 ) -> None:
     channel = await client.fetch_channel(service.channel_id)
     guild = client.get_guild(guild_id) or await client.fetch_guild(guild_id)
@@ -158,6 +184,7 @@ async def _import(
     now = utcnow()
 
     posted = skipped = failed = 0
+    last_sent: float | None = None
     for row in rows:
         existing = await service.get_post(row.user_id)
         if existing is not None and not overwrite:
@@ -177,12 +204,14 @@ async def _import(
             if header in mapping and row.answers.get(header, "").strip()
         }
         embed = build_intro_embed(user, ordered, answers, now, client)
+        await _pause(last_sent, delay)
         try:
             sent = await channel.send(embed=embed, view=IntroRefreshView())
         except discord.HTTPException as exc:
             print(f"  fail {row.user_id}: {exc}")
             failed += 1
             continue
+        last_sent = monotonic()
 
         if existing is not None:
             await _delete_message(channel, existing.message_id)
@@ -197,6 +226,7 @@ async def _import(
         posted += 1
 
     if repost:
+        await _pause(last_sent, delay)
         await repost_sticky(client, channel)
         print("  reposted the sticky message")
 
@@ -232,6 +262,12 @@ async def run(args: argparse.Namespace) -> None:
             print(f"  {header}  ->  {content_by_id[mapping[header]]}")
     print(f"Mode: {'dry-run' if args.dry_run else 'write'}"
           f"{', overwrite' if args.overwrite else ''}\n")
+
+    if not args.dry_run and args.delay > 0:
+        messages = len(rows) + (0 if args.no_sticky else 1)
+        minutes = args.delay * max(0, messages - 1) / 60
+        print(f"Delay between posts: {args.delay:.0f}s "
+              f"(about {minutes:.0f} minutes total)\n")
 
     if unmatched:
         print("No database question matches these CSV columns:")
@@ -280,6 +316,7 @@ async def run(args: argparse.Namespace) -> None:
                 mapping,
                 overwrite=args.overwrite,
                 repost=not args.no_sticky,
+                delay=args.delay,
             )
         except Exception as exc:  # noqa: BLE001
             print(f"Import failed: {exc}")
@@ -312,6 +349,13 @@ def main() -> None:
     parser.add_argument(
         "--overwrite", action="store_true",
         help="Re-import members who already have an introduction",
+    )
+    parser.add_argument(
+        "--delay", type=float, default=DEFAULT_DELAY,
+        help=(
+            "Seconds to wait between posts so Discord doesn't group them "
+            f"(default: {DEFAULT_DELAY:.0f} = 8m5s; use 0 to disable)"
+        ),
     )
     parser.add_argument(
         "--no-sticky", action="store_true",

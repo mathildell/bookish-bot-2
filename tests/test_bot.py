@@ -750,6 +750,20 @@ class ImportOldIntrosTests(unittest.TestCase):
             ambiguous, [("Reads", ["Favorite Reads", "Recent Reads"])]
         )
 
+    def test_seconds_until_next(self) -> None:
+        self.assertEqual(
+            import_old_intros.seconds_until_next(None, 485, 1000.0), 0.0
+        )
+        self.assertEqual(
+            import_old_intros.seconds_until_next(900.0, 485, 1000.0), 385.0
+        )
+        self.assertEqual(
+            import_old_intros.seconds_until_next(400.0, 485, 1000.0), 0.0
+        )
+        self.assertEqual(
+            import_old_intros.seconds_until_next(0.0, 0, 1000.0), 0.0
+        )
+
 
 FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
