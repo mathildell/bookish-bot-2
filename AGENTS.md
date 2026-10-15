@@ -6,11 +6,13 @@ Guidance for AI coding agents working in this repository.
 
 `bh2` is the "Bookish Hideaway" Discord bot. We're working on migrating features from the previous project, written in Ruby on Rails. The list of old features are available in `docs/Old project features.md`. 
 
-For now, we only have two features implemented: 
+Implemented features:
 - **Booster reacts** — auto-react to messages that mention a registered booster's
   name/nickname.
 - **Booster roles** — let boosters rename/recolour a custom role an admin linked
   to them.
+- **Levels** — members earn XP from messages; each level grants the configured
+  reward role.
 
 The list of commands from the bot lives in the README.md.
 
@@ -70,18 +72,25 @@ bot/
   main.py                  bot wiring (events, intents, startup)
   config.py                config.yaml loader
   db.py                    async engine/session helpers
-  models.py                SQLAlchemy models (BoosterReact, BoosterRole)
+  models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP, LevelReward)
+  notifications.py         level-up announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...
     booster_role.py        /booster role ...
+    level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
+    level_rewards.py       /xp rewards ...
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
+    level.py               XP curve + per-user XP storage
+    level_rewards.py       level -> reward role links + role sync
+    members.py             guild member resolution
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
+scripts/                   one-off utilities (e.g. import_old_xp.py)
 docs/                      may be outdated — do not treat as source of truth
 bookishhideaway/           archived old Ruby project — out of scope, ignore
 ```
@@ -106,7 +115,7 @@ bookishhideaway/           archived old Ruby project — out of scope, ignore
 - **Do not add comments unless they explain non-obvious intent.** Keep comments
   accurate — delete comments that no longer match the code.
 - **CRUD vocabulary for commands:** `add`, `remove`, `list`, `view`, `edit`. If the user uses the term `delete` instead of `remove`, for example, remind them of the established naming convention.
-- No emojis in source files.
+- No emojis in source files (leave the ones in README.md).
 
 ## Database
 

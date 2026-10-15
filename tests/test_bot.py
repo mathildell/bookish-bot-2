@@ -36,6 +36,7 @@ from bot.services.booster_react import (
     parse_emoji,
 )
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
+from bot.services.members import resolve_member_lookups, resolve_members
 from bot.texts import t
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -607,6 +608,51 @@ class SyncMemberRolesTests(unittest.IsolatedAsyncioTestCase):
         ok = await sync_member_roles(self.guild, member, 4, self.service)
         self.assertTrue(ok)
         self.assertEqual(member.calls, [])
+
+
+class FakeGuildMember:
+    def __init__(self, user_id: int) -> None:
+        self.id = user_id
+
+
+class FakeMemberGuild:
+    def __init__(self, members, *, absent=(), failing=()) -> None:
+        self._members = {member.id: member for member in members}
+        self._absent = set(absent)
+        self._failing = set(failing)
+
+    def get_member(self, user_id: int):
+        return self._members.get(user_id)
+
+    async def fetch_member(self, user_id: int):
+        if user_id in self._absent:
+            raise discord.NotFound(_FakeHTTPResponse(), "Not Found")
+        if user_id in self._failing:
+            raise discord.HTTPException(_FakeHTTPResponse(), "boom")
+        return self._members[user_id]
+
+
+class ResolveMemberLookupsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_distinguishes_absent_from_failed_lookup(self) -> None:
+        guild = FakeMemberGuild([FakeGuildMember(1)], absent=[2], failing=[3])
+        lookups = await resolve_member_lookups(guild, [1, 2, 3])
+        self.assertEqual(lookups[0].member.id, 1)
+        self.assertFalse(lookups[0].absent)
+        self.assertIsNone(lookups[1].member)
+        self.assertTrue(lookups[1].absent)
+        self.assertIsNone(lookups[2].member)
+        self.assertFalse(lookups[2].absent)
+
+    async def test_resolve_members_projects_to_members(self) -> None:
+        guild = FakeMemberGuild([FakeGuildMember(1)], failing=[2])
+        members = await resolve_members(guild, [1, 2])
+        self.assertEqual(members[0].id, 1)
+        self.assertIsNone(members[1])
+
+    async def test_missing_guild_yields_empty_lookups(self) -> None:
+        lookups = await resolve_member_lookups(None, [1])
+        self.assertIsNone(lookups[0].member)
+        self.assertFalse(lookups[0].absent)
 
 
 class ImportOldXpTests(unittest.TestCase):

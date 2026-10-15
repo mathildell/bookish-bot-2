@@ -21,6 +21,7 @@ from sqlalchemy import delete, select
 from ..db import session_scope
 from ..models import BoosterRole
 from ..texts import t
+from .members import resolve_member_lookups
 
 logger = logging.getLogger("bh2.booster_role")
 
@@ -117,24 +118,30 @@ class BoosterRoleService:
     ) -> list[tuple[int, int]]:
         """Unlink boosters who no longer boost; notify admins. Returns unlinked.
 
-        Fetches each linked member individually. The single-member endpoint does
-        not require the privileged Members intent, unlike the bulk list.
-        The Discord role is intentionally left in place.
+        Members are looked up in a concurrency-capped batch. The single-member
+        endpoint does not require the privileged Members intent, unlike the bulk
+        list. A lookup that fails without confirming absence is skipped, so a
+        transient API error never unlinks a booster. The Discord role is
+        intentionally left in place.
         """
         unlinked: list[tuple[int, int]] = []
 
-        for row in await self.all():
-            try:
-                member = await guild.fetch_member(row.discord_user_id)
-            except discord.NotFound:
+        rows = await self.all()
+        lookups = await resolve_member_lookups(
+            guild, [row.discord_user_id for row in rows]
+        )
+
+        for row, lookup in zip(rows, lookups):
+            if lookup.member is not None:
+                still_boosting = lookup.member.premium_since is not None
+            elif lookup.absent:
                 still_boosting = False
-            except discord.HTTPException as exc:
+            else:
                 logger.warning(
-                    "Could not check member %s: %s", row.discord_user_id, exc
+                    "Could not check member %s; leaving linked",
+                    row.discord_user_id,
                 )
                 continue
-            else:
-                still_boosting = member.premium_since is not None
 
             if still_boosting:
                 continue

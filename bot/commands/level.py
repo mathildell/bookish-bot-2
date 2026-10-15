@@ -114,11 +114,7 @@ async def xp_level(
         user=discord.utils.escape_markdown(target.display_name),
     )
 
-    set_author(
-        embed,
-        target,
-        target.display_name if target is not None else t("booster.unknown_name"),
-    )
+    set_author(embed, target, target.display_name)
 
     current, needed = _progress_values(user_xp)
     embed.description = f"# {_progress_bar(current, needed)}"

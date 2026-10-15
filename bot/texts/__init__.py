@@ -72,8 +72,3 @@ def t(key: str, **variables) -> str:
         raise MissingText(f"{key} is not a string")
 
     return _interpolate(text, variables) if variables else text
-
-
-def reload() -> None:
-    """Drop the cached texts (useful after editing the YAML files)."""
-    _load_texts.cache_clear()
