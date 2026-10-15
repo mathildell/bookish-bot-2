@@ -116,7 +116,6 @@ class IntroRefreshView(discord.ui.View):
         super().__init__(timeout=None)
 
     @discord.ui.button(
-        label=t("intro.refresh.button"),
         emoji=t("intro.refresh.button_emoji"),
         style=discord.ButtonStyle.secondary,
         custom_id="intro:refresh",
@@ -150,9 +149,8 @@ class IntroRefreshView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(
-        label=t("intro.delete.button"),
         emoji=t("intro.delete.button_emoji"),
-        style=discord.ButtonStyle.danger,
+        style=discord.ButtonStyle.secondary,
         custom_id="intro:delete",
     )
     async def delete(

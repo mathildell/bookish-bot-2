@@ -1339,8 +1339,12 @@ class IntroRefreshViewTests(unittest.TestCase):
             if isinstance(child, discord.ui.Button)
         }
         self.assertEqual(set(buttons), {"intro:refresh", "intro:delete"})
-        self.assertEqual(buttons["intro:refresh"].label, t("intro.refresh.button"))
-        self.assertEqual(buttons["intro:delete"].label, t("intro.delete.button"))
+        self.assertIsNone(buttons["intro:refresh"].label)
+        self.assertEqual(buttons["intro:refresh"].emoji.name, t("intro.refresh.button_emoji"))
+        self.assertIsNone(buttons["intro:delete"].label)
+        self.assertEqual(
+            buttons["intro:delete"].style, discord.ButtonStyle.secondary
+        )
 
 
 class DeleteConfirmViewTests(unittest.TestCase):

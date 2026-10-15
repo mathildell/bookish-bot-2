@@ -13,15 +13,13 @@ intro:
   sticky:
     description: "Repost the sticky introduction message"
     reposted: "Reposted the sticky introduction message."
-    button: "Post/Edit your introduction"
+    button: " Write your intro"
     button_emoji: "✏️"
     text: "Want to introduce yourself? Click the button below to post (or edit) your introduction."
   refresh:
-    button: "Refresh"
     button_emoji: "🔄"
     not_found: "I couldn't find the introduction for this post."
   delete:
-    button: "Delete"
     button_emoji: "🗑️"
     confirm: "Are you sure you want to delete your introduction? This cannot be undone."
     confirm_button: "Delete"
