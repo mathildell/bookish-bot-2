@@ -2,7 +2,7 @@
 
 Permissions:
 - Members manage their own feed; admins (Manage Server) may set anyone's.
-- The posting channel and cooldown resets are admin-only.
+- The posting channel and forced reposts are admin-only.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
+from ..services.booster_role import resolve_notify_channel
 from ..services.reviews import (
     ReviewService,
     is_goodreads_feed_url,
@@ -32,12 +33,6 @@ feed_group = app_commands.Group(
 channel_group = app_commands.Group(
     name="channel",
     description=t("reviews.channel.group_description"),
-    parent=reviews_group,
-)
-
-cooldown_group = app_commands.Group(
-    name="cooldown",
-    description=t("reviews.cooldown.group_description"),
     parent=reviews_group,
 )
 
@@ -91,12 +86,12 @@ async def set_channel(
     )
 
 
-@cooldown_group.command(name="reset", description=t("reviews.cooldown.reset.description"))
+@reviews_group.command(name="repost", description=t("reviews.repost.description"))
 @app_commands.describe(
-    entry=t("reviews.cooldown.reset.param_entry"),
-    user=t("reviews.cooldown.reset.param_user"),
+    entry=t("reviews.repost.param_entry"),
+    user=t("reviews.repost.param_user"),
 )
-async def reset_cooldown(
+async def repost(
     interaction: discord.Interaction,
     entry: str,
     user: discord.User | None = None,
@@ -106,17 +101,24 @@ async def reset_cooldown(
 
     target = user if user is not None else interaction.user
     entry_id = normalize_entry_id(entry)
-    if await _service(interaction).reset_cooldown(target.id, entry_id):
-        await interaction.response.send_message(
-            t(
-                "reviews.cooldown.reset.success",
-                user=target.mention,
-                entry=entry_id,
-            ),
-            ephemeral=True,
+    await interaction.response.defer(ephemeral=True)
+
+    service = _service(interaction)
+    if not await service.force_repost(target.id, entry_id):
+        await interaction.followup.send(
+            t("reviews.repost.not_found", entry=entry_id), ephemeral=True
         )
-    else:
-        await interaction.response.send_message(
-            t("reviews.cooldown.reset.not_found", entry=entry_id),
-            ephemeral=True,
+        return
+
+    channel = await resolve_notify_channel(interaction.guild, service.channel_id)
+    if channel is None:
+        await interaction.followup.send(
+            t("reviews.repost.no_channel", entry=entry_id), ephemeral=True
         )
+        return
+
+    await service.post_new_reviews(interaction.guild, channel, interaction.client)
+    await interaction.followup.send(
+        t("reviews.repost.success", user=target.mention, entry=entry_id),
+        ephemeral=True,
+    )

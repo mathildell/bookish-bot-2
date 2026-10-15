@@ -701,6 +701,7 @@ FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
     <author_name>Author A</author_name>
     <user_rating>4</user_rating>
     <user_read_at>Wed, 14 Oct 2026 00:00:00 +0000</user_read_at>
+    <user_shelves>arc, 5-stars-read</user_shelves>
     <user_review><![CDATA[<b>Great</b><br />Loved <i>it</i>.]]></user_review>
   </item>
   <item>
@@ -717,12 +718,13 @@ FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
 class ParseFeedTests(unittest.TestCase):
     def test_parses_shelf_logo_and_entries(self) -> None:
         feed = reviews_service.parse_feed(FEED_XML)
-        self.assertEqual(feed.shelf, "alice's bookshelf: all")
+        self.assertEqual(feed.bookshelf, "alice's bookshelf")
         self.assertTrue(feed.logo_url.endswith("goodreads_logo_144.jpg"))
         self.assertEqual(len(feed.entries), 1)
         entry = feed.entries[0]
         self.assertEqual(entry.entry_id, "111")
         self.assertEqual(entry.title, "Book One")
+        self.assertEqual(entry.shelves, ["arc", "5-stars-read"])
         self.assertEqual(entry.author, "Author A")
         self.assertEqual(entry.rating, "4")
         self.assertEqual(entry.cover_url, "https://img.example/cover.jpg")
@@ -811,26 +813,50 @@ class FormatRatingTests(unittest.TestCase):
 
 
 class FormatShelfTests(unittest.TestCase):
-    def test_arc_shelf_gets_star(self) -> None:
-        name = "mtrics's bookshelf: arc"
+    def test_shelves_are_joined_after_the_bookshelf(self) -> None:
         self.assertEqual(
-            reviews_service.format_shelf(name),
-            t("reviews.embed.shelf_arc", shelf=name),
+            reviews_service.format_shelf(
+                "alice's bookshelf", ["5-stars-read", "fav"]
+            ),
+            "alice's bookshelf: 5-stars-read, fav",
         )
 
-    def test_arc_variants(self) -> None:
-        for name in ("shelf: ARC", "shelf: arcs", "shelf: ARCs"):
+    def test_no_shelves_shows_just_the_bookshelf(self) -> None:
+        self.assertEqual(
+            reviews_service.format_shelf("alice's bookshelf", []),
+            "alice's bookshelf",
+        )
+
+    def test_arc_shelf_gets_star(self) -> None:
+        self.assertEqual(
+            reviews_service.format_shelf("alice's bookshelf", ["arc"]),
+            t(
+                "reviews.embed.shelf_arc",
+                shelf="alice's bookshelf: arc",
+            ),
+        )
+
+    def test_arc_variants_get_star(self) -> None:
+        for shelf in ("ARC", "arcs", "ARCs"):
             self.assertEqual(
-                reviews_service.format_shelf(name),
-                t("reviews.embed.shelf_arc", shelf=name),
+                reviews_service.format_shelf("alice's bookshelf", [shelf]),
+                t(
+                    "reviews.embed.shelf_arc",
+                    shelf=f"alice's bookshelf: {shelf}",
+                ),
             )
 
-    def test_non_arc_shelf_is_unchanged(self) -> None:
-        self.assertEqual(reviews_service.format_shelf("all"), "all")
-        self.assertEqual(reviews_service.format_shelf("arcade"), "arcade")
+    def test_non_arc_shelves_are_unchanged(self) -> None:
+        self.assertEqual(
+            reviews_service.format_shelf("alice's bookshelf", ["arcade"]),
+            "alice's bookshelf: arcade",
+        )
 
-    def test_empty_shelf(self) -> None:
-        self.assertEqual(reviews_service.format_shelf(""), "")
+    def test_all_shelf_is_dropped(self) -> None:
+        self.assertEqual(reviews_service.parse_shelves("all"), [])
+        self.assertEqual(
+            reviews_service.parse_shelves("all, arc"), ["arc"]
+        )
 
 
 class _FakeLogoResponse:
@@ -935,7 +961,7 @@ class ShouldPostTests(unittest.TestCase):
             reviews_service.should_post(entry, row, self.NOW, datetime.datetime(2026, 1, 1))
         )
 
-    def test_reset_cooldown_allows_post_on_edit(self) -> None:
+    def test_no_last_post_allows_post_on_edit(self) -> None:
         entry = self._entry(self.NOW)
         row = self.Row(self.OLD, None)
         self.assertTrue(
@@ -955,11 +981,12 @@ class BuildReviewEmbedTests(unittest.TestCase):
             date_read=datetime.datetime(2026, 10, 6),
             review_html="<b>Great</b><br />Loved it.",
             pub_date=datetime.datetime(2026, 10, 14),
+            shelves=["arc", "5-stars-read"],
         )
 
     def _feed(self) -> FeedData:
         return FeedData(
-            shelf="mtrics's bookshelf: arc",
+            bookshelf="mtrics's bookshelf",
             logo_url="https://www.goodreads.com/logo.jpg",
             entries=[],
         )
@@ -979,11 +1006,17 @@ class BuildReviewEmbedTests(unittest.TestCase):
         self.assertTrue(embed.fields[2].inline)
         self.assertFalse(embed.fields[3].inline)
         self.assertEqual(embed.fields[0].value, "Author A")
-        self.assertEqual(embed.fields[2].value, "3.5 ⭐")
+        self.assertEqual(
+            embed.fields[2].value,
+            t("reviews.embed.rating_value", rating="3.5"),
+        )
         self.assertIn("**Great**", embed.fields[3].value)
         self.assertEqual(
             embed.footer.text,
-            t("reviews.embed.shelf_arc", shelf="mtrics's bookshelf: arc"),
+            t(
+                "reviews.embed.shelf_arc",
+                shelf="mtrics's bookshelf: arc, 5-stars-read",
+            ),
         )
         self.assertEqual(embed.footer.icon_url, "https://www.goodreads.com/logo.jpg")
         self.assertEqual(embed.colour.value, 0x97A97C)

@@ -16,14 +16,13 @@ reviews:
       description: "Set the channel for Goodreads review updates"
       param_channel: "Channel to post review updates in"
       success: "Review updates will be posted in %{channel}."
-  cooldown:
-    group_description: "Review posting cooldowns"
-    reset:
-      description: "Clear an entry's 24h cooldown so its next edit reposts"
-      param_entry: "Goodreads review URL or review id"
-      param_user: "Member whose entry to reset (admins only; defaults to you)"
-      success: "Cleared the cooldown for entry %{entry}."
-      not_found: "No posted entry matching %{entry} was found."
+  repost:
+    description: "Force the bot to repost a review"
+    param_entry: "Goodreads review URL or review id"
+    param_user: "Member whose review to repost (admins only; defaults to you)"
+    success: "Reposted %{user}'s review %{entry}."
+    not_found: "No posted review matching %{entry} was found."
+    no_channel: "No review channel is set, so entry %{entry} can't be reposted."
   embed:
     untitled_book: "Untitled"
     unknown_shelf: "Goodreads"

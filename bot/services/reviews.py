@@ -10,6 +10,7 @@ Port of the old Ruby "RssFeeds::PostReview" feature:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from dataclasses import dataclass, replace
@@ -21,7 +22,7 @@ from xml.etree import ElementTree
 
 import aiohttp
 import discord
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 
 from ..db import session_scope
 from ..models import ReviewEntry, ReviewFeed, ReviewSetting
@@ -58,13 +59,14 @@ class FeedEntry:
     date_read: datetime | None
     review_html: str
     pub_date: datetime
+    shelves: list[str]
 
 
 @dataclass(frozen=True)
 class FeedData:
-    """A parsed feed: its shelf name, logo, and review entries."""
+    """A parsed feed: its bookshelf name, logo, and review entries."""
 
-    shelf: str
+    bookshelf: str
     logo_url: str | None
     entries: list[FeedEntry]
 
@@ -109,6 +111,16 @@ def _parse_datetime(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc).replace(tzinfo=None)
 
 
+def parse_shelves(value: str | None) -> list[str]:
+    """Split a ``user_shelves`` value, dropping the implicit "all" shelf."""
+    shelves: list[str] = []
+    for part in (value or "").split(","):
+        name = part.strip()
+        if name and name.lower() != "all":
+            shelves.append(name)
+    return shelves
+
+
 def parse_feed(xml_text: str) -> FeedData:
     """Parse a Goodreads RSS document, keeping only entries with a review."""
     root = ElementTree.fromstring(xml_text)
@@ -116,7 +128,8 @@ def parse_feed(xml_text: str) -> FeedData:
     if channel is None:
         raise ValueError("Not an RSS feed")
 
-    shelf = _text(channel, "title") or ""
+    title = _text(channel, "title") or ""
+    bookshelf = title.rsplit(": ", 1)[0] if ": " in title else title
     image = channel.find("image")
     logo_url = _text(image, "url") if image is not None else None
 
@@ -140,9 +153,10 @@ def parse_feed(xml_text: str) -> FeedData:
                 date_read=_parse_datetime(_text(item, "user_read_at")),
                 review_html=review_html,
                 pub_date=pub_date,
+                shelves=parse_shelves(_text(item, "user_shelves")),
             )
         )
-    return FeedData(shelf=shelf, logo_url=logo_url, entries=entries)
+    return FeedData(bookshelf=bookshelf, logo_url=logo_url, entries=entries)
 
 
 class _ReviewHtmlToMarkdown(HTMLParser):
@@ -239,9 +253,14 @@ def format_date_read(value: datetime | None) -> str:
     return f"<t:{timestamp}:D>"
 
 
-def format_shelf(name: str) -> str:
-    """Return the shelf name, starring it when it names an ARC shelf."""
-    if name and _ARC_SHELF_RE.search(name):
+def format_shelf(bookshelf: str, shelves: list[str]) -> str:
+    """Render the footer label: the bookshelf plus the book's shelves.
+
+    The shelves are joined with commas; the whole label is starred when the
+    book sits on an ARC shelf. A book with no shelves shows just the bookshelf.
+    """
+    name = f"{bookshelf}: {', '.join(shelves)}" if shelves else bookshelf
+    if any(_ARC_SHELF_RE.search(shelf) for shelf in shelves):
         return t("reviews.embed.shelf_arc", shelf=name)
     return name
 
@@ -326,7 +345,8 @@ def build_review_embed(
     )
 
     embed.set_footer(
-        text=format_shelf(feed.shelf) or t("reviews.embed.unknown_shelf"),
+        text=format_shelf(feed.bookshelf, entry.shelves)
+        or t("reviews.embed.unknown_shelf"),
         icon_url=feed.logo_url,
     )
     return embed
@@ -370,6 +390,8 @@ class ReviewService:
         self.guild_id = guild_id
         self._channel_id: int | None = None
         self._logo_cache: dict[str, str] = {}
+        # Serialises polls so a manual repost cannot race the scheduled loop.
+        self._poll_lock = asyncio.Lock()
 
     @property
     def channel_id(self) -> int | None:
@@ -455,16 +477,18 @@ class ReviewService:
 
     # ------------------------------------------------------------ entries
 
-    async def reset_cooldown(self, discord_user_id: int, entry_id: str) -> bool:
-        """Clear an entry's cooldown so its next edit is posted again."""
+    async def force_repost(self, discord_user_id: int, entry_id: str) -> bool:
+        """Forget an entry's tracking so it is posted again on the next poll.
+
+        Unlike a cooldown reset this does not depend on Goodreads bumping the
+        entry's pubDate, so it can repost a review whose feed entry is stale.
+        """
         async with session_scope() as session:
             result = await session.execute(
-                update(ReviewEntry)
-                .where(
+                delete(ReviewEntry).where(
                     ReviewEntry.discord_user_id == discord_user_id,
                     ReviewEntry.entry_id == entry_id,
                 )
-                .values(last_posted_at=None)
             )
             await session.commit()
         return result.rowcount > 0
@@ -529,6 +553,15 @@ class ReviewService:
         client: discord.Client,
     ) -> int:
         """Poll every feed and post eligible review updates. Returns the count."""
+        async with self._poll_lock:
+            return await self._poll_feeds(guild, channel, client)
+
+    async def _poll_feeds(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+    ) -> int:
         feeds = await self.all_feeds()
         if not feeds:
             return 0

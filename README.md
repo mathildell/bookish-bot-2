@@ -164,7 +164,8 @@ Link a member's Goodreads `list_rss` reviews feed.
 Set the channel where review updates are posted.
 
 ```
-/reviews cooldown reset entry: [user:]
+/reviews repost entry: [user:]
 ```
 **Permissions:** 🔒 Admin
-Clear an entry's 24-hour posting cooldown so its next edit is posted again.
+Force the bot to repost a review immediately, even if the Goodreads feed entry
+has not changed.
