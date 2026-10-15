@@ -16,10 +16,10 @@ intro:
     button: " Write your intro"
     button_emoji: "✏️"
     title: "Introduce yourself!"
-    how_to_post_title: "How-to post your intro"
-    how_to_post_text: "Use the button below! A popup with a form will appear with questions for you to answer. You will then be able to edit this post any time using the same button :blush:"
+    how_to_post_title: "Post or edit your intro"
+    how_to_post_text: "If you click on the button below, a popup will appear with questions for you to answer. You will then be able to edit this post any time using the same button :blush:"
     formatting_title: "How to add formatting/emojis"
-    formatting_text: "You can use the same [Markdown as Discord messages](<https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline>) :arrow_upper_right:. You can also use emojis in the [`<:EmojiName:EmojiID>` format](https://discord.com/channels/1405910078342565979/1406127543051882547/1418014744236916796) (eg. `<a:aDuckLove:1407031079327760424>`), but they must come from our own emoji list (outside emojis won’t work, even for Nitro users)"
+    formatting_text: "You can use the same [markdown as Discord messages](<https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline>) :arrow_upper_right:. You can also use emojis in the [`<:EmojiName:EmojiID>` format](https://discord.com/channels/1405910078342565979/1406127543051882547/1418014744236916796) (eg. `<a:aDuckLove:1407031079327760424>`), but they must come from our own emoji list (outside emojis won’t work, even for Nitro users)"
   refresh:
     button_emoji: "🔄"
     not_found: "I couldn't find the introduction for this post."
