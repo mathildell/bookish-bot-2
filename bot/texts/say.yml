@@ -1,0 +1,10 @@
+# Texts for the /say admin command (the bot speaks on demand).
+say:
+  description: "Post a message as the bot"
+  param_channel: "Channel or thread to post in"
+  param_message: "Message text (emojis allowed)"
+  param_reply_to: "Message id or link to reply to (optional)"
+  success: "Sent: %{link}"
+  invalid_message: "The message must be 1 to %{limit} characters."
+  invalid_reply: "I couldn't find that message in %{channel}."
+  send_failed: "I couldn't post in %{channel}. Check my permissions."

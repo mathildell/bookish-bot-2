@@ -181,3 +181,15 @@ Set the channel where review updates are posted.
 **Permissions:** 🔒 Admin
 Force the bot to repost a review immediately, even if the Goodreads feed entry
 has not changed.
+
+## Admin tools
+
+Fun tools for admins.
+
+```
+/say channel: message: [reply_to:]
+```
+**Permissions:** 🔒 Admin
+Post a message as the bot in a channel or thread. Emojis (custom and default)
+are supported; `reply_to` takes a message id or jump link to reply to, pinging
+its author.

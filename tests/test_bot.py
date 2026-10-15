@@ -22,6 +22,7 @@ from bot import notifications
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
 from bot.commands import level as level_cmds
+from bot.commands import say as say_cmds
 from bot.commands.listing import (
     Paginator,
     boost_value,
@@ -1173,6 +1174,52 @@ class PostReferenceTests(unittest.IsolatedAsyncioTestCase):
         target = FakeReferenceTarget(pin_fail=True)
         self.assertTrue(await reference_service.post_reference(bot, target))
         self.assertFalse(target.messages[0].pinned)
+
+
+class ParseMessageIdTests(unittest.TestCase):
+    def test_bare_id(self) -> None:
+        self.assertEqual(
+            say_cmds.parse_message_id("1411841682940493904"),
+            1411841682940493904,
+        )
+
+    def test_bare_id_with_whitespace(self) -> None:
+        self.assertEqual(say_cmds.parse_message_id("  123  "), 123)
+
+    def test_message_link(self) -> None:
+        self.assertEqual(
+            say_cmds.parse_message_id(
+                "https://discord.com/channels/"
+                "1405910078342565979/1406126242192953404/1411841682940493904"
+            ),
+            1411841682940493904,
+        )
+
+    def test_link_host_variants(self) -> None:
+        for host in ("discordapp.com", "ptb.discord.com", "canary.discord.com"):
+            self.assertEqual(
+                say_cmds.parse_message_id(f"http://{host}/channels/1/2/345"), 345
+            )
+
+    def test_invalid_values(self) -> None:
+        for value in ("", "abc", "123abc", "https://example.com/1/2/3"):
+            self.assertIsNone(say_cmds.parse_message_id(value))
+
+
+class ValidMessageTests(unittest.TestCase):
+    def test_accepts_text_with_emojis(self) -> None:
+        self.assertTrue(say_cmds.is_valid_message("hi <:Bunny:123> \U0001F600"))
+
+    def test_rejects_blank(self) -> None:
+        self.assertFalse(say_cmds.is_valid_message("   "))
+
+    def test_rejects_too_long(self) -> None:
+        self.assertFalse(
+            say_cmds.is_valid_message("a" * (say_cmds.MESSAGE_LIMIT + 1))
+        )
+
+    def test_accepts_exactly_the_limit(self) -> None:
+        self.assertTrue(say_cmds.is_valid_message("a" * say_cmds.MESSAGE_LIMIT))
 
 
 if __name__ == "__main__":

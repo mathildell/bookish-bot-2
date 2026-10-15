@@ -17,6 +17,8 @@ Implemented features:
   new reviews to the configured channel (each entry at most once per 24h).
 - **Pinned forum reference** — when a new thread/post is created in the
   configured forum channel, repost a fixed reference message into it and pin it.
+- **Bot speaks** — `/say` lets admins post a message as the bot into any
+  channel or thread, optionally as a reply.
 
 The list of commands from the bot lives in the README.md.
 
@@ -86,6 +88,7 @@ bot/
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
+    say.py                 /say admin command (post a message as the bot)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
   services/
