@@ -15,6 +15,8 @@ Implemented features:
   reward role.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
+- **Pinned forum reference** — when a new thread/post is created in the
+  configured forum channel, repost a fixed reference message into it and pin it.
 
 The list of commands from the bot lives in the README.md.
 
@@ -92,6 +94,7 @@ bot/
     level.py               XP curve + per-user XP storage
     level_rewards.py       level -> reward role links + role sync
     members.py             guild member resolution
+    reference.py           pinned reference message for new forum threads
     reviews.py             Goodreads RSS fetch/parse + review poll
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite

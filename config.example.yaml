@@ -15,6 +15,16 @@ booster_role_id: 0
 # role is unlinked (0 disables the notice)
 bot_updates_channel_id: 0
 
+# Forum channel to watch: when a new thread/post is created, the bot reposts the
+# reference message below into it and pins it (0 disables this feature)
+reference_forum_channel_id: 0
+
+# Channel containing the reference message the bot reposts
+reference_channel_id: 0
+
+# The reference message id, fetched fresh every time it is reposted
+reference_message_id: 0
+
 # MySQL database (the compose file provisions these defaults)
 mysql:
   host: "127.0.0.1"

@@ -36,6 +36,7 @@ from bot.services.booster_react import (
     parse_emoji,
 )
 from bot.services import reviews as reviews_service
+from bot.services import reference as reference_service
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
 from bot.services.reviews import FeedData, FeedEntry
@@ -1020,6 +1021,158 @@ class BuildReviewEmbedTests(unittest.TestCase):
         )
         self.assertEqual(embed.footer.icon_url, "https://www.goodreads.com/logo.jpg")
         self.assertEqual(embed.colour.value, 0x97A97C)
+
+
+class FakeReferenceMessage:
+    def __init__(self, content: str = "", embeds: list | None = None) -> None:
+        self.id = 1411841682940493904
+        self.content = content
+        self.embeds = embeds or []
+
+
+class FakeReferenceChannel:
+    def __init__(self, message: object | None = None, *, fail: bool = False) -> None:
+        self._message = message
+        self._fail = fail
+        self.fetched: list[int] = []
+
+    async def fetch_message(self, message_id: int) -> object:
+        self.fetched.append(message_id)
+        if self._fail:
+            raise discord.HTTPException(
+                _FakeHTTPResponse(), {"message": "no", "code": 10008}
+            )
+        return self._message
+
+
+class FakeReferenceBot:
+    def __init__(
+        self,
+        channel: object | None = None,
+        *,
+        channel_id: int = 10,
+        message_id: int = 20,
+    ) -> None:
+        self.reference_channel_id = channel_id
+        self.reference_message_id = message_id
+        self._channel = channel
+
+    def get_channel(self, channel_id: int) -> object | None:
+        return self._channel
+
+    async def fetch_channel(self, channel_id: int) -> object | None:
+        return self._channel
+
+
+class FakeReferenceSent:
+    def __init__(self, *, pin_fail: bool = False) -> None:
+        self.id = 99
+        self.pinned = False
+        self._pin_fail = pin_fail
+
+    async def pin(self) -> None:
+        if self._pin_fail:
+            raise discord.HTTPException(
+                _FakeHTTPResponse(), {"message": "no", "code": 50013}
+            )
+        self.pinned = True
+
+
+class FakeReferenceTarget:
+    def __init__(self, *, fail: bool = False, pin_fail: bool = False) -> None:
+        self._fail = fail
+        self._pin_fail = pin_fail
+        self.sent: list[dict] = []
+        self.messages: list[FakeReferenceSent] = []
+
+    async def send(self, **kwargs: object) -> FakeReferenceSent:
+        if self._fail:
+            raise discord.HTTPException(
+                _FakeHTTPResponse(), {"message": "no", "code": 50013}
+            )
+        sent = FakeReferenceSent(pin_fail=self._pin_fail)
+        self.sent.append(kwargs)
+        self.messages.append(sent)
+        return sent
+
+
+class ReferencePayloadTests(unittest.TestCase):
+    def test_content_only(self) -> None:
+        payload = reference_service.reference_payload(
+            FakeReferenceMessage(content="hi")
+        )
+        self.assertEqual(payload, {"content": "hi", "embeds": None})
+
+    def test_content_and_embeds(self) -> None:
+        embed = discord.Embed(title="t")
+        payload = reference_service.reference_payload(
+            FakeReferenceMessage(content="hi", embeds=[embed])
+        )
+        self.assertEqual(payload["content"], "hi")
+        self.assertEqual(payload["embeds"], [embed])
+
+    def test_empty_is_none(self) -> None:
+        self.assertIsNone(
+            reference_service.reference_payload(FakeReferenceMessage())
+        )
+
+
+class FetchReferenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_fetches_from_configured_ids(self) -> None:
+        message = FakeReferenceMessage(content="hi")
+        channel = FakeReferenceChannel(message)
+        bot = FakeReferenceBot(
+            channel,
+            channel_id=1406126242192953404,
+            message_id=1411841682940493904,
+        )
+        self.assertIs(await reference_service.fetch_reference(bot), message)
+        self.assertEqual(channel.fetched, [1411841682940493904])
+
+    async def test_disabled_when_ids_missing(self) -> None:
+        bot = FakeReferenceBot(FakeReferenceChannel(), channel_id=0, message_id=0)
+        self.assertIsNone(await reference_service.fetch_reference(bot))
+
+    async def test_fetch_failure_is_none(self) -> None:
+        bot = FakeReferenceBot(FakeReferenceChannel(fail=True))
+        self.assertIsNone(await reference_service.fetch_reference(bot))
+
+    async def test_unreachable_channel_is_none(self) -> None:
+        bot = FakeReferenceBot(None)
+        self.assertIsNone(await reference_service.fetch_reference(bot))
+
+
+class PostReferenceTests(unittest.IsolatedAsyncioTestCase):
+    async def test_posts_and_pins(self) -> None:
+        embed = discord.Embed(title="t")
+        bot = FakeReferenceBot(
+            FakeReferenceChannel(FakeReferenceMessage(content="rules", embeds=[embed]))
+        )
+        target = FakeReferenceTarget()
+        self.assertTrue(await reference_service.post_reference(bot, target))
+        self.assertEqual(target.sent, [{"content": "rules", "embeds": [embed]}])
+        self.assertTrue(target.messages[0].pinned)
+
+    async def test_empty_reference_is_skipped(self) -> None:
+        bot = FakeReferenceBot(FakeReferenceChannel(FakeReferenceMessage()))
+        target = FakeReferenceTarget()
+        self.assertFalse(await reference_service.post_reference(bot, target))
+        self.assertEqual(target.sent, [])
+
+    async def test_send_failure_is_swallowed(self) -> None:
+        bot = FakeReferenceBot(
+            FakeReferenceChannel(FakeReferenceMessage(content="rules"))
+        )
+        target = FakeReferenceTarget(fail=True)
+        self.assertFalse(await reference_service.post_reference(bot, target))
+
+    async def test_pin_failure_still_counts_as_posted(self) -> None:
+        bot = FakeReferenceBot(
+            FakeReferenceChannel(FakeReferenceMessage(content="rules"))
+        )
+        target = FakeReferenceTarget(pin_fail=True)
+        self.assertTrue(await reference_service.post_reference(bot, target))
+        self.assertFalse(target.messages[0].pinned)
 
 
 if __name__ == "__main__":

@@ -26,6 +26,7 @@ from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.level_rewards import LevelRewardService, sync_member_roles
+from .services.reference import post_reference
 from .services.reviews import ReviewService
 
 logger = logging.getLogger("bh2")
@@ -103,6 +104,11 @@ async def run() -> None:
         config.get("bot_updates_channel_id", 0) or 0
     )
     bot.transparent_embed_image = config.get("transparent_embed_image") or None
+    bot.reference_forum_channel_id = int(
+        config.get("reference_forum_channel_id", 0) or 0
+    )
+    bot.reference_channel_id = int(config.get("reference_channel_id", 0) or 0)
+    bot.reference_message_id = int(config.get("reference_message_id", 0) or 0)
     default_color = config.get("default_embed_color")
     bot.default_embed_color = (
         parse_hex_colour(default_color) if default_color else None
@@ -152,6 +158,16 @@ async def run() -> None:
             return
         if await booster_roles.delete_by_role(role.id):
             logger.info("Unlinked deleted booster role %s", role.id)
+
+    # ------------------- pinned forum reference -------------------
+    # Repost a fixed reference message and pin it in every new forum thread.
+    @bot.event
+    async def on_thread_create(thread: discord.Thread) -> None:
+        forum_id = getattr(bot, "reference_forum_channel_id", 0)
+        if not forum_id or thread.parent_id != forum_id:
+            return
+        if await post_reference(bot, thread):
+            logger.info("Posted reference message in thread %s", thread.id)
 
     # ------------------- booster role upkeep -------------------
     # No Members intent: poll daily to catch boosters who stopped boosting.
