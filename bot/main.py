@@ -18,6 +18,7 @@ from discord.ext import commands, tasks
 from .commands.booster import register_commands
 from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
+from .commands.ping import ping_command
 from .commands.reviews import reviews_group
 from .commands.say import say_command
 from .config import load_config
@@ -121,6 +122,7 @@ async def run() -> None:
     bot.tree.add_command(xp_group, guild=guild)
     bot.tree.add_command(reviews_group, guild=guild)
     bot.tree.add_command(say_command, guild=guild)
+    bot.tree.add_command(ping_command, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event

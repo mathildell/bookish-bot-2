@@ -19,6 +19,7 @@ Implemented features:
   configured forum channel, repost a fixed reference message into it and pin it.
 - **Bot speaks** — `/say` lets admins post a message as the bot into any
   channel or thread, optionally as a reply.
+- **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
 
@@ -89,6 +90,7 @@ bot/
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
     say.py                 /say admin command (post a message as the bot)
+    ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
   services/

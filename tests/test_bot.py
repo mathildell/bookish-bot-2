@@ -1222,5 +1222,10 @@ class ValidMessageTests(unittest.TestCase):
         self.assertTrue(say_cmds.is_valid_message("a" * say_cmds.MESSAGE_LIMIT))
 
 
+class PingTextTests(unittest.TestCase):
+    def test_response_includes_latency(self) -> None:
+        self.assertIn("42", t("ping.response", latency=42))
+
+
 if __name__ == "__main__":
     unittest.main()

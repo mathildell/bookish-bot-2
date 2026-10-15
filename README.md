@@ -193,3 +193,11 @@ Fun tools for admins.
 Post a message as the bot in a channel or thread. Emojis (custom and default)
 are supported; `reply_to` takes a message id or jump link to reply to, pinging
 its author.
+
+## Utility
+
+```
+/ping
+```
+**Permissions:** Everyone
+Check that the bot is awake; replies with the round-trip latency.
