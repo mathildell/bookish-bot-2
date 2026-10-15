@@ -1,0 +1,656 @@
+"""Upcoming book releases: track Goodreads/NetGalley books and announce them.
+
+Port of the old Ruby "BookReleases" feature:
+
+- members add a book from a Goodreads or NetGalley URL (scraped);
+- the tracked books can be refreshed via ``/releases edit`` (old vs new preview);
+- ``/releases list`` paginates upcoming releases with a "jump to month" select;
+- a scheduled job posts the day's releases and, on the 1st of the month, an
+  overview of everything releasing that month.
+
+Parsing/HTML fetching lives in ``release_sources``; this module owns storage,
+embeds and the announcement worker.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import re
+from datetime import date, datetime, time, timedelta, timezone
+
+import discord
+from sqlalchemy import delete, func, select, update
+
+from ..db import session_scope
+from ..models import BookRelease, ReleaseEditDraft, ReleaseSetting
+from ..texts import t
+from .level import utcnow
+from .members import resolve_members
+from .release_sources import BookData, book_data_to_dict
+
+logger = logging.getLogger("bh2.releases")
+
+FIELD_VALUE_LIMIT = 1024
+BLURB_LIMIT = 350
+DRAFT_TTL = timedelta(hours=2)
+EMBEDS_PER_MESSAGE = 10
+MONTH_FIELDS = 25
+
+_WS_RE = re.compile(r"\s+")
+
+
+def _chunked(items: list, size: int):
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 1].rstrip() + "…"
+
+
+def normalize_title(value: str) -> str:
+    """Lower-case and collapse whitespace, for case-insensitive search."""
+    return _WS_RE.sub(" ", (value or "").strip().lower())
+
+
+_LIKE_ESCAPE = "!"
+
+
+def _escape_like(value: str) -> str:
+    return (
+        value.replace(_LIKE_ESCAPE, _LIKE_ESCAPE * 2)
+        .replace("%", _LIKE_ESCAPE + "%")
+        .replace("_", _LIKE_ESCAPE + "_")
+    )
+
+
+def format_release_date(value: date) -> str:
+    """Render a date as a Discord date stamp (day precision)."""
+    timestamp = int(
+        datetime.combine(value, time.min, tzinfo=timezone.utc).timestamp()
+    )
+    return f"<t:{timestamp}:D>"
+
+
+def source_label(source: str) -> str:
+    return t(f"releases.sources.{source}")
+
+
+def build_book_embed(
+    book,
+    member: discord.Member | None,
+    client: discord.Client,
+    *,
+    prefix: str | None = None,
+    book_id: int | None = None,
+) -> discord.Embed:
+    """Build the embed shown for a single release (command or announcement)."""
+    embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
+
+    title = getattr(book, "title", None) or t("releases.embed.untitled_book")
+    embed.title = (
+        (f"{prefix} ‎ " if prefix else "")
+        + discord.utils.escape_markdown(title)
+        + t("releases.embed.title_suffix", source=source_label(book.source))
+    )
+    if getattr(book, "url", None):
+        embed.url = book.url
+    if getattr(book, "image_url", None):
+        embed.set_thumbnail(url=book.image_url)
+
+    authors = getattr(book, "authors", None) or []
+    embed.add_field(
+        name=t("releases.embed.author_field"),
+        value=(
+            discord.utils.escape_markdown(", ".join(authors))
+            if authors
+            else t("releases.embed.author_none")
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name=t("releases.embed.release_date_field"),
+        value=format_release_date(book.release_date),
+        inline=True,
+    )
+    tags = getattr(book, "tags", None) or []
+    embed.add_field(
+        name=t("releases.embed.tags_field"),
+        value=", ".join(tags[:3]) if tags else t("releases.embed.tags_none"),
+        inline=True,
+    )
+
+    blurb = getattr(book, "blurb", None)
+    if blurb and blurb.strip():
+        embed.add_field(
+            name=t("releases.embed.description_field"),
+            value=_truncate(blurb, BLURB_LIMIT),
+            inline=False,
+        )
+
+    identifier = book_id if book_id is not None else getattr(book, "id", None)
+    if member is not None:
+        avatar = getattr(member, "display_avatar", None)
+        embed.set_footer(
+            text=t(
+                "releases.embed.added_by",
+                user=discord.utils.escape_markdown(member.display_name),
+                id=identifier,
+            ),
+            icon_url=getattr(avatar, "url", None),
+        )
+    else:
+        embed.set_footer(
+            text=t("releases.embed.added_by_unknown", id=identifier)
+        )
+
+    background = getattr(client, "transparent_embed_image", None)
+    if background:
+        embed.set_image(url=background)
+    return embed
+
+
+def group_by_date(books: list) -> list[tuple[date, list]]:
+    """Group releases by release date, ordered by date then title."""
+    groups: list[tuple[date, list]] = []
+    for book in sorted(
+        books, key=lambda b: (b.release_date, (b.title or "").lower())
+    ):
+        if groups and groups[-1][0] == book.release_date:
+            groups[-1][1].append(book)
+        else:
+            groups.append((book.release_date, [book]))
+    return groups
+
+
+def build_month_embeds(
+    books: list, client: discord.Client, *, month_label: str
+) -> list[discord.Embed]:
+    """Build the monthly overview embeds, one field per release date."""
+    groups = group_by_date(books)
+    embeds: list[discord.Embed] = []
+    for chunk in _chunked(groups, MONTH_FIELDS):
+        embed = discord.Embed(
+            colour=getattr(client, "default_embed_color", None),
+            title=t("releases.month_embed.title", month=month_label),
+        )
+        for day, day_books in chunk:
+            lines = []
+            for book in day_books:
+                line = t(
+                    "releases.month_embed.line",
+                    title=discord.utils.escape_markdown(book.title),
+                    authors=(
+                        discord.utils.escape_markdown(", ".join(book.authors))
+                        if book.authors
+                        else t("releases.month_embed.unknown_author")
+                    ),
+                )
+                if book.announcement_sent:
+                    line = f"~~{line}~~"
+                lines.append("• " + line)
+            embed.add_field(
+                name=format_release_date(day),
+                value=_truncate("\n".join(lines)),
+                inline=False,
+            )
+        background = getattr(client, "transparent_embed_image", None)
+        if background:
+            embed.set_image(url=background)
+        embeds.append(embed)
+    return embeds
+
+
+class ReleaseService:
+    """CRUD for releases/settings/drafts plus the announcement worker."""
+
+    def __init__(self, guild_id: int) -> None:
+        self.guild_id = guild_id
+        self._channel_id: int | None = None
+        self._ping_role_id: int | None = None
+        self._last_monthly_post: str | None = None
+        # Serialises posts so a manual run cannot race the scheduled loop.
+        self._post_lock = asyncio.Lock()
+
+    @property
+    def channel_id(self) -> int | None:
+        return self._channel_id
+
+    @property
+    def ping_role_id(self) -> int | None:
+        return self._ping_role_id
+
+    # ----------------------------------------------------------- settings
+
+    async def reload(self) -> None:
+        async with session_scope() as session:
+            row = (
+                await session.execute(
+                    select(ReleaseSetting).where(
+                        ReleaseSetting.guild_id == self.guild_id
+                    )
+                )
+            ).scalar_one_or_none()
+        self._channel_id = (row.channel_id or None) if row else None
+        self._ping_role_id = row.ping_role_id if row else None
+        self._last_monthly_post = row.last_monthly_post if row else None
+
+    async def set_channel(self, channel_id: int) -> None:
+        async with session_scope() as session:
+            row = await self._find_setting(session)
+            if row is None:
+                session.add(
+                    ReleaseSetting(
+                        guild_id=self.guild_id,
+                        channel_id=channel_id,
+                        ping_role_id=self._ping_role_id,
+                    )
+                )
+            else:
+                row.channel_id = channel_id
+            await session.commit()
+        self._channel_id = channel_id
+
+    async def set_ping_role(self, role_id: int | None) -> None:
+        async with session_scope() as session:
+            row = await self._find_setting(session)
+            if row is None:
+                session.add(
+                    ReleaseSetting(
+                        guild_id=self.guild_id,
+                        channel_id=self._channel_id or 0,
+                        ping_role_id=role_id,
+                    )
+                )
+            else:
+                row.ping_role_id = role_id
+            await session.commit()
+        self._ping_role_id = role_id
+
+    async def _find_setting(self, session) -> ReleaseSetting | None:
+        return (
+            await session.execute(
+                select(ReleaseSetting).where(
+                    ReleaseSetting.guild_id == self.guild_id
+                )
+            )
+        ).scalar_one_or_none()
+
+    async def mark_monthly_posted(self, period: str) -> None:
+        async with session_scope() as session:
+            row = await self._find_setting(session)
+            if row is None:
+                session.add(
+                    ReleaseSetting(
+                        guild_id=self.guild_id,
+                        channel_id=self._channel_id or 0,
+                        last_monthly_post=period,
+                    )
+                )
+            else:
+                row.last_monthly_post = period
+            await session.commit()
+        self._last_monthly_post = period
+
+    # ------------------------------------------------------------ releases
+
+    async def get(self, book_id: int) -> BookRelease | None:
+        async with session_scope() as session:
+            book = await session.get(BookRelease, book_id)
+            if book is None or book.guild_id != self.guild_id:
+                return None
+            return book
+
+    async def find_by_source(
+        self, source: str, source_id: str
+    ) -> BookRelease | None:
+        async with session_scope() as session:
+            return (
+                await session.execute(
+                    select(BookRelease).where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.source == source,
+                        BookRelease.source_id == source_id,
+                    )
+                )
+            ).scalar_one_or_none()
+
+    async def search(self, title: str) -> list[BookRelease]:
+        normalized = normalize_title(title)
+        if not normalized:
+            return []
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BookRelease)
+                    .where(
+                        BookRelease.guild_id == self.guild_id,
+                        func.lower(BookRelease.title).like(
+                            f"%{_escape_like(normalized)}%",
+                            escape=_LIKE_ESCAPE,
+                        ),
+                    )
+                    .order_by(BookRelease.release_date, BookRelease.title)
+                )
+            ).scalars()
+        return list(rows)
+
+    async def count_upcoming(self) -> int:
+        async with session_scope() as session:
+            count = await session.scalar(
+                select(func.count())
+                .select_from(BookRelease)
+                .where(
+                    BookRelease.guild_id == self.guild_id,
+                    BookRelease.release_date >= date.today(),
+                )
+            )
+        return count or 0
+
+    async def upcoming_page(self, offset: int, limit: int) -> list[BookRelease]:
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BookRelease)
+                    .where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.release_date >= date.today(),
+                    )
+                    .order_by(BookRelease.release_date, BookRelease.title)
+                    .offset(offset)
+                    .limit(limit)
+                )
+            ).scalars()
+        return list(rows)
+
+    async def page_index_for_date(self, target: date, per_page: int) -> int:
+        """Page index (0-based) holding the first release on/after ``target``."""
+        async with session_scope() as session:
+            before = await session.scalar(
+                select(func.count())
+                .select_from(BookRelease)
+                .where(
+                    BookRelease.guild_id == self.guild_id,
+                    BookRelease.release_date >= date.today(),
+                    BookRelease.release_date < target,
+                )
+            )
+        return (before or 0) // per_page
+
+    async def month_releases(self, year: int, month: int) -> list[BookRelease]:
+        first = date(year, month, 1)
+        next_first = (
+            date(year + 1, 1, 1)
+            if month == 12
+            else date(year, month + 1, 1)
+        )
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BookRelease)
+                    .where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.release_date >= first,
+                        BookRelease.release_date < next_first,
+                    )
+                    .order_by(BookRelease.release_date, BookRelease.title)
+                )
+            ).scalars()
+        return list(rows)
+
+    async def add(self, data: BookData, discord_user_id: int) -> BookRelease:
+        async with session_scope() as session:
+            book = BookRelease(
+                guild_id=self.guild_id,
+                discord_user_id=discord_user_id,
+                title=data.title,
+                authors=data.authors,
+                release_date=data.release_date,
+                blurb=data.blurb,
+                image_url=data.image_url,
+                source=data.source,
+                source_id=data.source_id,
+                url=data.url,
+                tags=data.tags,
+            )
+            session.add(book)
+            await session.commit()
+            await session.refresh(book)
+            return book
+
+    async def update(
+        self, book_id: int, data: BookData
+    ) -> BookRelease | None:
+        async with session_scope() as session:
+            book = await session.get(BookRelease, book_id)
+            if book is None or book.guild_id != self.guild_id:
+                return None
+            book.title = data.title
+            book.authors = data.authors
+            book.release_date = data.release_date
+            book.blurb = data.blurb
+            book.image_url = data.image_url
+            book.source = data.source
+            book.source_id = data.source_id
+            book.url = data.url
+            book.tags = data.tags
+            await session.commit()
+            await session.refresh(book)
+            return book
+
+    async def remove(self, book_id: int) -> bool:
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(BookRelease).where(
+                    BookRelease.id == book_id,
+                    BookRelease.guild_id == self.guild_id,
+                )
+            )
+            await session.commit()
+        return result.rowcount > 0
+
+    async def mark_announced(self, book_ids: list[int]) -> None:
+        if not book_ids:
+            return
+        async with session_scope() as session:
+            await session.execute(
+                update(BookRelease)
+                .where(BookRelease.id.in_(book_ids))
+                .values(announcement_sent=True)
+            )
+            await session.commit()
+
+    # -------------------------------------------------------------- drafts
+
+    async def create_draft(
+        self, book_id: int, author_id: int, data: BookData
+    ) -> ReleaseEditDraft:
+        async with session_scope() as session:
+            draft = ReleaseEditDraft(
+                guild_id=self.guild_id,
+                book_id=book_id,
+                author_id=author_id,
+                data=book_data_to_dict(data),
+                expires_at=utcnow() + DRAFT_TTL,
+            )
+            session.add(draft)
+            await session.commit()
+            await session.refresh(draft)
+            return draft
+
+    async def get_draft(self, draft_id: int) -> ReleaseEditDraft | None:
+        async with session_scope() as session:
+            draft = await session.get(ReleaseEditDraft, draft_id)
+            if draft is None or draft.guild_id != self.guild_id:
+                return None
+            return draft
+
+    async def delete_draft(self, draft_id: int) -> None:
+        async with session_scope() as session:
+            await session.execute(
+                delete(ReleaseEditDraft).where(
+                    ReleaseEditDraft.id == draft_id,
+                    ReleaseEditDraft.guild_id == self.guild_id,
+                )
+            )
+            await session.commit()
+
+    async def purge_expired_drafts(self) -> int:
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(ReleaseEditDraft).where(
+                    ReleaseEditDraft.expires_at < utcnow()
+                )
+            )
+            await session.commit()
+        return result.rowcount
+
+    # -------------------------------------------------------------- worker
+
+    async def post_due(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+    ) -> int:
+        """Post the day's releases and (once a month) the monthly overview."""
+        async with self._post_lock:
+            return await self._post_due(guild, channel, client)
+
+    async def _post_due(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+    ) -> int:
+        today = date.today()
+        posted = await self._post_daily(
+            guild, channel, client, await self._due_releases(today)
+        )
+        await self._maybe_post_monthly(guild, channel, client, today)
+        return posted
+
+    async def _due_releases(self, today: date) -> list[BookRelease]:
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BookRelease)
+                    .where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.release_date <= today,
+                        BookRelease.announcement_sent.is_(False),
+                    )
+                    .order_by(BookRelease.release_date, BookRelease.title)
+                )
+            ).scalars()
+        return list(rows)
+
+    async def _post_daily(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+        books: list[BookRelease],
+    ) -> int:
+        if not books:
+            return 0
+
+        members = await resolve_members(
+            guild, [book.discord_user_id for book in books]
+        )
+        member_by_id = {
+            book.discord_user_id: member
+            for book, member in zip(books, members)
+        }
+        mentions = " ".join(
+            dict.fromkeys(f"<@{book.discord_user_id}>" for book in books)
+        )
+        singular = len(books) == 1
+        content = "\n".join(
+            [
+                t(
+                    "releases.post.daily_title_singular"
+                    if singular
+                    else "releases.post.daily_title_plural"
+                ),
+                t(
+                    "releases.post.daily_thanks_singular"
+                    if singular
+                    else "releases.post.daily_thanks_plural",
+                    mentions=mentions,
+                ),
+            ]
+        )
+        if self._ping_role_id:
+            content += f"\n-# <@&{self._ping_role_id}>"
+
+        posted_ids: list[int] = []
+        first = True
+        for batch in _chunked(books, EMBEDS_PER_MESSAGE):
+            embeds = [
+                build_book_embed(
+                    book, member_by_id.get(book.discord_user_id), client
+                )
+                for book in batch
+            ]
+            try:
+                await channel.send(
+                    content=content if first else None, embeds=embeds
+                )
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not post %d release(s)", len(batch), exc_info=True
+                )
+                continue
+            first = False
+            posted_ids.extend(book.id for book in batch)
+
+        await self.mark_announced(posted_ids)
+        return len(posted_ids)
+
+    async def _maybe_post_monthly(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+        today: date,
+    ) -> None:
+        period = today.strftime("%Y-%m")
+        if self._last_monthly_post == period:
+            return
+
+        books = await self.month_releases(today.year, today.month)
+        if books:
+            month_name = t(f"releases.months.{today.month}")
+            month_label = t(
+                "releases.month_label", month=month_name, year=today.year
+            )
+            embeds = build_month_embeds(
+                books, client, month_label=month_label
+            )
+            content = "\n".join(
+                [
+                    t("releases.post.monthly_title", month=month_name),
+                    t("releases.post.monthly_thanks"),
+                ]
+            )
+            if self._ping_role_id:
+                content += f"\n-# <@&{self._ping_role_id}>"
+
+            first = True
+            for batch in _chunked(embeds, EMBEDS_PER_MESSAGE):
+                try:
+                    await channel.send(
+                        content=content if first else None, embeds=batch
+                    )
+                except discord.HTTPException:
+                    logger.warning(
+                        "Could not post monthly overview", exc_info=True
+                    )
+                    continue
+                first = False
+
+        await self.mark_monthly_posted(period)

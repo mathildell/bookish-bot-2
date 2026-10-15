@@ -15,6 +15,9 @@ Implemented features:
   reward role.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
+- **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
+  headless browser) and announce them: an overview on the 1st of each month and
+  the day's releases every day.
 - **Introductions** — admins configure an intro channel and its questions; a
   sticky message's button lets members post (and later edit) a single
   introduction.
@@ -35,6 +38,7 @@ Dependencies live in the repo-local virtualenv (`.venv`):
 
 ```bash
 .venv/bin/pip install -r requirements.txt
+.venv/bin/playwright install chromium  # browser used by the book release scraper
 ```
 
 Configuration is a single `config.yaml` (gitignored). Copy the example and fill
@@ -84,7 +88,8 @@ bot/
   db.py                    async engine/session helpers
   models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
                            LevelReward, ReviewFeed, ReviewEntry, ReviewSetting,
-                           IntroQuestion, IntroSetting, IntroPost)
+                           IntroQuestion, IntroSetting, IntroPost, BookRelease,
+                           ReleaseSetting, ReleaseEditDraft)
   notifications.py         level-up announcements
   commands/
     booster.py             /booster root group
@@ -93,6 +98,7 @@ bot/
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
+    releases.py            /releases group + add/edit/find/list/view/remove, channel, role
     intro.py               /intro group + sticky button/modal + question manager
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)
@@ -106,6 +112,9 @@ bot/
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads
     reviews.py             Goodreads RSS fetch/parse + review poll
+    html.py                shared HTML -> Discord markdown converter
+    release_sources.py     Playwright scraper + Goodreads/NetGalley parsers
+    releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite

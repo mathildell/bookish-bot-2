@@ -182,6 +182,86 @@ Set the channel where review updates are posted.
 Force the bot to repost a review immediately, even if the Goodreads feed entry
 has not changed.
 
+## Book releases
+
+Members track upcoming books from Goodreads or NetGalley. The bot scrapes the
+book page for its title, authors, release date, cover, blurb and tags. The
+first day of each month it posts an overview of everything releasing that
+month, and every day it announces the books releasing that day, pinging the
+people who added them and the configured role. Set the channel with
+`/releases channel set`.
+
+```
+/releases add url:
+```
+**Permissions:** Everyone
+Add an upcoming book from its Goodreads or NetGalley URL. The release date must
+be in the future, and the book must not already be tracked.
+
+```
+/releases edit url: [book_id:]
+```
+**Permissions:** Everyone
+Re-scrape a tracked book and show a before/after preview with a confirm button.
+`book_id` (from `/releases list`) is only needed when the title changed and the
+URL no longer matches the stored book.
+
+```
+/releases find title:
+```
+**Permissions:** Everyone
+Check whether a book is already tracked; if it is, its details are shown,
+otherwise the bot explains how to add it.
+
+```
+/releases list
+```
+**Permissions:** Everyone
+Paginated list of upcoming releases, with prev/next buttons and a "jump to
+month" dropdown covering the next year.
+
+```
+/releases view book_id:
+```
+**Permissions:** Everyone
+Show one tracked book.
+
+```
+/releases remove book_id:
+```
+**Permissions:** 🔒 Admin
+Remove a tracked book.
+
+```
+/releases channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set the channel where release announcements are posted.
+
+```
+/releases channel view
+```
+**Permissions:** Everyone
+Show the current release announcements channel.
+
+```
+/releases role set role:
+```
+**Permissions:** 🔒 Admin
+Set the role pinged with release announcements.
+
+```
+/releases role clear
+```
+**Permissions:** 🔒 Admin
+Stop pinging a role with announcements.
+
+```
+/releases role view
+```
+**Permissions:** Everyone
+Show the role pinged with announcements.
+
 ## Introductions
 
 Admins configure an intro channel and the questions for the intro form. A

@@ -130,6 +130,11 @@ class Paginator(discord.ui.View):
             results=self.total_results,
         )
 
+    def set_index(self, index: int) -> None:
+        """Jump to ``index`` (clamped) and refresh the pagination buttons."""
+        self.index = max(0, min(index, self.page_count - 1))
+        self._refresh()
+
     async def _show(self, interaction: discord.Interaction) -> None:
         self._refresh()
         if self.source is not None and self.message is not None:

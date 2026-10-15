@@ -16,7 +16,6 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from html.parser import HTMLParser
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
@@ -27,6 +26,7 @@ from sqlalchemy import delete, select
 from ..db import session_scope
 from ..models import ReviewEntry, ReviewFeed, ReviewSetting
 from ..texts import t
+from .html import html_to_markdown
 from .level import utcnow
 from .members import resolve_members
 
@@ -42,8 +42,6 @@ FALLBACK_LOGO_URL = (
 )
 _ENTRY_ID_RE = re.compile(r"/review/show/(\d+)")
 _ARC_SHELF_RE = re.compile(r"\b(arc|arcs)\b", re.IGNORECASE)
-_WS_BEFORE_NEWLINE_RE = re.compile(r"[ \t]+\n")
-_BLANK_LINES_RE = re.compile(r"\n{3,}")
 
 
 @dataclass(frozen=True)
@@ -157,81 +155,6 @@ def parse_feed(xml_text: str) -> FeedData:
             )
         )
     return FeedData(bookshelf=bookshelf, logo_url=logo_url, entries=entries)
-
-
-class _ReviewHtmlToMarkdown(HTMLParser):
-    """Convert the small HTML dialect Goodreads uses into Discord markdown."""
-
-    _INLINE = {
-        "b": "**",
-        "strong": "**",
-        "i": "*",
-        "em": "*",
-        "u": "__",
-        "s": "~~",
-        "strike": "~~",
-        "del": "~~",
-    }
-
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self._anchors: list[str | None] = []
-        self._spans: list[bool] = []
-
-    def handle_starttag(self, tag: str, attrs: list) -> None:
-        attributes = dict(attrs)
-        if tag in self._INLINE:
-            self.parts.append(self._INLINE[tag])
-        elif tag == "br":
-            self.parts.append("\n")
-        elif tag in ("p", "div"):
-            self.parts.append("\n")
-        elif tag == "blockquote":
-            self.parts.append("\n> ")
-        elif tag == "a":
-            href = attributes.get("href")
-            self._anchors.append(href)
-            if href:
-                self.parts.append("[")
-        elif tag == "img":
-            src = attributes.get("src")
-            if src:
-                self.parts.append(src)
-        elif tag == "span":
-            spoiler = "spoiler" in (attributes.get("class") or "")
-            self._spans.append(spoiler)
-            if spoiler:
-                self.parts.append("||")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in self._INLINE:
-            self.parts.append(self._INLINE[tag])
-        elif tag in ("p", "div"):
-            self.parts.append("\n")
-        elif tag == "blockquote":
-            self.parts.append("\n")
-        elif tag == "a":
-            href = self._anchors.pop() if self._anchors else None
-            if href:
-                self.parts.append(f"]({href})")
-        elif tag == "span":
-            if self._spans and self._spans.pop():
-                self.parts.append("||")
-
-    def handle_data(self, data: str) -> None:
-        self.parts.append(data)
-
-
-def html_to_markdown(value: str) -> str:
-    """Convert a review body's HTML into Discord-friendly markdown."""
-    parser = _ReviewHtmlToMarkdown()
-    parser.feed(value or "")
-    parser.close()
-    text = "".join(parser.parts).replace("\xa0", " ")
-    text = _WS_BEFORE_NEWLINE_RE.sub("\n", text)
-    text = _BLANK_LINES_RE.sub("\n\n", text)
-    return text.strip()
 
 
 def format_rating(value: str) -> str:

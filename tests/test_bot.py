@@ -40,6 +40,10 @@ from bot.services.booster_react import (
 from bot.services import reviews as reviews_service
 from bot.services import reference as reference_service
 from bot.services import intro as intro_service
+from bot.commands import releases as release_cmds
+from bot.services import release_sources
+from bot.services import releases as release_service
+from bot.services.release_sources import BookData
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
 from bot.services.reviews import FeedData, FeedEntry
@@ -1524,6 +1528,252 @@ class RenderMessageTests(unittest.TestCase):
 class PingTextTests(unittest.TestCase):
     def test_response_includes_latency(self) -> None:
         self.assertIn("42", t("ping.response", latency=42))
+
+
+GOODREADS_JSON_LD_HTML = """
+<html><head>
+<script type="application/ld+json">
+{"@context": "https://schema.org", "@type": "Book",
+ "name": "The Testing Book",
+ "author": [{"@type": "Person", "name": "Ada Author"}],
+ "datePublished": "2026-10-13",
+ "image": "https://example.com/cover.jpg",
+ "description": "<p>A <b>great</b> book.</p>",
+ "genre": ["Fantasy", "Adventure"]}
+</script>
+</head><body></body></html>
+"""
+
+GOODREADS_DOM_HTML = """
+<main class="BookPage">
+  <h1 data-testid="bookTitle">DOM Book</h1>
+  <div class="ContributorLinksList">
+    <span class="ContributorLink__name">Jane Doe</span>
+  </div>
+  <div class="BookCard__cover"><img src="https://example.com/dom.jpg"></div>
+  <div class="BookPageMetadataSection__description">
+    <div class="Formatted"><p>Blurb here.</p></div>
+  </div>
+  <div class="BookPageMetadataSection__genres">
+    <span class="BookPageMetadataSection__genreButton">Sci-Fi</span>
+  </div>
+  <div class="PreReleaseDetails">Expected publication: November 5, 2026</div>
+</main>
+"""
+
+NETGALLEY_HTML = """
+<div id="page-content">
+  <div itemtype="https://schema.org/Book">
+    <h1 class="heading-1">NetGalley Book</h1>
+    <span itemprop="author" itemtype="https://schema.org/Person">
+      <span itemprop="name">Sam Writer</span>
+    </span>
+    <img class="cover-width" itemprop="image" src="https://example.com/ng.jpg">
+    <div class="publication-dates">
+      Pub Date Oct 13 2026 | Archive Date Oct 13 2026
+    </div>
+    <div id="descriptionFullTextBox"><p>Interesting.</p></div>
+    <div class="categories"><a>Mystery</a></div>
+  </div>
+</div>
+"""
+
+
+class ParseSourceUrlTests(unittest.TestCase):
+    def test_goodreads(self) -> None:
+        self.assertEqual(
+            release_sources.parse_source_url(
+                "https://www.goodreads.com/book/show/12345"
+            ),
+            ("goodreads", "12345"),
+        )
+
+    def test_netgalley_region(self) -> None:
+        self.assertEqual(
+            release_sources.parse_source_url(
+                "https://www.netgalley.fr/catalog/book/999"
+            ),
+            ("netgalley", "999"),
+        )
+
+    def test_unsupported_host(self) -> None:
+        with self.assertRaises(release_sources.BookScrapeError) as ctx:
+            release_sources.parse_source_url("https://example.com/book/show/1")
+        self.assertEqual(ctx.exception.key, "releases.errors.unsupported_source")
+
+    def test_missing_book_path(self) -> None:
+        with self.assertRaises(release_sources.BookScrapeError) as ctx:
+            release_sources.parse_source_url(
+                "https://www.goodreads.com/author/1"
+            )
+        self.assertEqual(ctx.exception.key, "releases.errors.invalid_path")
+
+    def test_not_a_url(self) -> None:
+        with self.assertRaises(release_sources.BookScrapeError) as ctx:
+            release_sources.parse_source_url("not a url")
+        self.assertEqual(ctx.exception.key, "releases.errors.invalid_url")
+
+
+class ParseDateTextTests(unittest.TestCase):
+    def test_iso(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text("2026-10-13"),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_english_month_first(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text(
+                "Expected publication: October 13, 2026"
+            ),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_english_day_first(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text("13 Oct 2026"),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_french(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text("13 octobre 2026"),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_dotted(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text("13.10.2026"),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_netgalley_line(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text(
+                "Pub Date Oct 13 2026 | Archive Date Oct 13 2026"
+            ),
+            datetime.date(2026, 10, 13),
+        )
+
+    def test_missing(self) -> None:
+        self.assertIsNone(release_sources.parse_date_text("no date here"))
+        self.assertIsNone(release_sources.parse_date_text(None))
+
+
+class ParseGoodreadsTests(unittest.TestCase):
+    def test_json_ld(self) -> None:
+        parsed = release_sources.parse_goodreads_html(GOODREADS_JSON_LD_HTML)
+        self.assertEqual(parsed.title, "The Testing Book")
+        self.assertEqual(parsed.authors, ["Ada Author"])
+        self.assertEqual(parsed.release_date, datetime.date(2026, 10, 13))
+        self.assertEqual(parsed.image_url, "https://example.com/cover.jpg")
+        self.assertEqual(parsed.tags, ["Fantasy", "Adventure"])
+        self.assertIn("**great**", parsed.blurb)
+
+    def test_dom_fallback(self) -> None:
+        parsed = release_sources.parse_goodreads_html(GOODREADS_DOM_HTML)
+        self.assertEqual(parsed.title, "DOM Book")
+        self.assertEqual(parsed.authors, ["Jane Doe"])
+        self.assertEqual(parsed.release_date, datetime.date(2026, 11, 5))
+        self.assertEqual(parsed.image_url, "https://example.com/dom.jpg")
+        self.assertEqual(parsed.tags, ["Sci-Fi"])
+        self.assertIn("Blurb here.", parsed.blurb)
+
+    def test_missing_release_date_raises(self) -> None:
+        with self.assertRaises(release_sources.BookScrapeError) as ctx:
+            release_sources.parse_goodreads_html(
+                "<main class='BookPage'><h1 data-testid='bookTitle'>X</h1></main>"
+            )
+        self.assertEqual(ctx.exception.key, "releases.errors.no_release_date")
+
+
+class ParseNetgalleyTests(unittest.TestCase):
+    def test_microdata(self) -> None:
+        parsed = release_sources.parse_netgalley_html(NETGALLEY_HTML)
+        self.assertEqual(parsed.title, "NetGalley Book")
+        self.assertEqual(parsed.authors, ["Sam Writer"])
+        self.assertEqual(parsed.release_date, datetime.date(2026, 10, 13))
+        self.assertEqual(parsed.image_url, "https://example.com/ng.jpg")
+        self.assertEqual(parsed.tags, ["Mystery"])
+        self.assertIn("Interesting.", parsed.blurb)
+
+
+class BookDataSerializationTests(unittest.TestCase):
+    def test_roundtrip(self) -> None:
+        data = BookData(
+            title="T",
+            authors=["A", "B"],
+            release_date=datetime.date(2026, 10, 13),
+            blurb="b",
+            image_url=None,
+            tags=["x"],
+            source="goodreads",
+            source_id="1",
+            url="https://goodreads.com/book/show/1",
+        )
+        self.assertEqual(
+            release_sources.book_data_from_dict(
+                release_sources.book_data_to_dict(data)
+            ),
+            data,
+        )
+
+
+class ReleaseEmbedTests(unittest.TestCase):
+    class _Book:
+        def __init__(self, **kwargs) -> None:
+            self.id = 1
+            self.title = "The Book"
+            self.authors = ["Ada Author"]
+            self.release_date = datetime.date(2026, 10, 13)
+            self.blurb = ""
+            self.image_url = None
+            self.source = "goodreads"
+            self.source_id = "1"
+            self.url = "https://goodreads.com/book/show/1"
+            self.tags: list[str] = []
+            self.announcement_sent = False
+            self.__dict__.update(kwargs)
+
+    def test_embed_contents(self) -> None:
+        embed = release_service.build_book_embed(
+            self._Book(), FakeMember(), FakeClient()
+        )
+        self.assertTrue(embed.title.startswith("The Book"))
+        self.assertIn(t("releases.sources.goodreads"), embed.title)
+        self.assertEqual(embed.url, "https://goodreads.com/book/show/1")
+        self.assertIn("Ada Author", embed.fields[0].value)
+        self.assertIn("(id: 1)", embed.footer.text)
+
+    def test_month_embeds_mark_announced(self) -> None:
+        books = [
+            self._Book(id=1, announcement_sent=True),
+            self._Book(id=2, announcement_sent=False, title="Other"),
+        ]
+        embeds = release_service.build_month_embeds(
+            books, FakeClient(), month_label="October 2026"
+        )
+        self.assertEqual(len(embeds), 1)
+        self.assertIn("~~", embeds[0].fields[0].value)
+
+    def test_normalize_title(self) -> None:
+        self.assertEqual(
+            release_service.normalize_title("  The   HOBBIT "), "the hobbit"
+        )
+
+    def test_escape_like(self) -> None:
+        self.assertEqual(
+            release_service._escape_like("50%_off!"), "50!%!_off!!"
+        )
+
+
+class MonthOptionsTests(unittest.TestCase):
+    def test_spans_twelve_months(self) -> None:
+        options = release_cmds._month_options(datetime.date(2026, 11, 15))
+        self.assertEqual(len(options), 12)
+        self.assertEqual(options[0].value, "2026-11-01")
+        self.assertEqual(options[-1].value, "2027-10-01")
+        self.assertIn("November 2026", options[0].label)
 
 
 if __name__ == "__main__":

@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    Date,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -250,4 +259,98 @@ class IntroPost(Base):
 
     __table_args__ = (
         Index("ix_intro_posts_guild_user_unique", "guild_id", "user_id", unique=True),
+    )
+
+
+class BookRelease(Base):
+    """An upcoming book release tracked from Goodreads or NetGalley."""
+
+    __tablename__ = "book_releases"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    authors: Mapped[list] = mapped_column(JSON, default=list)
+    release_date: Mapped[date] = mapped_column(Date, nullable=False)
+    blurb: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Site the release came from ("goodreads"/"netgalley") and its own id,
+    # parsed from the submitted URL. Together they identify the book.
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+
+    # The member who added (or last refreshed) the release
+    discord_user_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
+
+    # Set once the release-day announcement has been posted
+    announcement_sent: Mapped[bool] = mapped_column(default=False, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_book_releases_guild_source_unique",
+            "guild_id",
+            "source",
+            "source_id",
+            unique=True,
+        ),
+        Index("ix_book_releases_guild_release_date", "guild_id", "release_date"),
+    )
+
+
+class ReleaseSetting(Base):
+    """Per-guild settings for the book releases feature."""
+
+    __tablename__ = "release_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    ping_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # "YYYY-MM" of the last posted monthly overview (idempotency marker)
+    last_monthly_post: Mapped[str | None] = mapped_column(
+        String(7), nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ReleaseEditDraft(Base):
+    """A proposed book edit awaiting confirmation, from ``/releases edit``."""
+
+    __tablename__ = "release_edit_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    book_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # The member who triggered the edit (only they may confirm it)
+    author_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # The proposed book attributes, serialised from BookData
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
     )

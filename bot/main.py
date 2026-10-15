@@ -10,6 +10,9 @@ Wires everything together:
 from __future__ import annotations
 
 import logging
+from datetime import time as dt_time
+from datetime import timezone as dt_timezone
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -26,6 +29,7 @@ from .commands.intro import (
 from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
 from .commands.ping import ping_command
+from .commands.releases import releases_group
 from .commands.reviews import reviews_group
 from .commands.say import say_command
 from .config import load_config
@@ -37,11 +41,30 @@ from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.intro import IntroService
 from .services.level_rewards import LevelRewardService, sync_member_roles
 from .services.reference import post_reference
+from .services.release_sources import BookScrapeError, ReleaseScraper
+from .services.releases import ReleaseService
 from .services.reviews import ReviewService
 
 logger = logging.getLogger("bh2")
 
 XP_COOLDOWN_SECONDS = 60
+
+
+def _release_post_time(config) -> dt_time:
+    """Scheduled time for the daily release post, from the config or 13:00 UTC."""
+    raw = str(config.get("releases_post_time") or "13:00")
+    try:
+        hour, minute = (int(part) for part in raw.split(":", 1))
+    except ValueError:
+        hour, minute = 13, 0
+    tz = dt_timezone.utc
+    tz_name = config.get("timezone")
+    if tz_name:
+        try:
+            tz = ZoneInfo(str(tz_name))
+        except Exception:
+            logger.warning("Unknown timezone %r; using UTC", tz_name)
+    return dt_time(hour=hour, minute=minute, tzinfo=tz)
 
 
 async def _sticky_exists(
@@ -114,6 +137,8 @@ async def run() -> None:
     level_rewards = LevelRewardService(int(config.guild_id))
     reviews = ReviewService(int(config.guild_id))
     intros = IntroService(int(config.guild_id))
+    releases = ReleaseService(int(config.guild_id))
+    release_scraper = ReleaseScraper()
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -125,6 +150,8 @@ async def run() -> None:
     bot.level_rewards = level_rewards
     bot.reviews = reviews
     bot.intros = intros
+    bot.releases = releases
+    bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
     # Persistent refresh button on every intro embed (shares one custom id).
@@ -149,6 +176,7 @@ async def run() -> None:
     bot.tree.add_command(xp_group, guild=guild)
     bot.tree.add_command(reviews_group, guild=guild)
     bot.tree.add_command(intro_group, guild=guild)
+    bot.tree.add_command(releases_group, guild=guild)
     bot.tree.add_command(say_command, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
 
@@ -236,6 +264,32 @@ async def run() -> None:
     async def _wait_ready_reviews() -> None:
         await bot.wait_until_ready()
 
+    # ------------------- book release announcements -------------------
+    async def post_releases_now() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        channel = await resolve_notify_channel(guild, releases.channel_id)
+        if channel is None:
+            return
+        posted = await releases.post_due(guild, channel, bot)
+        logger.info("Posted %d release announcement(s)", posted)
+
+    @tasks.loop(time=_release_post_time(config))
+    async def post_releases() -> None:
+        await post_releases_now()
+
+    @post_releases.before_loop
+    async def _wait_ready_releases() -> None:
+        await bot.wait_until_ready()
+        # Catch up on anything missed while the bot was down; the work is
+        # idempotent thanks to the announcement/montly markers.
+        try:
+            await post_releases_now()
+            await releases.purge_expired_drafts()
+        except Exception:
+            logger.exception("Release catch-up failed")
+
     # ------------------------- startup -------------------------
     @bot.event
     async def on_ready() -> None:
@@ -257,10 +311,21 @@ async def run() -> None:
             await repost_sticky(bot, channel)
             logger.info("Reposted missing intro sticky message")
 
+        await releases.reload()
+        logger.info("Release channel: %s", releases.channel_id)
+        try:
+            await release_scraper.start()
+        except BookScrapeError as exc:
+            logger.error("Release scraper unavailable: %s", exc.key)
+        except Exception:
+            logger.exception("Could not start the release scraper")
+
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
         if not poll_reviews.is_running():
             poll_reviews.start()
+        if not post_releases.is_running():
+            post_releases.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:
@@ -281,4 +346,5 @@ async def run() -> None:
     except KeyboardInterrupt:
         await bot.close()
     finally:
+        await release_scraper.close()
         await close_db()

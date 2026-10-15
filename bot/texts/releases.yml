@@ -1,0 +1,108 @@
+# Texts for the upcoming book releases feature.
+releases:
+  group_description: "Track upcoming book releases and announce them"
+  month_label: "%{month} %{year}"
+  months:
+    "1": "January"
+    "2": "February"
+    "3": "March"
+    "4": "April"
+    "5": "May"
+    "6": "June"
+    "7": "July"
+    "8": "August"
+    "9": "September"
+    "10": "October"
+    "11": "November"
+    "12": "December"
+  sources:
+    goodreads: "Goodreads"
+    netgalley: "NetGalley"
+  add:
+    description: "Add an upcoming book from a Goodreads or NetGalley URL"
+    param_url: "Goodreads or NetGalley book URL"
+    success: "Added **%{title}** (id: %{id})."
+  edit:
+    description: "Refresh a tracked book from its URL"
+    param_url: "Goodreads or NetGalley URL for the book"
+    param_book_id: "Id of the book to update (from /releases list), if its title changed"
+    old_prefix: "BEFORE"
+    new_prefix: "AFTER"
+    confirm: "Confirm update"
+    cancel: "Cancel"
+    updated: "Updated **%{title}**."
+    cancelled: "Update cancelled."
+    expired: "This update has expired. Run the command again."
+    not_found: "No tracked book matches that URL or id. Use `/releases add` to add it."
+  find:
+    description: "Check whether a book is already tracked"
+    param_title: "Book title (or part of it) to search for"
+    not_found: "**%{title}** isn't tracked yet. Add it with `/releases add url:` using its Goodreads or NetGalley link."
+  view:
+    description: "Show one tracked book"
+    param_book_id: "Id of the book (shown in /releases list)"
+    not_found: "No tracked book with id %{id}."
+  list:
+    description: "List upcoming releases"
+    empty: "No upcoming releases are tracked yet."
+    jump_to_month: "Jump to a month"
+    month_option: "%{month} %{year}"
+  remove:
+    description: "Remove a tracked book (admins only)"
+    param_book_id: "Id of the book to remove"
+    success: "Removed **%{title}**."
+    not_found: "No tracked book with id %{id}."
+  channel:
+    group_description: "Where release announcements are posted"
+    set:
+      description: "Set the release announcements channel"
+      param_channel: "Channel for release announcements"
+      success: "Release announcements will be posted in %{channel}."
+    view:
+      description: "Show the release announcements channel"
+      none: "No release channel is set yet."
+      current: "Release announcements channel: %{channel}"
+  role:
+    group_description: "Role pinged with release announcements"
+    set:
+      description: "Set the role to ping with announcements"
+      param_role: "Role to ping"
+      success: "Announcements will ping %{role}."
+    clear:
+      description: "Stop pinging a role with announcements"
+      success: "Announcements will no longer ping a role."
+    view:
+      description: "Show the role pinged with announcements"
+      none: "No announcement role is set."
+      current: "Announcement role: %{role}"
+  embed:
+    untitled_book: "Untitled"
+    title_suffix: " ‎ ↗️ ‎ (%{source})"
+    author_field: "Author(s)"
+    author_none: "Unknown"
+    release_date_field: "Release date"
+    tags_field: "Tags"
+    tags_none: "—"
+    description_field: "Description"
+    added_by: "Added by %{user} (id: %{id})"
+    added_by_unknown: "id: %{id}"
+  month_embed:
+    title: "New releases coming in %{month}!"
+    line: "**%{title}** by %{authors}"
+    unknown_author: "Unknown"
+  post:
+    daily_title_singular: "## 📣 New book just released!"
+    daily_title_plural: "## 📣 New books just released!"
+    daily_thanks_singular: "Thank you %{mentions} for adding it to our calendar 📚"
+    daily_thanks_plural: "Thank you %{mentions} for adding them to our calendar 📚"
+    monthly_title: "## ✨📖 New releases coming in %{month}!"
+    monthly_thanks: "Here are the releases to look forward to this month!"
+  errors:
+    invalid_url: "That doesn't look like a valid book URL."
+    invalid_path: "That URL doesn't point to a specific book page."
+    unsupported_source: "Only Goodreads and NetGalley links are supported."
+    no_release_date: "I couldn't find a release date on that page, so I can't tell if it's upcoming."
+    not_in_future: "That book's release date is in the past, so it can't be tracked."
+    scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
+    browser_missing: "The book scraper isn't available on this server. Ask an admin to set it up."
+    already_exists: "**%{title}** was already added by %{user} (id: %{id}). Use `/releases edit` to refresh it."

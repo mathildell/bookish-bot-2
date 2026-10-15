@@ -40,3 +40,10 @@ default_embed_color: "#97A97C"
 # share a consistent height (a publicly reachable image URL)
 transparent_embed_image: "https://i.imgur.com/example.png"
 
+# Time of day the bot posts book release announcements (24h "HH:MM").
+# The release channel itself is set in Discord with /releases channel set.
+releases_post_time: "13:00"
+
+# IANA timezone used for the daily post time and release-day checks.
+timezone: "America/Toronto"
+
