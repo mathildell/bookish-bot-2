@@ -70,7 +70,17 @@ async def resolve_intro_channel(
 def sticky_embed(client: discord.Client) -> discord.Embed:
     """The recurring sticky message posted in the intro channel."""
     embed = new_embed(client)
-    embed.description = t("intro.sticky.text")
+    embed.title = t("intro.sticky.title")
+    embed.add_field(
+        name=t("intro.sticky.how_to_post_title"),
+        value=t("intro.sticky.how_to_post_text"),
+        inline=False,
+    )
+    embed.add_field(
+        name=t("intro.sticky.formatting_title"),
+        value=t("intro.sticky.formatting_text"),
+        inline=False,
+    )
     set_transparent_image(embed, client)
     return embed
 

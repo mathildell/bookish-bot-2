@@ -54,6 +54,13 @@ import_old_xp = importlib.util.module_from_spec(_spec)
 sys.modules["import_old_xp"] = import_old_xp
 _spec.loader.exec_module(import_old_xp)
 
+_spec = importlib.util.spec_from_file_location(
+    "import_old_intros", ROOT / "scripts" / "import_old_intros.py"
+)
+import_old_intros = importlib.util.module_from_spec(_spec)
+sys.modules["import_old_intros"] = import_old_intros
+_spec.loader.exec_module(import_old_intros)
+
 
 class FakeClient:
     transparent_embed_image = "https://example.com/bg.png"
@@ -671,14 +678,14 @@ class ImportOldXpTests(unittest.TestCase):
         self.assertEqual(import_old_xp.parse_amount("22.8k"), 22800)
 
     def test_parse_table_skips_header_and_separator(self) -> None:
-        rows = import_old_xp.parse_table(ROOT / "backup_old_xp.md")
+        rows = import_old_xp.parse_table(ROOT / "bkp" / "backup_old_xp.md")
         self.assertTrue(rows)
         self.assertEqual(rows[0].user_id, 477581832611954690)
         self.assertEqual(rows[0].level, 1)
         self.assertEqual(rows[0].progress, 20)
 
     def test_total_xp_round_trips_to_same_level(self) -> None:
-        rows = import_old_xp.parse_table(ROOT / "backup_old_xp.md")
+        rows = import_old_xp.parse_table(ROOT / "bkp" / "backup_old_xp.md")
         for row in rows:
             total = (
                 level_service.total_xp_for_level(row.level) + row.progress
@@ -688,6 +695,46 @@ class ImportOldXpTests(unittest.TestCase):
                 row.level,
                 msg=f"level {row.level} progress {row.progress}",
             )
+
+
+class ImportOldIntrosTests(unittest.TestCase):
+    """The old-intro importer maps CSV columns to intro questions."""
+
+    def test_parse_csv_reads_questions_and_rows(self) -> None:
+        headers, rows = import_old_intros.parse_csv(
+            ROOT / "bkp" / "backup_old_intros.csv"
+        )
+        self.assertEqual(
+            headers,
+            [
+                "Name & Pronouns",
+                "Favorite Reads",
+                "Reading Habits",
+                "A Beloved Book",
+                "Fun Fact",
+            ],
+        )
+        self.assertEqual(len(rows), 10)
+        self.assertEqual(rows[0].user_id, 361167694755790848)
+        self.assertEqual(rows[0].answers["Name & Pronouns"], "mtrics (she/her)")
+        self.assertIn(
+            "\n", rows[1].answers["Name & Pronouns"]
+        )
+
+    def test_resolve_header_map_is_case_insensitive(self) -> None:
+        mapping, missing = import_old_intros.resolve_header_map(
+            ["Fun Fact", "name & pronouns"],
+            [(1, "Name & Pronouns"), (2, "Favorite Reads")],
+        )
+        self.assertEqual(mapping, {"name & pronouns": 1})
+        self.assertEqual(missing, ["Fun Fact"])
+
+    def test_resolve_header_map_reports_all_missing(self) -> None:
+        mapping, missing = import_old_intros.resolve_header_map(
+            ["A", "B"], []
+        )
+        self.assertEqual(mapping, {})
+        self.assertEqual(missing, ["A", "B"])
 
 
 FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1275,6 +1322,28 @@ class BuildIntroEmbedTests(unittest.TestCase):
             FakeClient,
         )
         self.assertEqual(embed.fields[0].value, intro_service.blank_answer())
+
+
+class StickyEmbedTests(unittest.TestCase):
+    def test_layout(self) -> None:
+        embed = intro_cmds.sticky_embed(FakeClient)
+        self.assertEqual(embed.title, t("intro.sticky.title"))
+        self.assertEqual(
+            [field.name for field in embed.fields],
+            [
+                t("intro.sticky.how_to_post_title"),
+                t("intro.sticky.formatting_title"),
+            ],
+        )
+        self.assertEqual(
+            embed.fields[0].value, t("intro.sticky.how_to_post_text")
+        )
+        self.assertEqual(
+            embed.fields[1].value, t("intro.sticky.formatting_text")
+        )
+        self.assertFalse(embed.fields[0].inline)
+        self.assertFalse(embed.fields[1].inline)
+        self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
 
 
 class QuestionsViewTests(unittest.TestCase):

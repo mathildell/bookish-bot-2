@@ -10,8 +10,8 @@ progress carry over unchanged.
 
 Usage (from the repository root, with the production config.yaml present):
 
-    .venv/bin/python scripts/import_old_xp.py backup_old_xp.md --dry-run
-    .venv/bin/python scripts/import_old_xp.py backup_old_xp.md
+    .venv/bin/python scripts/import_old_xp.py bkp/backup_old_xp.md --dry-run
+    .venv/bin/python scripts/import_old_xp.py bkp/backup_old_xp.md
 
 Run ``/xp rewards resync`` afterwards so reward roles are applied.
 """
@@ -153,8 +153,8 @@ async def run(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "path", nargs="?", default="backup_old_xp.md",
-        help="Markdown table to import (default: backup_old_xp.md)",
+        "path", nargs="?", default="bkp/backup_old_xp.md",
+        help="Markdown table to import (default: bkp/backup_old_xp.md)",
     )
     parser.add_argument("--config", default=str(ROOT / "config.yaml"),
                         help="Path to config.yaml")
