@@ -1,4 +1,5 @@
 # Texts for the /ping command (is the bot awake?).
 ping:
   description: "Check that the bot is awake"
-  response: "Hello! 🌞 (Latency `%{latency}` ms)"
+  # response: "Hello! 🌞 (Latency `%{latency}` ms)"
+  response: "Awake... but at what cost (Latency `%{latency}` ms)"
