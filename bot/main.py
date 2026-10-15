@@ -105,10 +105,10 @@ async def run() -> None:
     )
     bot.transparent_embed_image = config.get("transparent_embed_image") or None
     bot.reference_forum_channel_id = int(
-        config.get("reference_forum_channel_id", 0) or 0
+        config.get("buddy_read_channel_id", 0) or 0
     )
-    bot.reference_channel_id = int(config.get("reference_channel_id", 0) or 0)
-    bot.reference_message_id = int(config.get("reference_message_id", 0) or 0)
+    bot.reference_channel_id = int(config.get("buddy_read_message_channel_id", 0) or 0)
+    bot.reference_message_id = int(config.get("buddy_read_message_id", 0) or 0)
     default_color = config.get("default_embed_color")
     bot.default_embed_color = (
         parse_hex_colour(default_color) if default_color else None
