@@ -18,6 +18,7 @@ from discord.ext import commands, tasks
 from .commands.booster import register_commands
 from .commands.level import xp_group
 from .commands.listing import parse_hex_colour
+from .commands.reviews import reviews_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import announce_level_up
@@ -25,6 +26,7 @@ from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.level_rewards import LevelRewardService, sync_member_roles
+from .services.reviews import ReviewService
 
 logger = logging.getLogger("bh2")
 
@@ -86,6 +88,7 @@ async def run() -> None:
     reactor = BoosterReactService()
     booster_roles = BoosterRoleService()
     level_rewards = LevelRewardService(int(config.guild_id))
+    reviews = ReviewService(int(config.guild_id))
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -95,6 +98,7 @@ async def run() -> None:
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
     bot.booster_roles = booster_roles
     bot.level_rewards = level_rewards
+    bot.reviews = reviews
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )
@@ -108,6 +112,7 @@ async def run() -> None:
     register_commands(bot, guild_id=int(config.guild_id))
     guild = discord.Object(id=int(config.guild_id))
     bot.tree.add_command(xp_group, guild=guild)
+    bot.tree.add_command(reviews_group, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event
@@ -166,6 +171,23 @@ async def run() -> None:
     async def _wait_ready() -> None:
         await bot.wait_until_ready()
 
+    # ------------------- Goodreads review updates -------------------
+    @tasks.loop(minutes=10)
+    async def poll_reviews() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        channel = await resolve_notify_channel(guild, reviews.channel_id)
+        if channel is None:
+            return
+        posted = await reviews.post_new_reviews(guild, channel, bot)
+        if posted:
+            logger.info("Posted %d review update(s)", posted)
+
+    @poll_reviews.before_loop
+    async def _wait_ready_reviews() -> None:
+        await bot.wait_until_ready()
+
     # ------------------------- startup -------------------------
     @bot.event
     async def on_ready() -> None:
@@ -177,8 +199,13 @@ async def run() -> None:
         await level_rewards.reload()
         logger.info("Loaded %d level reward(s)", len(level_rewards.rewards))
 
+        await reviews.reload()
+        logger.info("Review channel: %s", reviews.channel_id)
+
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
+        if not poll_reviews.is_running():
+            poll_reviews.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:

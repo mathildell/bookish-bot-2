@@ -143,3 +143,28 @@ Show every level and its reward role.
 ```
 **Permissions:** 🔒 Admin
 Reapply reward roles so they match every member's current level.
+
+## Book reviews
+
+Members link their Goodreads reviews RSS feed; the bot polls the feeds every
+10 minutes and posts new reviews to the configured channel. Each review is
+posted at most once every 24 hours. Reviews already on the feed when it is
+linked are never posted.
+
+```
+/reviews feed set url: [user:]
+```
+**Permissions:** Admin (anyone) / Everyone (self only)
+Link a member's Goodreads `list_rss` reviews feed.
+
+```
+/reviews channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set the channel where review updates are posted.
+
+```
+/reviews cooldown reset entry: [user:]
+```
+**Permissions:** 🔒 Admin
+Clear an entry's 24-hour posting cooldown so its next edit is posted again.

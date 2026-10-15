@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, Text, func
+from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text, func
 from sqlalchemy.dialects.mysql import JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -106,4 +106,81 @@ class LevelReward(Base):
 
     __table_args__ = (
         Index("ix_level_rewards_guild_level_unique", "guild_id", "level", unique=True),
+    )
+
+
+class ReviewFeed(Base):
+    """A member's Goodreads reviews RSS feed."""
+
+    __tablename__ = "review_feeds"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    # The member's Discord user id (snowflake)
+    discord_user_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+
+    feed_url: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # When tracking started; entries older than this are treated as backlog and
+    # are never posted (only reviews added/edited afterwards are).
+    feed_since: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ReviewEntry(Base):
+    """Tracks a single review entry so it is posted at most once per cooldown."""
+
+    __tablename__ = "review_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    discord_user_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
+    # Goodreads review id, normalized from the entry's review URL
+    entry_id: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # The entry's last observed pubDate (bumped by Goodreads on edit)
+    last_pub_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # When the bot last posted this entry (null until first post)
+    last_posted_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_review_entries_user_entry_unique",
+            "discord_user_id",
+            "entry_id",
+            unique=True,
+        ),
+    )
+
+
+class ReviewSetting(Base):
+    """Per-guild settings for the review feature (the posting channel)."""
+
+    __tablename__ = "review_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
     )

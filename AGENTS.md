@@ -13,6 +13,8 @@ Implemented features:
   to them.
 - **Levels** — members earn XP from messages; each level grants the configured
   reward role.
+- **Book reviews** — poll members' Goodreads RSS feeds every 10 minutes and post
+  new reviews to the configured channel (each entry at most once per 24h).
 
 The list of commands from the bot lives in the README.md.
 
@@ -72,7 +74,8 @@ bot/
   main.py                  bot wiring (events, intents, startup)
   config.py                config.yaml loader
   db.py                    async engine/session helpers
-  models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP, LevelReward)
+  models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
+                           LevelReward, ReviewFeed, ReviewEntry, ReviewSetting)
   notifications.py         level-up announcements
   commands/
     booster.py             /booster root group
@@ -80,6 +83,7 @@ bot/
     booster_role.py        /booster role ...
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
+    reviews.py             /reviews root group + feed/channel/cooldown
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
   services/
@@ -88,6 +92,7 @@ bot/
     level.py               XP curve + per-user XP storage
     level_rewards.py       level -> reward role links + role sync
     members.py             guild member resolution
+    reviews.py             Goodreads RSS fetch/parse + review poll
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
 scripts/                   one-off utilities (e.g. import_old_xp.py)

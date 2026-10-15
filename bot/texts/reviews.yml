@@ -1,0 +1,40 @@
+# Texts for the Goodreads review sharing feature.
+reviews:
+  group_description: "Share members' new Goodreads reviews"
+  feed:
+    group_description: "Manage a member's Goodreads reviews feed"
+    set:
+      description: "Link a Goodreads reviews RSS feed"
+      param_url: "Goodreads 'list_rss' reviews feed URL"
+      param_user: "Member to set the feed for (admins only; defaults to you)"
+      success: "Saved %{user}'s Goodreads feed."
+      success_reset: "Saved %{user}'s Goodreads feed. Existing reviews won't be posted, only new ones."
+      invalid_url: "That doesn't look like a Goodreads reviews RSS feed. Copy the URL from Goodreads under My Books, then the shelf's RSS link."
+  channel:
+    group_description: "Where review updates are posted"
+    set:
+      description: "Set the channel for Goodreads review updates"
+      param_channel: "Channel to post review updates in"
+      success: "Review updates will be posted in %{channel}."
+  cooldown:
+    group_description: "Review posting cooldowns"
+    reset:
+      description: "Clear an entry's 24h cooldown so its next edit reposts"
+      param_entry: "Goodreads review URL or review id"
+      param_user: "Member whose entry to reset (admins only; defaults to you)"
+      success: "Cleared the cooldown for entry %{entry}."
+      not_found: "No posted entry matching %{entry} was found."
+  embed:
+    untitled_book: "Untitled"
+    unknown_shelf: "Goodreads"
+    unknown_member: "Unknown member"
+    author_none: "Unknown"
+    title_suffix: " ‎ ↗️"
+    author_field: "Author(s)"
+    date_read_field: "Date read"
+    rating_field: "Rating"
+    review_field: "Review"
+    rating_value: "%{rating} ⭐"
+    rating_none: "No rating"
+    date_read_none: "Unknown"
+    review_empty: "(no review text)"

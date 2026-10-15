@@ -35,8 +35,10 @@ from bot.services.booster_react import (
     clean_identifier,
     parse_emoji,
 )
+from bot.services import reviews as reviews_service
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
+from bot.services.reviews import FeedData, FeedEntry
 from bot.texts import t
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -682,6 +684,241 @@ class ImportOldXpTests(unittest.TestCase):
                 row.level,
                 msg=f"level {row.level} progress {row.progress}",
             )
+
+
+FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+  <title>alice's bookshelf: all</title>
+  <image><title>alice's bookshelf: all</title>
+    <url>https://www.goodreads.com/images/layout/goodreads_logo_144.jpg</url>
+  </image>
+  <item>
+    <guid>https://www.goodreads.com/review/show/111?utm_medium=api&amp;utm_source=rss</guid>
+    <pubDate>Wed, 14 Oct 2026 10:02:18 -0700</pubDate>
+    <title>Book One</title>
+    <link>https://www.goodreads.com/review/show/111?utm_medium=api&amp;utm_source=rss</link>
+    <book_image_url>https://img.example/cover.jpg</book_image_url>
+    <author_name>Author A</author_name>
+    <user_rating>4</user_rating>
+    <user_read_at>Wed, 14 Oct 2026 00:00:00 +0000</user_read_at>
+    <user_review><![CDATA[<b>Great</b><br />Loved <i>it</i>.]]></user_review>
+  </item>
+  <item>
+    <guid>https://www.goodreads.com/review/show/222</guid>
+    <pubDate>Wed, 14 Oct 2026 11:00:00 -0700</pubDate>
+    <title>Book Two</title>
+    <link>https://www.goodreads.com/review/show/222</link>
+    <user_review></user_review>
+  </item>
+</channel></rss>
+"""
+
+
+class ParseFeedTests(unittest.TestCase):
+    def test_parses_shelf_logo_and_entries(self) -> None:
+        feed = reviews_service.parse_feed(FEED_XML)
+        self.assertEqual(feed.shelf, "all")
+        self.assertTrue(feed.logo_url.endswith("goodreads_logo_144.jpg"))
+        self.assertEqual(len(feed.entries), 1)
+        entry = feed.entries[0]
+        self.assertEqual(entry.entry_id, "111")
+        self.assertEqual(entry.title, "Book One")
+        self.assertEqual(entry.author, "Author A")
+        self.assertEqual(entry.rating, "4")
+        self.assertEqual(entry.cover_url, "https://img.example/cover.jpg")
+        self.assertEqual(entry.review_html, "<b>Great</b><br />Loved <i>it</i>.")
+
+    def test_skips_entries_without_a_review(self) -> None:
+        feed = reviews_service.parse_feed(FEED_XML)
+        self.assertNotIn("222", [entry.entry_id for entry in feed.entries])
+
+    def test_rejects_non_rss(self) -> None:
+        with self.assertRaises(ValueError):
+            reviews_service.parse_feed("<not-rss/>")
+
+
+class NormalizeEntryIdTests(unittest.TestCase):
+    def test_extracts_review_id(self) -> None:
+        self.assertEqual(
+            reviews_service.normalize_entry_id(
+                "https://www.goodreads.com/review/show/9025538131?utm_medium=api"
+            ),
+            "9025538131",
+        )
+
+    def test_falls_back_to_raw_value(self) -> None:
+        self.assertEqual(reviews_service.normalize_entry_id("  abc  "), "abc")
+
+
+class GoodreadsFeedUrlTests(unittest.TestCase):
+    def test_accepts_list_rss_feed(self) -> None:
+        self.assertTrue(
+            reviews_service.is_goodreads_feed_url(
+                "https://www.goodreads.com/review/list_rss/123?key=abc&shelf=%23ALL%23"
+            )
+        )
+
+    def test_rejects_other_urls(self) -> None:
+        self.assertFalse(reviews_service.is_goodreads_feed_url("https://example.com/rss"))
+        self.assertFalse(
+            reviews_service.is_goodreads_feed_url("https://www.goodreads.com/author/1")
+        )
+
+
+class HtmlToMarkdownTests(unittest.TestCase):
+    def test_common_tags(self) -> None:
+        result = reviews_service.html_to_markdown(
+            "<b>Bold</b> and <i>italic</i><br />next<br/>"
+            "<u>under</u> <s>strike</s>"
+        )
+        self.assertEqual(
+            result, "**Bold** and *italic*\nnext\n__under__ ~~strike~~"
+        )
+
+    def test_links_use_discord_markdown(self) -> None:
+        result = reviews_service.html_to_markdown(
+            'See <a href="https://example.com">this</a>.'
+        )
+        self.assertEqual(result, "See [this](https://example.com).")
+
+    def test_blockquote_and_entities(self) -> None:
+        result = reviews_service.html_to_markdown(
+            "<blockquote>Tom &amp; Jerry</blockquote>"
+        )
+        self.assertEqual(result, "> Tom & Jerry")
+
+    def test_collapses_extra_blank_lines(self) -> None:
+        result = reviews_service.html_to_markdown("a<br /><br /><br />b")
+        self.assertEqual(result, "a\n\nb")
+
+
+class FormatRatingTests(unittest.TestCase):
+    def test_whole_and_decimal(self) -> None:
+        self.assertEqual(reviews_service.format_rating("3"), "3 ⭐")
+        self.assertEqual(reviews_service.format_rating("3.5"), "3.5 ⭐")
+
+    def test_zero_and_missing_use_placeholder(self) -> None:
+        self.assertEqual(reviews_service.format_rating("0"), "No rating")
+        self.assertEqual(reviews_service.format_rating(""), "No rating")
+
+    def test_date_read(self) -> None:
+        value = datetime.datetime(2026, 10, 6)
+        self.assertEqual(
+            reviews_service.format_date_read(value),
+            f"<t:{int(value.replace(tzinfo=datetime.timezone.utc).timestamp())}:D>",
+        )
+        self.assertEqual(reviews_service.format_date_read(None), "Unknown")
+
+
+class ShouldPostTests(unittest.TestCase):
+    class Entry:
+        def __init__(self, pub_date: datetime.datetime) -> None:
+            self.pub_date = pub_date
+
+    class Row:
+        def __init__(
+            self,
+            last_pub_date: datetime.datetime,
+            last_posted_at: datetime.datetime | None = None,
+        ) -> None:
+            self.last_pub_date = last_pub_date
+            self.last_posted_at = last_posted_at
+
+    NOW = datetime.datetime(2026, 10, 14, 12, 0, 0)
+    RECENT = datetime.datetime(2026, 10, 14, 11, 0, 0)
+    OLD = datetime.datetime(2026, 10, 13, 10, 0, 0)
+
+    def _entry(self, moment: datetime.datetime) -> "ShouldPostTests.Entry":
+        return self.Entry(moment)
+
+    def test_untracked_without_tracking_time_is_skipped(self) -> None:
+        self.assertFalse(
+            reviews_service.should_post(self._entry(self.NOW), None, self.NOW, None)
+        )
+
+    def test_backlog_is_skipped(self) -> None:
+        feed_since = datetime.datetime(2026, 10, 10)
+        self.assertFalse(
+            reviews_service.should_post(
+                self._entry(datetime.datetime(2026, 10, 1)), None, self.NOW, feed_since
+            )
+        )
+
+    def test_new_entry_is_posted(self) -> None:
+        feed_since = datetime.datetime(2026, 10, 10)
+        self.assertTrue(
+            reviews_service.should_post(self._entry(self.NOW), None, self.NOW, feed_since)
+        )
+
+    def test_unchanged_entry_is_skipped(self) -> None:
+        row = self.Row(self.NOW, self.OLD)
+        self.assertFalse(
+            reviews_service.should_post(self._entry(self.NOW), row, self.NOW, self.OLD)
+        )
+
+    def test_edit_after_cooldown_is_posted(self) -> None:
+        entry = self._entry(self.NOW)
+        row = self.Row(self.OLD, datetime.datetime(2026, 10, 13))
+        self.assertTrue(
+            reviews_service.should_post(entry, row, self.NOW, datetime.datetime(2026, 1, 1))
+        )
+
+    def test_edit_within_cooldown_is_skipped(self) -> None:
+        entry = self._entry(self.NOW)
+        row = self.Row(self.OLD, self.RECENT)
+        self.assertFalse(
+            reviews_service.should_post(entry, row, self.NOW, datetime.datetime(2026, 1, 1))
+        )
+
+    def test_reset_cooldown_allows_post_on_edit(self) -> None:
+        entry = self._entry(self.NOW)
+        row = self.Row(self.OLD, None)
+        self.assertTrue(
+            reviews_service.should_post(entry, row, self.NOW, datetime.datetime(2026, 1, 1))
+        )
+
+
+class BuildReviewEmbedTests(unittest.TestCase):
+    def _entry(self) -> FeedEntry:
+        return FeedEntry(
+            entry_id="111",
+            link="https://www.goodreads.com/review/show/111",
+            title="Book One",
+            cover_url="https://img.example/cover.jpg",
+            author="Author A",
+            rating="3.5",
+            date_read=datetime.datetime(2026, 10, 6),
+            review_html="<b>Great</b><br />Loved it.",
+            pub_date=datetime.datetime(2026, 10, 14),
+        )
+
+    def _feed(self) -> FeedData:
+        return FeedData(
+            shelf="all",
+            logo_url="https://www.goodreads.com/logo.jpg",
+            entries=[],
+        )
+
+    def test_layout(self) -> None:
+        embed = reviews_service.build_review_embed(
+            self._entry(), self._feed(), FakeMember(), FakeClient
+        )
+        self.assertTrue(embed.title.endswith(t("reviews.embed.title_suffix")))
+        self.assertEqual(embed.url, "https://www.goodreads.com/review/show/111")
+        self.assertEqual(embed.thumbnail.url, "https://img.example/cover.jpg")
+        self.assertEqual(
+            [field.name for field in embed.fields],
+            ["Author(s)", "Date read", "Rating", "Review"],
+        )
+        self.assertTrue(embed.fields[0].inline)
+        self.assertTrue(embed.fields[2].inline)
+        self.assertFalse(embed.fields[3].inline)
+        self.assertEqual(embed.fields[0].value, "Author A")
+        self.assertEqual(embed.fields[2].value, "3.5 ⭐")
+        self.assertIn("**Great**", embed.fields[3].value)
+        self.assertEqual(embed.footer.text, "all")
+        self.assertEqual(embed.footer.icon_url, "https://www.goodreads.com/logo.jpg")
+        self.assertEqual(embed.colour.value, 0x97A97C)
 
 
 if __name__ == "__main__":
