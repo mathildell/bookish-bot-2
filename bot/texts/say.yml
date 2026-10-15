@@ -2,7 +2,7 @@
 say:
   description: "Post a message as the bot"
   param_channel: "Channel or thread to post in"
-  param_message: "Message text (emojis allowed)"
+  param_message: 'Message text (emojis allowed; use \n for a line break)'
   param_reply_to: "Message id or link to reply to (optional)"
   success: "Sent: %{link}"
   invalid_message: "The message must be 1 to %{limit} characters."

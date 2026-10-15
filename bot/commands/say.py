@@ -35,6 +35,15 @@ def is_valid_message(text: str) -> bool:
     return bool(text.strip()) and len(text) <= MESSAGE_LIMIT
 
 
+def render_message(text: str) -> str:
+    """Turn literal ``\\n`` escapes into real line breaks.
+
+    Slash-command string options are single-line, so this lets admins add line
+    breaks to a message by typing ``\\n``.
+    """
+    return text.replace("\\n", "\n")
+
+
 @app_commands.command(name="say", description=t("say.description"))
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.describe(
@@ -51,6 +60,7 @@ async def say_command(
     if not await require_admin(interaction):
         return
 
+    message = render_message(message)
     if not is_valid_message(message):
         await interaction.response.send_message(
             t("say.invalid_message", limit=MESSAGE_LIMIT), ephemeral=True

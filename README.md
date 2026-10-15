@@ -192,7 +192,7 @@ Fun tools for admins.
 **Permissions:** 🔒 Admin
 Post a message as the bot in a channel or thread. Emojis (custom and default)
 are supported; `reply_to` takes a message id or jump link to reply to, pinging
-its author.
+its author. Slash options are single-line, so type `\n` to add a line break.
 
 ## Utility
 

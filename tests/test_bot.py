@@ -1222,6 +1222,17 @@ class ValidMessageTests(unittest.TestCase):
         self.assertTrue(say_cmds.is_valid_message("a" * say_cmds.MESSAGE_LIMIT))
 
 
+class RenderMessageTests(unittest.TestCase):
+    def test_escaped_newlines_become_real_ones(self) -> None:
+        self.assertEqual(say_cmds.render_message("line1\\nline2"), "line1\nline2")
+
+    def test_plain_text_is_unchanged(self) -> None:
+        self.assertEqual(say_cmds.render_message("hello world"), "hello world")
+
+    def test_single_escaped_newline_is_blank(self) -> None:
+        self.assertFalse(say_cmds.is_valid_message(say_cmds.render_message("\\n")))
+
+
 class PingTextTests(unittest.TestCase):
     def test_response_includes_latency(self) -> None:
         self.assertIn("42", t("ping.response", latency=42))
