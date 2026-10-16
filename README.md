@@ -199,12 +199,12 @@ Add an upcoming book from its Goodreads or NetGalley URL. The release date must
 be in the future, and the book must not already be tracked.
 
 ```
-/releases edit url: [book_id:]
+/releases update url: [book_id:]
 ```
 **Permissions:** Everyone
 Re-scrape a tracked book and show a before/after preview with a confirm button.
-`book_id` (from `/releases list`) is only needed when the title changed and the
-URL no longer matches the stored book.
+`book_id` is only needed when the title changed and the URL no longer matches the
+stored book.
 
 ```
 /releases find title:

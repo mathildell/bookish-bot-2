@@ -22,13 +22,20 @@ releases:
     description: "Add an upcoming book from a Goodreads or NetGalley URL"
     param_url: "Goodreads or NetGalley book URL"
     success: "Added **%{title}** (id: %{reference})."
-  edit:
+  update:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"
     param_book_id: "Numeric id of the book to update, if its title changed"
     old_prefix: "BEFORE"
     new_prefix: "AFTER"
     confirm: "Confirm update"
+    instruction_title: "Confirmation"
+    instruction_body: |
+      **Please confirm this is the book you want to update in the calendar:**
+      - The first embed is the book we currently have in our database, with all the information we have for it.
+      - The second embed is the information we fetched from the URL, which will override the saved details.
+
+      If this doesn't look right, please feel free to ignore this message (click *"Dismiss message"* underneath).
     cancel: "Cancel"
     updated: "Updated **%{title}**."
     confirmed: "Update confirmed."
@@ -107,4 +114,4 @@ releases:
     not_in_future: "That book's release date is in the past, so it can't be tracked."
     scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
     browser_missing: "There was a problem with the browser reading the provided web page."
-    already_exists: "**%{title}** was already added by %{user} (id: %{reference}). Use `/releases edit` to refresh it."
+    already_exists: "**%{title}** was already added by %{user} (id: %{reference}). Use `/releases update` to refresh it."

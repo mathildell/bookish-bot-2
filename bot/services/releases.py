@@ -3,7 +3,7 @@
 Port of the old Ruby "BookReleases" feature:
 
 - members add a book from a Goodreads or NetGalley URL (scraped);
-- the tracked books can be refreshed via ``/releases edit`` (old vs new preview);
+- the tracked books can be refreshed via ``/releases update`` (old vs new preview);
 - ``/releases list`` paginates upcoming releases with a "jump to month" select;
 - a scheduled job posts the day's releases and, on the 1st of the month, an
   overview of everything releasing that month.
@@ -15,6 +15,7 @@ embeds and the announcement worker.
 from __future__ import annotations
 
 import asyncio
+import calendar
 import logging
 import re
 from datetime import date, datetime, time, timedelta, timezone
@@ -114,6 +115,14 @@ def _escape_like(value: str) -> str:
         .replace("%", _LIKE_ESCAPE + "%")
         .replace("_", _LIKE_ESCAPE + "_")
     )
+
+
+def _one_month_before(value: date) -> date:
+    """``value`` shifted back by one calendar month, clamping the day."""
+    month = value.month - 1 or 12
+    year = value.year if value.month > 1 else value.year - 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+    return date(year, month, day)
 
 
 def format_release_date(value: date) -> str:
@@ -499,6 +508,19 @@ class ReleaseService:
             )
             await session.commit()
         return result.rowcount > 0
+
+    async def purge_old_releases(self, *, today: date | None = None) -> int:
+        """Delete releases whose release date was over a month ago."""
+        cutoff = _one_month_before(today or date.today())
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(BookRelease).where(
+                    BookRelease.guild_id == self.guild_id,
+                    BookRelease.release_date <= cutoff,
+                )
+            )
+            await session.commit()
+        return result.rowcount
 
     async def mark_announced(self, book_ids: list[int]) -> None:
         if not book_ids:

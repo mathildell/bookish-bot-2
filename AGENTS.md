@@ -17,7 +17,8 @@ Implemented features:
   new reviews to the configured channel (each entry at most once per 24h).
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
   headless browser) and announce them: an overview on the 1st of each month and
-  the day's releases every day.
+  the day's releases every day. Releases are pruned from the database a month
+  after their release date.
 - **Introductions** — admins configure an intro channel and its questions; a
   sticky message's button lets members post (and later edit) a single
   introduction.
@@ -102,7 +103,7 @@ bot/
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
-    releases.py            /releases group + add/edit/find/list/view/remove, channel, role
+    releases.py            /releases group + add/update/find/list/view/remove, channel, role
     intro.py               /intro group + sticky button/modal + question manager
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)

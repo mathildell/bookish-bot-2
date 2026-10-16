@@ -334,7 +334,7 @@ class ReleaseSetting(Base):
 
 
 class ReleaseEditDraft(Base):
-    """A proposed book edit awaiting confirmation, from ``/releases edit``."""
+    """A proposed book edit awaiting confirmation, from ``/releases update``."""
 
     __tablename__ = "release_edit_drafts"
 

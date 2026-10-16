@@ -275,9 +275,15 @@ async def run() -> None:
         posted = await releases.post_due(guild, channel, bot)
         logger.info("Posted %d release announcement(s)", posted)
 
+    async def purge_old_releases() -> None:
+        removed = await releases.purge_old_releases()
+        if removed:
+            logger.info("Removed %d released book(s)", removed)
+
     @tasks.loop(time=_release_post_time(config))
     async def post_releases() -> None:
         await post_releases_now()
+        await purge_old_releases()
 
     @post_releases.before_loop
     async def _wait_ready_releases() -> None:
@@ -286,6 +292,7 @@ async def run() -> None:
         # idempotent thanks to the announcement/montly markers.
         try:
             await post_releases_now()
+            await purge_old_releases()
             await releases.purge_expired_drafts()
         except Exception:
             logger.exception("Release catch-up failed")

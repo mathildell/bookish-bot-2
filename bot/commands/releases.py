@@ -155,7 +155,7 @@ class ReleaseListView(Paginator):
 
 
 class ReleaseConfirmView(discord.ui.View):
-    """Confirm/cancel buttons for a pending ``/releases edit``."""
+    """Confirm/cancel buttons for a pending ``/releases update``."""
 
     def __init__(self, draft_id: int, author_id: int) -> None:
         super().__init__(timeout=None)
@@ -171,7 +171,7 @@ class ReleaseConfirmView(discord.ui.View):
         return True
 
     @discord.ui.button(
-        label=t("releases.edit.confirm"), style=discord.ButtonStyle.success
+        label=t("releases.update.confirm"), style=discord.ButtonStyle.success
     )
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -180,7 +180,7 @@ class ReleaseConfirmView(discord.ui.View):
         draft = await service.get_draft(self.draft_id)
         if draft is None:
             await interaction.response.send_message(
-                t("releases.edit.expired"), ephemeral=True
+                t("releases.update.expired"), ephemeral=True
             )
             return
         book = await service.update(
@@ -189,7 +189,7 @@ class ReleaseConfirmView(discord.ui.View):
         await service.delete_draft(self.draft_id)
         if book is None:
             await interaction.response.send_message(
-                t("releases.edit.not_found"), ephemeral=True
+                t("releases.update.not_found"), ephemeral=True
             )
             return
         embed = build_book_embed(book, interaction.user, interaction.client)
@@ -197,21 +197,21 @@ class ReleaseConfirmView(discord.ui.View):
         # Keep the confirmation prompt private, but post the updated book for
         # everyone to see.
         await interaction.response.edit_message(
-            content=t("releases.edit.confirmed"), embeds=[], view=None
+            content=t("releases.update.confirmed"), embeds=[], view=None
         )
         await interaction.followup.send(
-            content=t("releases.edit.updated", title=title), embeds=[embed]
+            content=t("releases.update.updated", title=title), embeds=[embed]
         )
 
     @discord.ui.button(
-        label=t("releases.edit.cancel"), style=discord.ButtonStyle.secondary
+        label=t("releases.update.cancel"), style=discord.ButtonStyle.secondary
     )
     async def cancel(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await _service(interaction).delete_draft(self.draft_id)
         await interaction.response.edit_message(
-            content=t("releases.edit.cancelled"), embeds=[], view=None
+            content=t("releases.update.cancelled"), embeds=[], view=None
         )
 
 
@@ -262,12 +262,14 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
     )
 
 
-@releases_group.command(name="edit", description=t("releases.edit.description"))
-@app_commands.describe(
-    url=t("releases.edit.param_url"),
-    book_id=t("releases.edit.param_book_id"),
+@releases_group.command(
+    name="update", description=t("releases.update.description")
 )
-async def edit_release(
+@app_commands.describe(
+    url=t("releases.update.param_url"),
+    book_id=t("releases.update.param_book_id"),
+)
+async def update_release(
     interaction: discord.Interaction, url: str, book_id: int | None = None
 ) -> None:
     try:
@@ -298,23 +300,33 @@ async def edit_release(
             book = matches[0] if matches else None
     if book is None:
         await interaction.followup.send(
-            t("releases.edit.not_found"), ephemeral=True
+            t("releases.update.not_found"), ephemeral=True
         )
         return
 
     draft = await service.create_draft(book.id, interaction.user.id, data)
     old_embed = build_book_embed(
-        book, interaction.user, interaction.client, prefix=t("releases.edit.old_prefix")
+        book,
+        interaction.user,
+        interaction.client,
+        prefix=t("releases.update.old_prefix"),
     )
     new_embed = build_book_embed(
         data,
         interaction.user,
         interaction.client,
-        prefix=t("releases.edit.new_prefix"),
+        prefix=t("releases.update.new_prefix"),
+    )
+    instruction_embed = discord.Embed(
+        colour=getattr(interaction.client, "default_embed_color", None),
+        title=t("releases.update.instruction_title"),
+        description=t("releases.update.instruction_body"),
     )
     view = ReleaseConfirmView(draft.id, interaction.user.id)
     await interaction.followup.send(
-        embeds=[old_embed, new_embed], view=view, ephemeral=True
+        embeds=[old_embed, new_embed, instruction_embed],
+        view=view,
+        ephemeral=True,
     )
 
 

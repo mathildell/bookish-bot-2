@@ -1868,6 +1868,32 @@ class BookReferenceTests(unittest.TestCase):
         self.assertEqual(release_service.book_reference("   "), "book")
 
 
+class OneMonthBeforeTests(unittest.TestCase):
+    def test_simple_month(self) -> None:
+        self.assertEqual(
+            release_service._one_month_before(datetime.date(2026, 10, 15)),
+            datetime.date(2026, 9, 15),
+        )
+
+    def test_crosses_year_boundary(self) -> None:
+        self.assertEqual(
+            release_service._one_month_before(datetime.date(2026, 1, 15)),
+            datetime.date(2025, 12, 15),
+        )
+
+    def test_clamps_to_shorter_month(self) -> None:
+        self.assertEqual(
+            release_service._one_month_before(datetime.date(2026, 3, 31)),
+            datetime.date(2026, 2, 28),
+        )
+
+    def test_clamps_in_leap_year(self) -> None:
+        self.assertEqual(
+            release_service._one_month_before(datetime.date(2024, 3, 31)),
+            datetime.date(2024, 2, 29),
+        )
+
+
 class CondenseNewlinesTests(unittest.TestCase):
     def test_collapses_blank_lines(self) -> None:
         self.assertEqual(
