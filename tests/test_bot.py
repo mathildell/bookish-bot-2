@@ -1847,16 +1847,15 @@ class ReleaseEmbedTests(unittest.TestCase):
         )
         self.assertIn("(id: custom-handle)", embed.footer.text)
 
-    def test_month_embed_uses_named_date_fields(self) -> None:
-        embeds = release_service.build_month_embeds(
+    def test_month_embed_lists_dates_in_description(self) -> None:
+        embed = release_service.build_month_embeds(
             [self._Book()], FakeClient(), month_label="October 2026"
-        )
-        self.assertEqual(len(embeds), 1)
-        field = embeds[0].fields[0]
-        self.assertEqual(field.name, "October 13th")
-        self.assertFalse(field.name.startswith("<t:"))
-        self.assertIn("The Book", field.value)
-        self.assertIn("<@42>", field.value)
+        )[0]
+        self.assertEqual(embed.fields, [])
+        self.assertIn("### October 13th", embed.description)
+        self.assertIn("The Book", embed.description)
+        self.assertIn("<@42>", embed.description)
+        self.assertIsNone(embed.image.url)
 
     def test_month_embed_does_not_strike_announced(self) -> None:
         books = [
@@ -1867,7 +1866,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             books, FakeClient(), month_label="October 2026"
         )
         self.assertEqual(len(embeds), 1)
-        self.assertNotIn("~~", embeds[0].fields[0].value)
+        self.assertNotIn("~~", embeds[0].description)
 
     def test_month_embed_continues_in_new_embed(self) -> None:
         start = datetime.date(2026, 10, 1)
@@ -1877,15 +1876,21 @@ class ReleaseEmbedTests(unittest.TestCase):
                 title=f"Book {index}",
                 release_date=start + datetime.timedelta(days=index),
             )
-            for index in range(30)
+            for index in range(100)
         ]
         embeds = release_service.build_month_embeds(
             books, FakeClient(), month_label="October 2026"
         )
         self.assertGreater(len(embeds), 1)
         self.assertEqual(
-            sum(len(embed.fields) for embed in embeds), len(books)
+            sum(embed.description.count("• ") for embed in embeds),
+            len(books),
         )
+        for embed in embeds:
+            self.assertLessEqual(
+                len(embed.description),
+                release_service.MONTH_DESCRIPTION_LIMIT,
+            )
 
     def test_month_embed_splits_a_crowded_date(self) -> None:
         books = [
@@ -1893,20 +1898,34 @@ class ReleaseEmbedTests(unittest.TestCase):
                 id=index,
                 title=f"An Extremely Long Book Title Number {index}",
             )
-            for index in range(40)
+            for index in range(120)
         ]
         embeds = release_service.build_month_embeds(
             books, FakeClient(), month_label="October 2026"
         )
-        bullets = sum(
-            embed.fields[index].value.count("• ")
-            for embed in embeds
-            for index in range(len(embed.fields))
+        self.assertGreater(len(embeds), 1)
+        self.assertEqual(
+            sum(embed.description.count("• ") for embed in embeds),
+            len(books),
         )
-        self.assertEqual(bullets, len(books))
         for embed in embeds:
-            for field in embed.fields:
-                self.assertLessEqual(len(field.value), 1024)
+            self.assertLessEqual(
+                len(embed.description),
+                release_service.MONTH_DESCRIPTION_LIMIT,
+            )
+
+    def test_month_embed_footer_counts_releases(self) -> None:
+        books = [self._Book(id=index, title=f"B{index}") for index in range(3)]
+        embeds = release_service.build_month_embeds(
+            books, FakeClient(), month_label="October 2026"
+        )
+        self.assertEqual(embeds[-1].footer.text, "3 releases")
+
+    def test_month_embed_footer_is_singular_for_one(self) -> None:
+        embeds = release_service.build_month_embeds(
+            [self._Book()], FakeClient(), month_label="October 2026"
+        )
+        self.assertEqual(embeds[-1].footer.text, "1 release")
 
     def test_normalize_title(self) -> None:
         self.assertEqual(

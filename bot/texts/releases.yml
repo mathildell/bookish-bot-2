@@ -98,8 +98,11 @@ releases:
   month_embed:
     title: "New releases coming in %{month}!"
     date: "%{month} %{day}"
+    heading: "### %{date}"
     line: "**%{title}** by %{authors} (%{user})"
     unknown_author: "Unknown"
+    footer_singular: "%{count} release"
+    footer_plural: "%{count} releases"
   post:
     daily_title_singular: "## 📣 New book just released!"
     daily_title_plural: "## 📣 New books just released!"

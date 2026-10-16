@@ -42,7 +42,7 @@ EMBEDS_PER_MESSAGE = 10
 # Discord rejects a message whose embeds total more than 6000 characters;
 # stay under it (the old bot used 5500 too).
 EMBED_MESSAGE_LIMIT = 5500
-MONTH_FIELDS = 25
+MONTH_DESCRIPTION_LIMIT = 4000
 
 _WS_RE = re.compile(r"\s+")
 
@@ -316,60 +316,61 @@ def _book_line(book) -> str:
     )
 
 
-def _field_values(lines: list[str]) -> list[str]:
-    """Split lines into field values that each fit Discord's value limit."""
-    values: list[str] = []
-    current = ""
-    for line in lines:
-        line = _truncate(line, FIELD_VALUE_LIMIT)
-        if not current:
-            current = line
-        elif len(current) + 1 + len(line) > FIELD_VALUE_LIMIT:
-            values.append(current)
-            current = line
-        else:
-            current = f"{current}\n{line}"
-    if current:
-        values.append(current)
-    return values
-
-
 def build_month_embeds(
     books: list, client: discord.Client, *, month_label: str
 ) -> list[discord.Embed]:
-    """Build the monthly overview, one field per release date.
+    """Build the monthly overview, listing releases in the description.
 
-    Each date is a field labelled with the date (e.g. ``"October 16th"``). If a
-    date's releases fill the current embed, the remaining ones continue in a
-    new embed, which the caller sends as another message.
+    Each date is a ``### <date>`` heading followed by its releases. When a
+    description fills up the list continues in a new embed (which the caller
+    sends as another message, repeating the current date's heading); the last
+    embed's footer counts the month's releases.
     """
     groups = group_by_date(books)
+    month_title = t("releases.month_embed.title", month=month_label)
     embeds: list[discord.Embed] = []
+    description = ""
 
-    def start_embed() -> discord.Embed:
-        embed = discord.Embed(
-            colour=getattr(client, "default_embed_color", None),
-            title=t("releases.month_embed.title", month=month_label),
-        )
-        background = getattr(client, "transparent_embed_image", None)
-        if background:
-            embed.set_image(url=background)
-        return embed
-
-    embed = start_embed()
-    for day, day_books in groups:
-        name = _month_day_label(day)
-        for value in _field_values([_book_line(book) for book in day_books]):
-            too_many = len(embed.fields) >= MONTH_FIELDS
-            too_big = (
-                _embed_size(embed) + len(name) + len(value)
-                > EMBED_MESSAGE_LIMIT
+    def flush() -> None:
+        nonlocal description
+        embeds.append(
+            discord.Embed(
+                colour=getattr(client, "default_embed_color", None),
+                title=month_title,
+                description=description,
             )
-            if embed.fields and (too_many or too_big):
-                embeds.append(embed)
-                embed = start_embed()
-            embed.add_field(name=name, value=value, inline=False)
-    embeds.append(embed)
+        )
+        description = ""
+
+    for day, day_books in groups:
+        heading = t(
+            "releases.month_embed.heading", date=_month_day_label(day)
+        )
+        if description and len(description) + 1 + len(heading) > MONTH_DESCRIPTION_LIMIT:
+            flush()
+        description = heading if not description else f"{description}\n{heading}"
+
+        max_line = MONTH_DESCRIPTION_LIMIT - len(heading) - 1
+        for book in day_books:
+            line = _truncate(_book_line(book), max_line)
+            if len(description) + 1 + len(line) > MONTH_DESCRIPTION_LIMIT:
+                flush()
+                description = heading
+            description = f"{description}\n{line}"
+
+    if description:
+        flush()
+
+    if embeds:
+        count = len(books)
+        embeds[-1].set_footer(
+            text=t(
+                "releases.month_embed.footer_singular"
+                if count == 1
+                else "releases.month_embed.footer_plural",
+                count=count,
+            )
+        )
     return embeds
 
 
