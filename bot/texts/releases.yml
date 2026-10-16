@@ -108,7 +108,7 @@ releases:
     daily_thanks_singular: "Thank you %{mentions} for adding it to our calendar 📚"
     daily_thanks_plural: "Thank you %{mentions} for adding them to our calendar 📚"
     monthly_title: "## ✨📖 New releases coming in %{month}!"
-    monthly_thanks: "Here are the releases to look forward to this month!"
+    monthly_thanks: "Here are the releases to look forward to this month! We'll send a reminder pinging the following role as well as each books' finder, on the day of :yellow_heart: "
   errors:
     invalid_url: "That doesn't look like a valid book URL."
     invalid_path: "That URL doesn't point to a specific book page."
