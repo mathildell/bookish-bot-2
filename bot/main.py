@@ -32,6 +32,7 @@ from .commands.ping import ping_command
 from .commands.releases import releases_group
 from .commands.reviews import reviews_group
 from .commands.say import say_command
+from .commands.streaks import StreakRescueView, streaks_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import announce_level_up
@@ -44,6 +45,8 @@ from .services.reference import post_reference
 from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
 from .services.reviews import ReviewService
+from .services.streaks import StreakService
+from .texts import t
 
 logger = logging.getLogger("bh2")
 
@@ -139,6 +142,7 @@ async def run() -> None:
     reviews = ReviewService(int(config.guild_id))
     intros = IntroService(int(config.guild_id))
     releases = ReleaseService(int(config.guild_id))
+    streaks = StreakService(int(config.guild_id))
     release_scraper = ReleaseScraper()
 
     intents = discord.Intents.default()
@@ -152,11 +156,14 @@ async def run() -> None:
     bot.reviews = reviews
     bot.intros = intros
     bot.releases = releases
+    bot.streaks = streaks
     bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
     # Persistent refresh button on every intro embed (shares one custom id).
     bot.add_view(IntroRefreshView())
+    # Persistent "repair streak" button offered on log/view messages.
+    bot.add_view(StreakRescueView())
     bot.bot_updates_channel_id = int(
         config.get("bot_updates_channel_id", 0) or 0
     )
@@ -178,6 +185,7 @@ async def run() -> None:
     bot.tree.add_command(reviews_group, guild=guild)
     bot.tree.add_command(intro_group, guild=guild)
     bot.tree.add_command(releases_group, guild=guild)
+    bot.tree.add_command(streaks_group, guild=guild)
     bot.tree.add_command(say_command, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
 
@@ -298,6 +306,67 @@ async def run() -> None:
         except Exception:
             logger.exception("Release catch-up failed")
 
+    # ---------------------- reading streak upkeep ----------------------
+    async def send_streak_reminders(guild: discord.Guild) -> None:
+        reminders = await streaks.due_reminders()
+        if not reminders:
+            return
+        channel = await resolve_notify_channel(guild, streaks.channel_id)
+        if channel is None:
+            logger.warning("Streak reminders due but no channel is set")
+            return
+        groups = (
+            ("custom", "streaks.reminders.title", "streaks.reminders.content"),
+            (
+                "last_chance",
+                "streaks.reminders.last_chance_title",
+                "streaks.reminders.last_chance_content",
+            ),
+        )
+        for kind, title_key, content_key in groups:
+            mentions = [
+                f"<@{reminder.goal.user_id}>"
+                for reminder in reminders
+                if reminder.kind == kind
+            ]
+            if not mentions:
+                continue
+            embed = discord.Embed(
+                title=t(title_key),
+                description=t(content_key, mentions=", ".join(mentions)),
+                colour=getattr(bot, "default_embed_color", None),
+            )
+            embed.set_footer(text=t("streaks.reminders.footer"))
+            try:
+                await channel.send(embed=embed)
+            except discord.HTTPException:
+                logger.warning("Could not post streak reminder", exc_info=True)
+        await streaks.mark_reminder(reminders)
+
+    @tasks.loop(hours=1)
+    async def streak_hourly() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        closed = await streaks.close_due()
+        if closed:
+            logger.info("Closed %d streak(s)", closed)
+        await send_streak_reminders(guild)
+
+    @streak_hourly.before_loop
+    async def _wait_ready_streaks() -> None:
+        await bot.wait_until_ready()
+
+    @tasks.loop(hours=24)
+    async def purge_streak_logs() -> None:
+        removed = await streaks.purge_old_logs()
+        if removed:
+            logger.info("Purged %d stale streak log(s)", removed)
+
+    @purge_streak_logs.before_loop
+    async def _wait_ready_streak_purge() -> None:
+        await bot.wait_until_ready()
+
     # ------------------------- startup -------------------------
     @bot.event
     async def on_ready() -> None:
@@ -328,12 +397,19 @@ async def run() -> None:
         except Exception:
             logger.exception("Could not start the release scraper")
 
+        await streaks.reload()
+        logger.info("Streak channel: %s", streaks.channel_id)
+
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
         if not poll_reviews.is_running():
             poll_reviews.start()
         if not post_releases.is_running():
             post_releases.start()
+        if not streak_hourly.is_running():
+            streak_hourly.start()
+        if not purge_streak_logs.is_running():
+            purge_streak_logs.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:

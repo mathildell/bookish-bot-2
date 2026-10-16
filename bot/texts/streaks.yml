@@ -1,0 +1,143 @@
+# Texts for the reading streak feature.
+streaks:
+  group_description: "Keep a daily reading streak, and watch it expire if you look away"
+  icons:
+    upcoming: "⚫"
+    success: "🟢"
+    success_today: "🔵"
+    partial: "🟠"
+    zero: "⚪"
+    rescue: "🔴"
+    golden: "🟤"
+
+  shared:
+    goal_field: "Daily goal"
+    timezone_field: "Timezone"
+    notification_field: "Reminders"
+    level_field: "Streak level"
+    per_day: "%{amount} %{unit} a day"
+    date_field: "Date"
+    rescue_button: "Repair streak"
+    rescue_emoji: "🛟"
+    reminder:
+      none: "None. A bold, quiet choice."
+      custom: "A nudge at %{hour}, your time."
+      last_chance: "A nudge an hour before midnight, if you've slacked."
+      both: "A nudge at %{hour}, plus the pre-midnight guilt trip."
+
+  register:
+    description: "Set, or rewrite, your daily reading goal"
+    param_amount: "How many (pages, minutes, chapters...)"
+    param_unit: "Unit — pages, minutes, chapters, whatever you count"
+    param_timezone: "Your timezone (start typing to search)"
+    step_title: "Let's register that goal"
+    step_description: |
+      A daily goal of **%{amount} %{unit}**, in **%{timezone}**. Now, how would you like to be reminded?
+
+      No pressure, but the streak does close itself if you forget.
+    custom_title: "Pick your hour"
+    custom_description: "Any hour from 1 in the morning to 10 at night. Midnight and 11 PM are the bot's, not yours."
+    custom_placeholder: "Reminder hour"
+    confirmed_title: "Goal set"
+    confirmed_description: "Saved. I'll keep score; you keep reading. We can edit any of this by running the command again."
+
+  log:
+    description: "Log how much you read today"
+    param_amount: "Amount read — or +10 / -10 to adjust today's entry"
+    title: "Logged"
+    amount_field: "Logged"
+    amount_value: "%{amount} %{unit}"
+    goal_field: "Goal"
+    percent_field: "Against goal"
+    percent_success: "%{percent}% — goal reached. Look at you."
+    percent_failed: "%{percent}% — not quite there. It still counts as a day, just not a good one."
+    percent_zero: "Nothing logged. A zero. We both know."
+    level_up_title: "Level cleared"
+    level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
+    level_up_anniversary: " And a full year, no less. I've put a note in the channel."
+
+  today:
+    description: "Have I logged today, or not?"
+    "yes": "Yes. Today is logged. You may carry on."
+    "no": "No. Today is not logged. The day is not getting longer."
+    not_registered: "You have no goal to log against. `/streaks register` first, then come back."
+
+  view:
+    description: "Inspect a streak — yours, or someone else's"
+    param_user: "Whose streak (defaults to you)"
+    title: "%{user}'s streak"
+
+  info:
+    closed_field: "Closed"
+    started_field: "Started"
+    started_value: "<t:%{ts}:D>\n-# %{days} days logged"
+    rescues_field: "Rescues"
+    rescues_value: |
+      %{normal} regular, %{golden} golden available
+      -# %{normal_used} regular and %{golden_used} golden used
+    closes_field: "Closes"
+    closes_value: "In <t:%{ts}:R>. You've been warned."
+    closed_value: "<t:%{ts}:D>"
+    logged_field: "Today"
+    logged_yes: "✅ Logged"
+    logged_no: "❌ Not yet today"
+    coupon_field: "Last coupon"
+    coupon_none: "No coupon yet. The first five days will fix that."
+    coupon_value: "**%{xp} XP** on <t:%{ts}:D>"
+    total_xp_field: "XP from streaks"
+    total_xp_value: "%{xp} XP"
+    on_track_field: "On track for"
+    on_track_value: "**%{xp} XP** this window"
+
+  leaderboard:
+    description: "The ten longest streaks — ongoing, or of all time"
+    ongoing_button: "Ongoing"
+    ongoing_emoji: "🏅"
+    all_time_button: "All time"
+    all_time_emoji: "🏆"
+    ongoing_title: "Streaks — still going"
+    all_time_title: "Streaks — all time"
+    ongoing_desc: "Still alive, still counting. For now."
+    all_time_desc: "The longest streaks this server has ever mustered."
+    entry: "%{place} %{mention}"
+    days_details: "**%{days}** days (level %{level}) `-` %{date}"
+    empty: "No streaks worth ranking yet. Be the first, if you must."
+
+  channel:
+    group_description: "Where streaks live"
+    set:
+      description: "Set the channel for streak commands and reminders"
+      param_channel: "The channel"
+      success: "Streaks belong to %{channel} now. I'll keep everyone in line."
+
+  admin:
+    group_description: "Streak maintenance for admins"
+    log:
+      description: "Backfill a missed daily log and adjust the streak"
+      param_user: "Whose streak to fix"
+      param_amount: "The amount to record"
+      param_date: "Date to record it for (YYYY-MM-DD; defaults to today)"
+      success: "Recorded `%{amount}` for %{user} on %{date}."
+      success_reopened: "Recorded `%{amount}` for %{user} on %{date}, and reopened the streak it broke."
+
+  errors:
+    generic: "Something went sideways. Not your fault, for once."
+    not_registered: "No streak goal found. Run `/streaks register` and we'll pretend this never happened."
+    invalid_amount: "`%{raw}` isn't a number I can work with. Try `30`, `+10` or `-5`."
+    amount_positive: "The goal has to be more than zero. I have standards."
+    invalid_timezone: "`%{timezone}` isn't a timezone I recognise. Try typing a city."
+    invalid_date: "`%{raw}` isn't a date I can read. Use `YYYY-MM-DD`."
+    wrong_channel: "This isn't the streaks channel. Take it to %{channel}."
+    cant_rescue: "That streak can't be rescued right now. It had a good run."
+
+  reminders:
+    title: "A small reminder"
+    content: "%{mentions} — your streak would like a word."
+    last_chance_title: "Last chance"
+    last_chance_content: "%{mentions} — an hour until midnight, and nothing logged."
+    footer: "Log with /streaks log. Or don't. I'm a bot, not a cop."
+
+  anniversary:
+    title: "A whole year"
+    content: "<@%{user_id}> has kept a reading streak alive for a full year — **%{days} days**. I'm impressed, and I rarely am."
+    footer: "Three hundred and sixty-five days. Some people plant trees for this."

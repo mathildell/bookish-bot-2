@@ -296,6 +296,69 @@ Add a question to the intro form.
 List and manage the questions: select one to edit, toggle it active, reorder it,
 or remove it. Only the first 5 active questions are shown in the form.
 
+## Streaks
+
+Members register a daily reading goal (amount, unit and timezone), log their
+progress each day, and keep a streak alive. Missing a day closes the streak; a
+closed streak can be repaired with a rescue (a normal one within 24 hours, then
+a golden one for a few more days). Every five logged days completes a level:
+it pays XP into the normal level system and grants a rescue. Every fifty levels
+also grants a golden rescue, and every 365 days celebrates with a channel post,
+double XP for that window and a golden rescue. XP is binary per day — a day
+either reached the goal or it did not — and the payout per level caps at 3000
+XP. Streak commands belong to the channel set with `/streaks channel set`
+(reminders are posted there too). Daily logs are purged after 90 days; the
+streak's totals and rank are kept.
+
+```
+/streaks register amount: unit: timezone:
+```
+**Permissions:** Everyone
+Register or edit a goal. `timezone` is searchable — start typing a city.
+Pick a reminder schedule from the buttons: ❌ none, 🕑 a custom hour (1 AM–10 PM
+your time), 🌙 a last-chance ping an hour before midnight, or 2️⃣ both.
+
+```
+/streaks log amount:
+```
+**Permissions:** Everyone
+Log today's reading. `amount` takes an absolute value (`30`) or an adjustment
+to today's entry (`+10`, `-5`). Logging again the same day overwrites it. If the
+streak had already closed, a fresh one starts and a repair button is offered.
+
+```
+/streaks today
+```
+**Permissions:** Everyone
+Answer whether you have logged today.
+
+```
+/streaks view [user:]
+```
+**Permissions:** Everyone
+Show a streak: the five-day visual, timezone, reminders, goal, start date,
+rescues, closing time, whether today is logged, level, coupons and XP. Shows a
+repair button for your own rescuable streak.
+
+```
+/streaks leaderboard
+```
+**Permissions:** Everyone
+Top ten streaks, with buttons to switch between 🏅 ongoing and 🏆 all time.
+
+```
+/streaks channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set the channel for streak commands and reminders.
+
+```
+/streaks admin log user: amount: [date:]
+```
+**Permissions:** 🔒 Admin
+Backfill a daily log (defaults to today; `date` is `YYYY-MM-DD`) and adjust or
+reopen the streak accordingly.
+
 ## Admin tools
 
 Fun tools for admins.

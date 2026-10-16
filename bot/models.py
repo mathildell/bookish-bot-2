@@ -363,3 +363,134 @@ class ReleaseEditDraft(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class StreakGoal(Base):
+    """A member's registered reading streak goal (amount, unit, timezone)."""
+
+    __tablename__ = "streak_goals"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit: Mapped[str] = mapped_column(String(64), nullable=False)
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # "none", "custom", "last_chance" or "both"
+    reminder: Mapped[str] = mapped_column(String(16), nullable=False, default="none")
+    # Local hour (1-22) for the custom reminder; null unless custom/both
+    custom_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_streak_goals_guild_user_unique", "guild_id", "user_id", unique=True),
+    )
+
+
+class Streak(Base):
+    """One run of consecutive logged days. Aggregates survive log purging.
+
+    ``days_logged``, ``level`` and the rescue/XP counters are the persistent
+    macros the leaderboards and views read; ``streak_daily_logs`` rows are only
+    a temporary record of individual days.
+    """
+
+    __tablename__ = "streaks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    goal_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    start_date: Mapped[date] = mapped_column(Date, nullable=False)
+    end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # "ongoing" or "closed"
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ongoing")
+
+    level: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    days_logged: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    rescues_available: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    rescues_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    golden_available: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    golden_used: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    last_xp_amount: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_xp_awarded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_xp_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    last_log_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Reminder idempotency across restarts (local date last pinged on)
+    last_custom_reminder_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_lastchance_reminder_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_streaks_guild_days", "guild_id", "days_logged"),
+        Index("ix_streaks_guild_status_days", "guild_id", "status", "days_logged"),
+        Index("ix_streaks_guild_user", "guild_id", "user_id"),
+    )
+
+
+class StreakLog(Base):
+    """A single logged day. Temporary storage, purged after a few months."""
+
+    __tablename__ = "streak_daily_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    streak_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    log_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    percent: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # "success" (>= goal), "failed" (0 < amount < goal) or "zero" (amount == 0)
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    # A rescued day: patched with 0 and flagged; rescue_type is "normal"/"golden"
+    repair: Mapped[bool] = mapped_column(default=False, nullable=False)
+    rescue_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_streak_daily_logs_streak_date_unique",
+            "streak_id",
+            "log_date",
+            unique=True,
+        ),
+    )
+
+
+class StreakSetting(Base):
+    """Per-guild settings for the streaks feature (the streaks channel)."""
+
+    __tablename__ = "streak_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )

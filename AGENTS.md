@@ -28,6 +28,13 @@ Implemented features:
   configured forum channel, repost a fixed reference message into it and pin it.
 - **Bot speaks** — `/say` lets admins post a message as the bot into any
   channel or thread, optionally as a reply.
+- **Streaks** — members register a daily reading goal (amount, unit, timezone,
+  reminder schedule) and log each day. Missing a day closes the streak; a
+  normal rescue repairs it within 24h, a golden one within 5 days. Every 5
+  logged days completes a level (XP into the normal level system, plus a
+  rescue; every 50 levels a golden rescue; every 365 days a celebration). An
+  hourly task sends reminders and closes due streaks; daily logs are purged
+  after 90 days while streak totals persist.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -96,7 +103,8 @@ bot/
   models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
                            LevelReward, ReviewFeed, ReviewEntry, ReviewSetting,
                            IntroQuestion, IntroSetting, IntroPost, BookRelease,
-                           ReleaseSetting, ReleaseEditDraft)
+                           ReleaseSetting, ReleaseEditDraft, StreakGoal, Streak,
+                           StreakLog, StreakSetting)
   notifications.py         level-up announcements
   commands/
     booster.py             /booster root group
@@ -107,6 +115,7 @@ bot/
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
     releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
+    streaks.py             /streaks group + register buttons/hour select, log/today/view/leaderboard, admin log
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
@@ -123,6 +132,7 @@ bot/
     release_sources.py     Playwright scraper + Goodreads/NetGalley parsers
     releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
+    streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
 scripts/                   one-off utilities (imports + schema migrations)
