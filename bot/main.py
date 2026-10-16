@@ -67,17 +67,18 @@ def _release_post_time(config) -> dt_time:
     return dt_time(hour=hour, minute=minute, tzinfo=tz)
 
 
-async def _sticky_exists(
+def _sticky_is_last(
     channel: discord.TextChannel, intros: IntroService
 ) -> bool:
-    """Whether the stored intro sticky message still exists in the channel."""
-    if not intros.sticky_message_id:
-        return False
-    try:
-        await channel.fetch_message(intros.sticky_message_id)
-        return True
-    except discord.HTTPException:
-        return False
+    """Whether the stored intro sticky is already the channel's last message.
+
+    Only reposting when it has drifted up keeps a restart from deleting and
+    recreating a sticky that is already sitting at the bottom of the channel.
+    """
+    return (
+        intros.sticky_message_id is not None
+        and channel.last_message_id == intros.sticky_message_id
+    )
 
 
 async def _award_message_xp(
@@ -314,9 +315,9 @@ async def run() -> None:
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)
         channel = await resolve_intro_channel(bot, intros.channel_id)
-        if channel is not None and not await _sticky_exists(channel, intros):
+        if channel is not None and not _sticky_is_last(channel, intros):
             await repost_sticky(bot, channel)
-            logger.info("Reposted missing intro sticky message")
+            logger.info("Reposted intro sticky message")
 
         await releases.reload()
         logger.info("Release channel: %s", releases.channel_id)

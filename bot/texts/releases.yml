@@ -21,7 +21,7 @@ releases:
   add:
     description: "Add an upcoming book from a Goodreads or NetGalley URL"
     param_url: "Goodreads or NetGalley book URL"
-    success: "Added **%{title}** (id: %{reference})."
+    success: "Added **%{title}**."
   update:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"

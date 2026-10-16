@@ -18,6 +18,7 @@ from pathlib import Path
 
 import discord
 
+from bot import main as bot_main
 from bot import notifications
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
@@ -2185,6 +2186,36 @@ class MonthOptionsTests(unittest.TestCase):
         self.assertEqual(options[0].value, "2026-11-01")
         self.assertEqual(options[-1].value, "2027-10-01")
         self.assertIn("November 2026", options[0].label)
+
+
+class StickyIsLastTests(unittest.TestCase):
+    class _Channel:
+        def __init__(self, last_message_id: int | None) -> None:
+            self.last_message_id = last_message_id
+
+    class _Intros:
+        def __init__(self, sticky_message_id: int | None) -> None:
+            self.sticky_message_id = sticky_message_id
+
+    def test_true_when_sticky_is_the_last_message(self) -> None:
+        self.assertTrue(
+            bot_main._sticky_is_last(self._Channel(50), self._Intros(50))
+        )
+
+    def test_false_when_another_message_is_last(self) -> None:
+        self.assertFalse(
+            bot_main._sticky_is_last(self._Channel(51), self._Intros(50))
+        )
+
+    def test_false_when_no_sticky_is_stored(self) -> None:
+        self.assertFalse(
+            bot_main._sticky_is_last(self._Channel(50), self._Intros(None))
+        )
+
+    def test_false_when_channel_has_no_messages(self) -> None:
+        self.assertFalse(
+            bot_main._sticky_is_last(self._Channel(None), self._Intros(None))
+        )
 
 
 if __name__ == "__main__":

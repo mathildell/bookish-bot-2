@@ -292,7 +292,6 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
         content=t(
             "releases.add.success",
             title=discord.utils.escape_markdown(book.title),
-            reference=book.reference,
         ),
         embed=embed,
     )
