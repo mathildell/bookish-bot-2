@@ -1828,6 +1828,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             self.url = "https://goodreads.com/book/show/1"
             self.tags: list[str] = []
             self.announcement_sent = False
+            self.discord_user_id = 42
             self.__dict__.update(kwargs)
 
     def test_embed_contents(self) -> None:
@@ -1846,7 +1847,18 @@ class ReleaseEmbedTests(unittest.TestCase):
         )
         self.assertIn("(id: custom-handle)", embed.footer.text)
 
-    def test_month_embeds_mark_announced(self) -> None:
+    def test_month_embed_uses_named_date_fields(self) -> None:
+        embeds = release_service.build_month_embeds(
+            [self._Book()], FakeClient(), month_label="October 2026"
+        )
+        self.assertEqual(len(embeds), 1)
+        field = embeds[0].fields[0]
+        self.assertEqual(field.name, "October 13th")
+        self.assertFalse(field.name.startswith("<t:"))
+        self.assertIn("The Book", field.value)
+        self.assertIn("<@42>", field.value)
+
+    def test_month_embed_does_not_strike_announced(self) -> None:
         books = [
             self._Book(id=1, announcement_sent=True),
             self._Book(id=2, announcement_sent=False, title="Other"),
@@ -1855,7 +1867,46 @@ class ReleaseEmbedTests(unittest.TestCase):
             books, FakeClient(), month_label="October 2026"
         )
         self.assertEqual(len(embeds), 1)
-        self.assertIn("~~", embeds[0].fields[0].value)
+        self.assertNotIn("~~", embeds[0].fields[0].value)
+
+    def test_month_embed_continues_in_new_embed(self) -> None:
+        start = datetime.date(2026, 10, 1)
+        books = [
+            self._Book(
+                id=index,
+                title=f"Book {index}",
+                release_date=start + datetime.timedelta(days=index),
+            )
+            for index in range(30)
+        ]
+        embeds = release_service.build_month_embeds(
+            books, FakeClient(), month_label="October 2026"
+        )
+        self.assertGreater(len(embeds), 1)
+        self.assertEqual(
+            sum(len(embed.fields) for embed in embeds), len(books)
+        )
+
+    def test_month_embed_splits_a_crowded_date(self) -> None:
+        books = [
+            self._Book(
+                id=index,
+                title=f"An Extremely Long Book Title Number {index}",
+            )
+            for index in range(40)
+        ]
+        embeds = release_service.build_month_embeds(
+            books, FakeClient(), month_label="October 2026"
+        )
+        bullets = sum(
+            embed.fields[index].value.count("• ")
+            for embed in embeds
+            for index in range(len(embed.fields))
+        )
+        self.assertEqual(bullets, len(books))
+        for embed in embeds:
+            for field in embed.fields:
+                self.assertLessEqual(len(field.value), 1024)
 
     def test_normalize_title(self) -> None:
         self.assertEqual(
@@ -1936,6 +1987,24 @@ class BookReferenceTests(unittest.TestCase):
         second = release_service.unique_reference("Untitled", taken)
         self.assertNotEqual(second, "untitled")
         self.assertNotIn(second, taken)
+
+
+class OrdinalTests(unittest.TestCase):
+    def test_first_three(self) -> None:
+        self.assertEqual(release_service._ordinal(1), "1st")
+        self.assertEqual(release_service._ordinal(2), "2nd")
+        self.assertEqual(release_service._ordinal(3), "3rd")
+
+    def test_teens_use_th(self) -> None:
+        self.assertEqual(release_service._ordinal(11), "11th")
+        self.assertEqual(release_service._ordinal(12), "12th")
+        self.assertEqual(release_service._ordinal(13), "13th")
+
+    def test_twenties(self) -> None:
+        self.assertEqual(release_service._ordinal(21), "21st")
+        self.assertEqual(release_service._ordinal(22), "22nd")
+        self.assertEqual(release_service._ordinal(23), "23rd")
+        self.assertEqual(release_service._ordinal(30), "30th")
 
 
 class OneMonthBeforeTests(unittest.TestCase):

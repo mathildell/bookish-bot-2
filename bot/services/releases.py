@@ -47,11 +47,6 @@ MONTH_FIELDS = 25
 _WS_RE = re.compile(r"\s+")
 
 
-def _chunked(items: list, size: int):
-    for start in range(0, len(items), size):
-        yield items[start : start + size]
-
-
 def _embed_size(embed: discord.Embed) -> int:
     size = len(embed.title or "") + len(embed.description or "")
     if embed.footer:
@@ -287,41 +282,94 @@ def group_by_date(books: list) -> list[tuple[date, list]]:
     return groups
 
 
+_ORDINAL_SUFFIXES = {1: "st", 2: "nd", 3: "rd"}
+
+
+def _ordinal(day: int) -> str:
+    """``16`` -> ``"16th"``, taking the 11th/12th/13th exception into account."""
+    if 10 <= day % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = _ORDINAL_SUFFIXES.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _month_day_label(day: date) -> str:
+    return t(
+        "releases.month_embed.date",
+        month=t(f"releases.months.{day.month}"),
+        day=_ordinal(day.day),
+    )
+
+
+def _book_line(book) -> str:
+    authors = (
+        discord.utils.escape_markdown(", ".join(book.authors))
+        if book.authors
+        else t("releases.month_embed.unknown_author")
+    )
+    return "• " + t(
+        "releases.month_embed.line",
+        title=discord.utils.escape_markdown(book.title),
+        authors=authors,
+        user=f"<@{book.discord_user_id}>",
+    )
+
+
+def _field_values(lines: list[str]) -> list[str]:
+    """Split lines into field values that each fit Discord's value limit."""
+    values: list[str] = []
+    current = ""
+    for line in lines:
+        line = _truncate(line, FIELD_VALUE_LIMIT)
+        if not current:
+            current = line
+        elif len(current) + 1 + len(line) > FIELD_VALUE_LIMIT:
+            values.append(current)
+            current = line
+        else:
+            current = f"{current}\n{line}"
+    if current:
+        values.append(current)
+    return values
+
+
 def build_month_embeds(
     books: list, client: discord.Client, *, month_label: str
 ) -> list[discord.Embed]:
-    """Build the monthly overview embeds, one field per release date."""
+    """Build the monthly overview, one field per release date.
+
+    Each date is a field labelled with the date (e.g. ``"October 16th"``). If a
+    date's releases fill the current embed, the remaining ones continue in a
+    new embed, which the caller sends as another message.
+    """
     groups = group_by_date(books)
     embeds: list[discord.Embed] = []
-    for chunk in _chunked(groups, MONTH_FIELDS):
+
+    def start_embed() -> discord.Embed:
         embed = discord.Embed(
             colour=getattr(client, "default_embed_color", None),
             title=t("releases.month_embed.title", month=month_label),
         )
-        for day, day_books in chunk:
-            lines = []
-            for book in day_books:
-                line = t(
-                    "releases.month_embed.line",
-                    title=discord.utils.escape_markdown(book.title),
-                    authors=(
-                        discord.utils.escape_markdown(", ".join(book.authors))
-                        if book.authors
-                        else t("releases.month_embed.unknown_author")
-                    ),
-                )
-                if book.announcement_sent:
-                    line = f"~~{line}~~"
-                lines.append("• " + line)
-            embed.add_field(
-                name=format_release_date(day),
-                value=_truncate("\n".join(lines)),
-                inline=False,
-            )
         background = getattr(client, "transparent_embed_image", None)
         if background:
             embed.set_image(url=background)
-        embeds.append(embed)
+        return embed
+
+    embed = start_embed()
+    for day, day_books in groups:
+        name = _month_day_label(day)
+        for value in _field_values([_book_line(book) for book in day_books]):
+            too_many = len(embed.fields) >= MONTH_FIELDS
+            too_big = (
+                _embed_size(embed) + len(name) + len(value)
+                > EMBED_MESSAGE_LIMIT
+            )
+            if embed.fields and (too_many or too_big):
+                embeds.append(embed)
+                embed = start_embed()
+            embed.add_field(name=name, value=value, inline=False)
+    embeds.append(embed)
     return embeds
 
 

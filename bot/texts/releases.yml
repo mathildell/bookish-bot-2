@@ -97,7 +97,8 @@ releases:
     added_by_unknown: "id: %{reference}"
   month_embed:
     title: "New releases coming in %{month}!"
-    line: "**%{title}** by %{authors}"
+    date: "%{month} %{day}"
+    line: "**%{title}** by %{authors} (%{user})"
     unknown_author: "Unknown"
   post:
     daily_title_singular: "## 📣 New book just released!"
