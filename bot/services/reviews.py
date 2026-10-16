@@ -223,7 +223,7 @@ def build_review_embed(
     if member is not None:
         avatar = getattr(member, "display_avatar", None)
         embed.set_author(
-            name=discord.utils.escape_markdown(member.display_name),
+            name=member.display_name,
             icon_url=getattr(avatar, "url", None),
         )
     else:
