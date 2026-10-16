@@ -21,7 +21,7 @@ releases:
   date:
     plain_without_year: "%{month} %{day}"
     plain: "%{month} %{day}, %{year}"
-  added_thanks: "Thank you for adding the following book to our calendar! We will ping you in %{channel} on %{date}"
+  added_thanks: "Thank you for adding the following book to our calendar! I will ping you in %{channel} on %{date}."
   add:
     description: "Add an upcoming book from a Goodreads or NetGalley URL"
     param_url: "Goodreads or NetGalley book URL"
@@ -41,15 +41,15 @@ releases:
 
       If this doesn't look right, please feel free to ignore this message (click *"Dismiss message"* underneath) or Cancel.
     cancel: "Cancel"
-    confirmed: "Update confirmed."
-    cancelled: "Update cancelled."
-    expired: "This update has expired. Run the command again."
-    not_found: "No tracked book matches that URL, id or handle. Use `/releases add` to add it."
+    confirmed: "All done!"
+    cancelled: "Okay, I'll hold off then."
+    expired: "This update has expired, please run the command again."
+    not_found: "Can't seem to find a book that matches that URL, id or handle. Try `/releases add` to add it!"
   search:
     description: "Search tracked books by title, author, or the member who added them"
     param_keyword: "Keyword, or a member mention/id, to search for"
-    found: "We found the following result for your query"
-    not_found: "No tracked book matches **%{keyword}**. Add one with `/releases add url:` using its Goodreads or NetGalley link."
+    found: "Here's what turned up for your search:"
+    not_found: "I couldn't find a book matching **%{keyword}**. Maybe you should add it with `/releases add url:`"
   view:
     description: "Show one tracked book"
     param_book: "Numeric id or handle of the tracked book"
@@ -118,8 +118,8 @@ releases:
     unsupported_source: "Only Goodreads and NetGalley links are supported."
     unsupported_region: "Only NetGalley's .com, .co.uk, .fr and .de sites are supported."
     no_release_date: "I couldn't find a release date on that page."
-    not_in_future: "That book's release date is in the past, so it can't be tracked."
-    scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
+    not_in_future: "Looks like that book has already been released. You're in luck then! :money_with_wings: "
+    scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking me out."
     browser_missing: "There was a problem with the browser reading the provided web page."
-    already_exists_self: "You already added **%{title}** on %{date} doofus! If you need to update it, use `/releases update`"
+    already_exists_self: "You already added **%{title}** on %{date} silly! If you need to update it, use `/releases update`"
     already_exists_other: "**%{title}** was already added by %{member} on %{date}. Looks like you folks have the same taste, that's pretty neat!"

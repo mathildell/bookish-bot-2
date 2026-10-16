@@ -12,25 +12,25 @@ booster:
     not_boosting: "Not boosting"
 
   # Fallback name when a listed member can no longer be resolved.
-  unknown_name: "Unknown"
+  unknown_name: "Mysterious internet user"
 
   react:
     group_description: "Manage custom booster reacts"
-    emoji_taken: "That emoji is already used by %{user}."
+    emoji_taken: "Looks like %{user} beat you to the punch; that emoji is already spoken for."
     add:
       description: "Add a custom react emoji"
       param_emoji: "Emoji to react with (unicode or <:name:id>)"
       param_user: "Who to add it for (defaults to you)"
       param_nicknames: "Optional comma-separated nicknames to also match"
-      invalid_emoji: "`%{emoji}` doesn't look like a valid emoji."
+      invalid_emoji: "Am I blind? `%{emoji}` doesn't look like a valid emoji to me."
       success: "Saved the reaction %{emoji} for %{user}%{extra}"
     edit:
       description: "Change a react emoji or nicknames"
       param_user: "Who to update (defaults to you)"
       param_emoji: "New emoji (leave empty to keep the current one)"
       param_nicknames: "New comma-separated nicknames (leave empty to keep current)"
-      not_found: "%{user} has no booster react registered."
-      invalid_emoji: "`%{emoji}` doesn't look like a valid emoji."
+      not_found: "%{user} has no booster react registered. Bold of you to assume otherwise <:SideEyeBow:1406705598313009232>"
+      invalid_emoji: "Am I blind? `%{emoji}` doesn't look like a valid emoji to me."
       nothing_to_change: "Provide a new emoji and/or nicknames to change."
       success: "Updated the react %{emoji} for %{user}%{extra}"
     view:

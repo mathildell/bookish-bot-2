@@ -32,11 +32,12 @@ from ..services.releases import (
 from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
-from .listing import EMBEDS_PER_PAGE, Paginator, chunked, send_paginated
+from .listing import Paginator, chunked, send_paginated
 
 logger = logging.getLogger("bh2.releases")
 
 RELEASE_EMBEDS_PER_PAGE = 5
+RELEASE_SEARCH_EMBEDS_PER_PAGE = 3
 
 releases_group = app_commands.Group(
     name="releases",
@@ -414,7 +415,7 @@ async def search_release(
     ]
     await send_paginated(
         interaction,
-        chunked(embeds, EMBEDS_PER_PAGE),
+        chunked(embeds, RELEASE_SEARCH_EMBEDS_PER_PAGE),
         total_results=len(books),
         content=t("releases.search.found"),
     )

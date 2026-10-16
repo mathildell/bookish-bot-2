@@ -25,13 +25,13 @@ intro:
     not_found: "I couldn't find the introduction for this post."
   delete:
     button_emoji: "🗑️"
-    confirm: "Are you sure you want to delete your introduction? This cannot be undone."
+    confirm: "Are you sure you want to delete your introduction? This can't be undone. Then you'll have to re-introduce yourself and it might be awkward. But it's your choice of course. This is a judgement-free zone."
     confirm_button: "Delete"
     cancel_button: "Cancel"
-    done: "Your introduction was deleted."
-    cancelled: "No changes were made."
+    done: "You chose the awkwardness, I respect that."
+    cancelled: "You just wanted to test that button, didn't you? :beetle: "
     failed: "I couldn't delete your introduction. Please try again later."
-    not_author: "Only the author of this introduction can delete it."
+    not_author: "Nice try, but only the author of this post can delete it."
     not_found: "I couldn't find the introduction for this post."
   questions:
     group_description: "Manage the questions asked in the intro form"
@@ -74,7 +74,7 @@ intro:
   modal:
     title: "Introduce yourself!"
   post:
-    created: "Your introduction was posted. You can edit it any time with the sticky button."
+    created: "Welcome! How nice to finally meet you \\*checks notes\\* ...human. You can edit your introduction at any time with the sticky button."
     edited: "Your introduction was updated."
     failed: "I couldn't post your introduction. Please try again later."
   errors:
