@@ -831,7 +831,8 @@ class ReleaseService:
 
         if self._ping_role_id:
             content = f"-# <@&{self._ping_role_id}>\n"
-        else content = ""
+        else 
+            content = ""
 
         content += "\n".join(
             [
@@ -904,8 +905,9 @@ class ReleaseService:
                 books, client, month_label=month_label
             )
             if self._ping_role_id:
-                content += f"-# <@&{self._ping_role_id}>\n"
-            else content = ""
+                content = f"-# <@&{self._ping_role_id}>\n"
+            else 
+                content = ""
             content += "\n".join(
                 [
                     t("releases.post.monthly_title", month=month_name),
