@@ -24,6 +24,8 @@ from ..services.releases import (
     ReleaseService,
     book_reference,
     build_book_embed,
+    build_confirm_embed,
+    disambiguate_embed_urls,
 )
 from ..services.members import resolve_members
 from ..texts import t
@@ -31,6 +33,8 @@ from .checks import require_admin
 from .listing import EMBEDS_PER_PAGE, Paginator, chunked, send_paginated
 
 logger = logging.getLogger("bh2.releases")
+
+RELEASE_EMBEDS_PER_PAGE = 4
 
 releases_group = app_commands.Group(
     name="releases",
@@ -108,11 +112,11 @@ class _ReleaseListSource:
         self._guild = guild
         self._client = client
         self.total_results = total
-        self.page_count = max(1, ceil(total / EMBEDS_PER_PAGE))
+        self.page_count = max(1, ceil(total / RELEASE_EMBEDS_PER_PAGE))
 
     async def get_page(self, index: int) -> list[discord.Embed]:
         books = await self._service.upcoming_page(
-            index * EMBEDS_PER_PAGE, EMBEDS_PER_PAGE
+            index * RELEASE_EMBEDS_PER_PAGE, RELEASE_EMBEDS_PER_PAGE
         )
         members = await resolve_members(
             self._guild, [book.discord_user_id for book in books]
@@ -139,7 +143,9 @@ class _MonthSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         target = date.fromisoformat(self.values[0])
-        index = await view.source.page_index_for_date(target, EMBEDS_PER_PAGE)
+        index = await view.source.page_index_for_date(
+            target, RELEASE_EMBEDS_PER_PAGE
+        )
         view.set_index(index)
         await interaction.response.defer()
         page = await view.load_page(view.index)
@@ -317,11 +323,8 @@ async def update_release(
         interaction.client,
         prefix=t("releases.update.new_prefix"),
     )
-    instruction_embed = discord.Embed(
-        colour=getattr(interaction.client, "default_embed_color", None),
-        title=t("releases.update.instruction_title"),
-        description=t("releases.update.instruction_body"),
-    )
+    disambiguate_embed_urls([old_embed, new_embed])
+    instruction_embed = build_confirm_embed(interaction.client)
     view = ReleaseConfirmView(draft.id, interaction.user.id)
     await interaction.followup.send(
         embeds=[old_embed, new_embed, instruction_embed],
@@ -368,9 +371,6 @@ async def list_releases(interaction: discord.Interaction) -> None:
     source = _ReleaseListSource(
         service, interaction.guild, interaction.client, total
     )
-    if source.page_count == 1:
-        await interaction.followup.send(embeds=await source.get_page(0))
-        return
     view = ReleaseListView(source, interaction.user.id)
     view.message = await interaction.followup.send(
         embeds=await view.load_page(0), view=view

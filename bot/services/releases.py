@@ -210,6 +210,31 @@ def build_book_embed(
     return embed
 
 
+def build_confirm_embed(client: discord.Client) -> discord.Embed:
+    """The instructions embed shown above the update preview buttons."""
+    embed = discord.Embed(
+        colour=getattr(client, "default_embed_color", None),
+        title=t("releases.update.instruction_title"),
+        description=t("releases.update.instruction_body"),
+    )
+    background = getattr(client, "transparent_embed_image", None)
+    if background:
+        embed.set_image(url=background)
+    return embed
+
+
+def disambiguate_embed_urls(embeds: list[discord.Embed]) -> None:
+    """Give each embed a unique top-level ``url``, in place.
+
+    Discord shows only the first embed of a group that shares a ``url`` (the
+    rest are folded into its image gallery), which would hide the "AFTER"
+    preview since it points at the same page as "BEFORE".
+    """
+    for index, embed in enumerate(embeds):
+        if embed.url:
+            embed.url = f"{embed.url}#{index}"
+
+
 def group_by_date(books: list) -> list[tuple[date, list]]:
     """Group releases by release date, ordered by date then title."""
     groups: list[tuple[date, list]] = []

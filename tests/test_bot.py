@@ -1847,6 +1847,25 @@ class ReleaseEmbedTests(unittest.TestCase):
             release_service.normalize_title("  The   HOBBIT "), "the hobbit"
         )
 
+    def test_confirm_embed_has_instruction_and_background(self) -> None:
+        embed = release_service.build_confirm_embed(FakeClient())
+        self.assertEqual(embed.title, t("releases.update.instruction_title"))
+        self.assertEqual(
+            embed.description, t("releases.update.instruction_body")
+        )
+        self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
+
+    def test_disambiguate_embed_urls_unshares_same_url(self) -> None:
+        first = discord.Embed(url="https://goodreads.com/book/show/1")
+        second = discord.Embed(url="https://goodreads.com/book/show/1")
+        release_service.disambiguate_embed_urls([first, second])
+        self.assertNotEqual(first.url, second.url)
+
+    def test_disambiguate_embed_urls_skips_urlless_embeds(self) -> None:
+        embed = discord.Embed(title="No url")
+        release_service.disambiguate_embed_urls([embed])
+        self.assertIsNone(embed.url)
+
 
 class BookReferenceTests(unittest.TestCase):
     def test_uses_first_three_words(self) -> None:
