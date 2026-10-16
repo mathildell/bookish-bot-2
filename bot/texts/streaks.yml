@@ -1,6 +1,6 @@
 # Texts for the reading streak feature.
 streaks:
-  group_description: "Keep a daily reading streak, and watch it expire if you look away"
+  group_description: "Challenge yourself to read everyday 🔥"
   icons:
     upcoming: "⚫"
     success: "🟢"
@@ -26,24 +26,37 @@ streaks:
       both: "A nudge at %{hour}, plus the pre-midnight guilt trip."
 
   register:
-    description: "Set, or rewrite, your daily reading goal"
+    description: "Set or rewrite your daily reading goal"
     param_amount: "How many (pages, minutes, chapters...)"
-    param_unit: "Unit — pages, minutes, chapters, whatever you count"
+    param_unit: "Unit (pages, minutes, chapters...)"
     param_timezone: "Your timezone (start typing to search)"
-    step_title: "Let's register that goal"
+    step_title: "Let's register that goal!"
     step_description: |
-      A daily goal of **%{amount} %{unit}**, in **%{timezone}**. Now, how would you like to be reminded?
-
-      No pressure, but the streak does close itself if you forget.
+      You've taken your first step to register your daily goal! We will mark you down for **%{amount} %{unit}**, in **%{timezone}**. To finish the registration, please complete the following process.
+          
+      Once your goal has been saved, you can edit it at any time without losing your progress.           
+      To adjust notifications or revisit this menu later, you can run the following command:
+      ```
+      /streaks edit
+      ``` 
+      ## Pick your reminder option:
+      ### ❌  ‎ None
+      > You will not be pinged for streak reminders
+      ### 🕑  ‎ Custom time
+      > Choose at which hour to receive your notification on (will ping you at the same time everyday)
+      ### 🌙  ‎ Last Chance Reminder
+      > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
+      ### 2️⃣  ‎ Both
+      > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
     custom_title: "Pick your hour"
-    custom_description: "Any hour from 1 in the morning to 10 at night. Midnight and 11 PM are the bot's, not yours."
+    custom_description: "Pick any hour from 1AM to 10PM. **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
-    confirmed_description: "Saved. I'll keep score; you keep reading. We can edit any of this by running the command again."
+    confirmed_description: "All set-up! You can edit this at any time using `/streaks edit`. I'll keep my eye on you... :eyes:"
 
   log:
     description: "Log how much you read today"
-    param_amount: "Amount read — or +10 / -10 to adjust today's entry"
+    param_amount: "Amount read today (`+`/`-` aggregators also work)"
     title: "Logged"
     amount_field: "Logged"
     amount_value: "%{amount} %{unit}"
@@ -57,13 +70,13 @@ streaks:
     level_up_anniversary: " And a full year, no less. I've put a note in the channel."
 
   today:
-    description: "Have I logged today, or not?"
-    "yes": "Yes. Today is logged. You may carry on."
-    "no": "No. Today is not logged. The day is not getting longer."
-    not_registered: "You have no goal to log against. `/streaks register` first, then come back."
+    description: "Have you logged today?"
+    "yes": "✅ Yep, all good."
+    "no": "❌ Oh woops."
+    not_registered: "I can't find a goal for you. You should run `/streaks register` first!"
 
   view:
-    description: "Inspect a streak — yours, or someone else's"
+    description: "Inspect a streak"
     param_user: "Whose streak (defaults to you)"
     title: "%{user}'s streak"
 
@@ -76,13 +89,13 @@ streaks:
       %{normal} regular, %{golden} golden available
       -# %{normal_used} regular and %{golden_used} golden used
     closes_field: "Closes"
-    closes_value: "In <t:%{ts}:R>. You've been warned."
+    closes_value: "<t:%{ts}:R>"
     closed_value: "<t:%{ts}:D>"
     logged_field: "Today"
     logged_yes: "✅ Logged"
     logged_no: "❌ Not yet today"
     coupon_field: "Last coupon"
-    coupon_none: "No coupon yet. The first five days will fix that."
+    coupon_none: "No coupon yet"
     coupon_value: "**%{xp} XP** on <t:%{ts}:D>"
     total_xp_field: "XP from streaks"
     total_xp_value: "%{xp} XP"
@@ -90,25 +103,25 @@ streaks:
     on_track_value: "**%{xp} XP** this window"
 
   leaderboard:
-    description: "The ten longest streaks — ongoing, or of all time"
+    description: "Streaks Leaderboard"
     ongoing_button: "Ongoing"
     ongoing_emoji: "🏅"
     all_time_button: "All time"
     all_time_emoji: "🏆"
-    ongoing_title: "Streaks — still going"
-    all_time_title: "Streaks — all time"
+    ongoing_title: "Streaks Leaderboard ( 🏅  Currently Ongoing)"
+    all_time_title: "Streaks Leaderboard ( 🏆  All Time)"
     ongoing_desc: "Still alive, still counting. For now."
     all_time_desc: "The longest streaks this server has ever mustered."
     entry: "%{place} %{mention}"
     days_details: "**%{days}** days (level %{level}) `-` %{date}"
-    empty: "No streaks worth ranking yet. Be the first, if you must."
+    empty: "No streaks to rank yet."
 
   channel:
     group_description: "Where streaks live"
     set:
       description: "Set the channel for streak commands and reminders"
       param_channel: "The channel"
-      success: "Streaks belong to %{channel} now. I'll keep everyone in line."
+      success: "Streaks updates and daily logs will happen in %{channel} now."
 
   admin:
     group_description: "Streak maintenance for admins"
@@ -121,23 +134,23 @@ streaks:
       success_reopened: "Recorded `%{amount}` for %{user} on %{date}, and reopened the streak it broke."
 
   errors:
-    generic: "Something went sideways. Not your fault, for once."
-    not_registered: "No streak goal found. Run `/streaks register` and we'll pretend this never happened."
-    invalid_amount: "`%{raw}` isn't a number I can work with. Try `30`, `+10` or `-5`."
-    amount_positive: "The goal has to be more than zero. I have standards."
-    invalid_timezone: "`%{timezone}` isn't a timezone I recognise. Try typing a city."
-    invalid_date: "`%{raw}` isn't a date I can read. Use `YYYY-MM-DD`."
-    wrong_channel: "This isn't the streaks channel. Take it to %{channel}."
-    cant_rescue: "That streak can't be rescued right now. It had a good run."
+    generic: "Something went sideways. Don't look at me like that, I'm trying my best!"
+    not_registered: "No streak goal found. Run `/streaks register`!"
+    invalid_amount: "`%{raw}` doesn't appear to be a number I can log. Try `30`, `+10` or `-5`."
+    amount_positive: "That's some big brain strategy :brain: but your goal has to be more than zero."
+    invalid_timezone: "`%{timezone}` isn't a timezone I recognise; please try looking up a metropolis near you instead."
+    invalid_date: "`%{raw}` isn't a date I can work with, please use `YYYY-MM-DD`."
+    wrong_channel: "Oops, this isn't the streak channel! Try there instead: %{channel}."
+    cant_rescue: "That streak can't be rescued anymore. It had a good run. We will remember it fondly."
 
   reminders:
     title: "A small reminder"
-    content: "%{mentions} — your streak would like a word."
+    content: "Oye, oye %{mentions} — your streak would like a word."
     last_chance_title: "Last chance"
     last_chance_content: "%{mentions} — an hour until midnight, and nothing logged."
-    footer: "Log with /streaks log. Or don't. I'm a bot, not a cop."
+    footer: "Use /streaks log to log your daily progress!"
 
   anniversary:
     title: "A whole year"
-    content: "<@%{user_id}> has kept a reading streak alive for a full year — **%{days} days**. I'm impressed, and I rarely am."
+    content: "<@%{user_id}> has kept a reading streak alive for a full year! **%{days} days total**. WOW!"
     footer: "Three hundred and sixty-five days. Some people plant trees for this."
