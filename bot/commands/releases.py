@@ -26,6 +26,8 @@ from ..services.releases import (
     build_book_embed,
     build_confirm_embed,
     disambiguate_embed_urls,
+    format_created_stamp,
+    format_plain_date,
 )
 from ..services.members import resolve_members
 from ..texts import t
@@ -84,6 +86,22 @@ def _announcement_channel(
         if channel is not None:
             return channel
     return interaction.client.get_channel(service.channel_id)
+
+
+def _added_thanks(
+    service: ReleaseService, release_date: date
+) -> str:
+    """The public thank-you note posted after a book is added or updated."""
+    channel = (
+        f"<#{service.channel_id}>"
+        if service.channel_id
+        else t("releases.channel.unset")
+    )
+    return t(
+        "releases.added_thanks",
+        channel=channel,
+        date=format_plain_date(release_date),
+    )
 
 
 async def _scrape(
@@ -229,14 +247,13 @@ class ReleaseConfirmView(discord.ui.View):
             )
             return
         embed = build_book_embed(book, interaction.user, interaction.client)
-        title = discord.utils.escape_markdown(book.title)
         # Keep the confirmation prompt private, but post the updated book for
         # everyone to see.
         await interaction.response.edit_message(
             content=t("releases.update.confirmed"), embeds=[], view=None
         )
         await interaction.followup.send(
-            content=t("releases.update.updated", title=title), embeds=[embed]
+            content=_added_thanks(service, book.release_date), embeds=[embed]
         )
 
     @discord.ui.button(
@@ -275,25 +292,27 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
     service = _service(interaction)
     existing = await service.find_by_source(data.source, data.source_id)
     if existing is not None:
-        await interaction.followup.send(
-            t(
-                "releases.errors.already_exists",
-                title=discord.utils.escape_markdown(existing.title),
-                user=f"<@{existing.discord_user_id}>",
-                reference=existing.reference,
-            ),
-            ephemeral=True,
-        )
+        title = discord.utils.escape_markdown(existing.title)
+        if existing.discord_user_id == interaction.user.id:
+            message = t(
+                "releases.errors.already_exists_self",
+                title=title,
+                date=format_created_stamp(existing.created_at),
+            )
+        else:
+            message = t(
+                "releases.errors.already_exists_other",
+                title=title,
+                member=f"<@{existing.discord_user_id}>",
+                date=format_plain_date(existing.created_at.date()),
+            )
+        await interaction.followup.send(message, ephemeral=True)
         return
 
     book = await service.add(data, interaction.user.id)
     embed = build_book_embed(book, interaction.user, interaction.client)
     await interaction.followup.send(
-        content=t(
-            "releases.add.success",
-            title=discord.utils.escape_markdown(book.title),
-        ),
-        embed=embed,
+        content=_added_thanks(service, book.release_date), embed=embed
     )
 
 
@@ -388,7 +407,10 @@ async def search_release(
         for book, member in zip(books, members)
     ]
     await send_paginated(
-        interaction, chunked(embeds, EMBEDS_PER_PAGE), total_results=len(books)
+        interaction,
+        chunked(embeds, EMBEDS_PER_PAGE),
+        total_results=len(books),
+        content=t("releases.search.found"),
     )
 
 

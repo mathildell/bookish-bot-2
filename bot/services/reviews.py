@@ -272,6 +272,10 @@ def build_review_embed(
         or t("reviews.embed.unknown_shelf"),
         icon_url=feed.logo_url,
     )
+
+    background = getattr(client, "transparent_embed_image", None)
+    if background:
+        embed.set_image(url=background)
     return embed
 
 

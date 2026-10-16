@@ -205,6 +205,41 @@ def source_label(source: str) -> str:
     return t(f"releases.sources.{source}")
 
 
+_MENTION_RE = re.compile(r"^<@!?(\d+)>$")
+_SNOWFLAKE_MIN_LENGTH = 15
+
+
+def parse_user_id(value: str) -> int | None:
+    """Return the user id from a mention (``<@…>``/``<@!…>``) or numeric id.
+
+    Bare numbers must be long enough to be a snowflake, so a title like
+    ``1984`` is still searched as text rather than read as a user id.
+    """
+    text = (value or "").strip()
+    match = _MENTION_RE.match(text)
+    if match:
+        return int(match.group(1))
+    if text.isdigit() and len(text) >= _SNOWFLAKE_MIN_LENGTH:
+        return int(text)
+    return None
+
+
+def format_plain_date(value: date) -> str:
+    """Render a date as plain text, without a Discord timestamp."""
+    return t(
+        "releases.date.plain",
+        month=t(f"releases.months.{value.month}"),
+        day=_ordinal(value.day),
+        year=value.year,
+    )
+
+
+def format_created_stamp(value: datetime) -> str:
+    """Render a stored timestamp as a Discord date stamp (day precision)."""
+    moment = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return f"<t:{int(moment.timestamp())}:D>"
+
+
 def build_book_embed(
     book,
     member: discord.Member | None,
@@ -217,10 +252,8 @@ def build_book_embed(
     embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
 
     title = getattr(book, "title", None) or t("releases.embed.untitled_book")
-    embed.title = (
-        (f"{prefix} ‎ " if prefix else "")
-        + discord.utils.escape_markdown(title)
-        + t("releases.embed.title_suffix", source=source_label(book.source))
+    embed.title = (f"{prefix} ‎ " if prefix else "") + discord.utils.escape_markdown(
+        title
     )
     if getattr(book, "url", None):
         embed.url = book.url
@@ -258,19 +291,25 @@ def build_book_embed(
         )
 
     reference = getattr(book, "reference", None) or book_reference(title)
+    source = source_label(book.source)
     if member is not None:
         avatar = getattr(member, "display_avatar", None)
         embed.set_footer(
             text=t(
                 "releases.embed.added_by",
                 user=discord.utils.escape_markdown(member.display_name),
+                source=source,
                 reference=reference,
             ),
             icon_url=getattr(avatar, "url", None),
         )
     else:
         embed.set_footer(
-            text=t("releases.embed.added_by_unknown", reference=reference)
+            text=t(
+                "releases.embed.added_by_unknown",
+                source=source,
+                reference=reference,
+            )
         )
 
     background = getattr(client, "transparent_embed_image", None)
@@ -303,11 +342,21 @@ def disambiguate_embed_urls(embeds: list[discord.Embed]) -> None:
             embed.url = f"{embed.url}#{index}"
 
 
+def _added_at(book) -> datetime:
+    return getattr(book, "created_at", None) or datetime.min
+
+
+def _release_order():
+    """Latest release date first; within a date, the oldest entry first."""
+    return (BookRelease.release_date.desc(), BookRelease.created_at.asc())
+
+
 def group_by_date(books: list) -> list[tuple[date, list]]:
-    """Group releases by release date, ordered by date then title."""
+    """Group releases by date, oldest first, then by when they were added."""
     groups: list[tuple[date, list]] = []
     for book in sorted(
-        books, key=lambda b: (b.release_date, (b.title or "").lower())
+        books,
+        key=lambda b: (b.release_date, _added_at(b), (b.title or "").lower()),
     ):
         if groups and groups[-1][0] == book.release_date:
             groups[-1][1].append(book)
@@ -552,28 +601,39 @@ class ReleaseService:
             ).scalar_one_or_none()
 
     async def search(self, keyword: str) -> list[BookRelease]:
-        """Books whose title or any author matches ``keyword``.
+        """Books matching ``keyword``.
 
-        Matching ignores case, punctuation and spacing at the same time, so a
-        partial query such as ``"KJ Charles"`` also finds ``"K. J. Charles"``.
+        The keyword is either a title/author fragment (matched ignoring case,
+        punctuation and spacing, so ``"KJ Charles"`` finds ``"K. J. Charles"``)
+        or a member mention/numeric id, which returns that member's releases.
         """
-        needle = search_key(keyword)
-        if not needle:
+        user_id = parse_user_id(keyword)
+        needle = None if user_id is not None else search_key(keyword)
+        if user_id is None and not needle:
             return []
         async with session_scope() as session:
             rows = (
                 await session.execute(
-                    select(BookRelease)
-                    .where(BookRelease.guild_id == self.guild_id)
-                    .order_by(BookRelease.release_date, BookRelease.title)
+                    select(BookRelease).where(
+                        BookRelease.guild_id == self.guild_id
+                    )
                 )
             ).scalars()
-            return [
-                book
-                for book in rows
-                if needle in search_key(book.title)
-                or needle in search_key(" ".join(book.authors or []))
-            ]
+            books = list(rows)
+        matches: list[BookRelease] = []
+        for book in books:
+            if user_id is not None:
+                if book.discord_user_id == user_id:
+                    matches.append(book)
+            elif needle in search_key(book.title) or needle in search_key(
+                " ".join(book.authors or [])
+            ):
+                matches.append(book)
+        matches.sort(
+            key=lambda book: (_added_at(book), (book.title or "").lower())
+        )
+        matches.sort(key=lambda book: book.release_date, reverse=True)
+        return matches
 
     async def count_upcoming(self) -> int:
         async with session_scope() as session:
@@ -596,7 +656,7 @@ class ReleaseService:
                         BookRelease.guild_id == self.guild_id,
                         BookRelease.release_date >= date.today(),
                     )
-                    .order_by(BookRelease.release_date, BookRelease.title)
+                    .order_by(*_release_order())
                     .offset(offset)
                     .limit(limit)
                 )
@@ -604,18 +664,26 @@ class ReleaseService:
         return list(rows)
 
     async def page_index_for_date(self, target: date, per_page: int) -> int:
-        """Page index (0-based) holding the first release on/after ``target``."""
+        """Page holding the target month's releases.
+
+        The list runs latest-first, so every release after the target month
+        sits ahead of it.
+        """
+        next_first = (
+            date(target.year + 1, 1, 1)
+            if target.month == 12
+            else date(target.year, target.month + 1, 1)
+        )
         async with session_scope() as session:
-            before = await session.scalar(
+            after = await session.scalar(
                 select(func.count())
                 .select_from(BookRelease)
                 .where(
                     BookRelease.guild_id == self.guild_id,
-                    BookRelease.release_date >= date.today(),
-                    BookRelease.release_date < target,
+                    BookRelease.release_date >= next_first,
                 )
             )
-        return (before or 0) // per_page
+        return (after or 0) // per_page
 
     async def month_releases(self, year: int, month: int) -> list[BookRelease]:
         first = date(year, month, 1)
@@ -633,7 +701,7 @@ class ReleaseService:
                         BookRelease.release_date >= first,
                         BookRelease.release_date < next_first,
                     )
-                    .order_by(BookRelease.release_date, BookRelease.title)
+                    .order_by(*_release_order())
                 )
             ).scalars()
         return list(rows)
@@ -819,7 +887,7 @@ class ReleaseService:
                         BookRelease.guild_id == self.guild_id,
                         BookRelease.release_date == today,
                     )
-                    .order_by(BookRelease.title)
+                    .order_by(*_release_order())
                 )
             ).scalars()
         return list(rows)
@@ -834,7 +902,7 @@ class ReleaseService:
                         BookRelease.release_date <= today,
                         BookRelease.announcement_sent.is_(False),
                     )
-                    .order_by(BookRelease.release_date, BookRelease.title)
+                    .order_by(*_release_order())
                 )
             ).scalars()
         return list(rows)

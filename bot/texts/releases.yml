@@ -18,10 +18,12 @@ releases:
   sources:
     goodreads: "Goodreads"
     netgalley: "NetGalley"
+  date:
+    plain: "%{month} %{day}, %{year}"
+  added_thanks: "Thank you for adding the following book to our calendar! We will ping you in %{channel} on %{date}"
   add:
     description: "Add an upcoming book from a Goodreads or NetGalley URL"
     param_url: "Goodreads or NetGalley book URL"
-    success: "Added **%{title}**."
   update:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"
@@ -38,14 +40,14 @@ releases:
 
       If this doesn't look right, please feel free to ignore this message (click *"Dismiss message"* underneath) or Cancel.
     cancel: "Cancel"
-    updated: "Updated **%{title}**."
     confirmed: "Update confirmed."
     cancelled: "Update cancelled."
     expired: "This update has expired. Run the command again."
     not_found: "No tracked book matches that URL, id or handle. Use `/releases add` to add it."
   search:
-    description: "Search tracked books by title or author"
-    param_keyword: "Keyword to match against titles and authors"
+    description: "Search tracked books by title, author, or the member who added them"
+    param_keyword: "Keyword, or a member mention/id, to search for"
+    found: "We found the following result for your query"
     not_found: "No tracked book matches **%{keyword}**. Add one with `/releases add url:` using its Goodreads or NetGalley link."
   view:
     description: "Show one tracked book"
@@ -63,6 +65,7 @@ releases:
     not_found: "No tracked book matching **%{query}**."
   channel:
     group_description: "Where release announcements are posted"
+    unset: "the announcements channel"
     set:
       description: "Set the release announcements channel"
       param_channel: "Channel for release announcements"
@@ -86,15 +89,14 @@ releases:
       none: "No books are releasing this month."
   embed:
     untitled_book: "Untitled"
-    title_suffix: " ‎ ↗️ ‎ (%{source})"
     author_field: "Author(s)"
     author_none: "Unknown"
     release_date_field: "Release date"
     tags_field: "Tags"
     tags_none: "—"
     description_field: "Description"
-    added_by: "Added by %{user} (id: %{reference})"
-    added_by_unknown: "id: %{reference}"
+    added_by: "Added by %{user} via %{source} (id: %{reference})"
+    added_by_unknown: "Added via %{source} (id: %{reference})"
   month_embed:
     title: "Upcoming releases"
     date: "%{month} %{day}"
@@ -118,4 +120,5 @@ releases:
     not_in_future: "That book's release date is in the past, so it can't be tracked."
     scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
     browser_missing: "There was a problem with the browser reading the provided web page."
-    already_exists: "**%{title}** was already added by %{user} (id: %{reference}). Use `/releases update` to refresh it."
+    already_exists_self: "You already added %{title} on %{date} doofus! If you need to update it, use `/releases update`"
+    already_exists_other: "%{title} was already added by %{member} on %{date}. Looks like you folks have the same taste, that's pretty neat!"

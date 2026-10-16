@@ -212,9 +212,10 @@ changed and the URL no longer matches the stored book.
 /releases search keyword:
 ```
 **Permissions:** Everyone
-Search tracked books by title or author. Matches are listed (paginated when
-there are many), with each book's description; if nothing matches, the bot says
-so and explains how to add it.
+Search tracked books by title or author, or pass a member mention/id to list all
+the books that member added. Text matching ignores case and punctuation, so
+`KJ Charles` also finds `K. J. Charles`. Matches are listed (paginated when
+there are many); if nothing matches, the bot says so and explains how to add it.
 
 ```
 /releases list

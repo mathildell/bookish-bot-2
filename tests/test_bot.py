@@ -1866,16 +1866,17 @@ class ReleaseEmbedTests(unittest.TestCase):
             self.tags: list[str] = []
             self.announcement_sent = False
             self.discord_user_id = 42
+            self.created_at = datetime.datetime(2026, 1, 1)
             self.__dict__.update(kwargs)
 
     def test_embed_contents(self) -> None:
         embed = release_service.build_book_embed(
             self._Book(), FakeMember(), FakeClient()
         )
-        self.assertTrue(embed.title.startswith("The Book"))
-        self.assertIn(t("releases.sources.goodreads"), embed.title)
+        self.assertEqual(embed.title, "The Book")
         self.assertEqual(embed.url, "https://goodreads.com/book/show/1")
         self.assertIn("Ada Author", embed.fields[0].value)
+        self.assertIn(t("releases.sources.goodreads"), embed.footer.text)
         self.assertIn("(id: the-book)", embed.footer.text)
 
     def test_embed_prefers_stored_reference(self) -> None:
@@ -2186,6 +2187,34 @@ class MonthOptionsTests(unittest.TestCase):
         self.assertEqual(options[0].value, "2026-11-01")
         self.assertEqual(options[-1].value, "2027-10-01")
         self.assertIn("November 2026", options[0].label)
+
+
+class ReleaseSearchHelpersTests(unittest.TestCase):
+    def test_parse_user_id_from_mention(self) -> None:
+        self.assertEqual(
+            release_service.parse_user_id("<@123456789>"), 123456789
+        )
+        self.assertEqual(
+            release_service.parse_user_id("<@!123456789>"), 123456789
+        )
+
+    def test_parse_user_id_from_numeric_snowflake(self) -> None:
+        self.assertEqual(
+            release_service.parse_user_id(" 123456789012345678 "),
+            123456789012345678,
+        )
+
+    def test_parse_user_id_rejects_text(self) -> None:
+        self.assertIsNone(release_service.parse_user_id("KJ Charles"))
+
+    def test_parse_user_id_ignores_short_number(self) -> None:
+        self.assertIsNone(release_service.parse_user_id("1984"))
+
+    def test_format_plain_date(self) -> None:
+        self.assertEqual(
+            release_service.format_plain_date(datetime.date(2026, 10, 16)),
+            "October 16th, 2026",
+        )
 
 
 class StickyIsLastTests(unittest.TestCase):

@@ -193,20 +193,25 @@ async def send_paginated(
     total_results: int | None = None,
     *,
     source: PaginatedSource | None = None,
+    content: str | None = None,
 ) -> None:
     """Send the first page (ephemeral), with pagination buttons if needed.
 
     Pass ``pages`` for fully-built pages, or ``source`` to load pages lazily.
+    ``content`` is shown above the first page and survives page changes.
     """
     if source is not None:
         if source.page_count == 1:
             await interaction.followup.send(
-                embeds=await source.get_page(0), ephemeral=True
+                content=content, embeds=await source.get_page(0), ephemeral=True
             )
             return
         view = Paginator(source=source, author_id=interaction.user.id)
         view.message = await interaction.followup.send(
-            embeds=await view.load_page(0), view=view, ephemeral=True
+            content=content,
+            embeds=await view.load_page(0),
+            view=view,
+            ephemeral=True,
         )
         return
 
@@ -214,11 +219,13 @@ async def send_paginated(
     if not pages:
         return
     if len(pages) == 1:
-        await interaction.followup.send(embeds=pages[0], ephemeral=True)
+        await interaction.followup.send(
+            content=content, embeds=pages[0], ephemeral=True
+        )
         return
     view = Paginator(
         pages, author_id=interaction.user.id, total_results=total_results
     )
     view.message = await interaction.followup.send(
-        embeds=pages[0], view=view, ephemeral=True
+        content=content, embeds=pages[0], view=view, ephemeral=True
     )
