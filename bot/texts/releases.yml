@@ -98,7 +98,6 @@ releases:
   month_embed:
     title: "New releases coming in %{month}!"
     date: "%{month} %{day}"
-    heading: "### %{date}"
     line: "**%{title}** by %{authors} (%{user})"
     unknown_author: "Unknown"
     footer_singular: "%{count} release"

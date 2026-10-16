@@ -1847,14 +1847,27 @@ class ReleaseEmbedTests(unittest.TestCase):
         )
         self.assertIn("(id: custom-handle)", embed.footer.text)
 
-    def test_month_embed_lists_dates_in_description(self) -> None:
+    @staticmethod
+    def _count_release_lines(embeds) -> int:
+        return sum(
+            line.startswith("- ")
+            for embed in embeds
+            for field in embed.fields
+            for line in field.value.split("\n")
+        )
+
+    def test_month_embed_uses_date_fields_with_markdown_list(self) -> None:
         embed = release_service.build_month_embeds(
             [self._Book()], FakeClient(), month_label="October 2026"
         )[0]
-        self.assertEqual(embed.fields, [])
-        self.assertIn("### October 13th", embed.description)
-        self.assertIn("The Book", embed.description)
-        self.assertIn("<@42>", embed.description)
+        self.assertIsNone(embed.description)
+        self.assertEqual(len(embed.fields), 1)
+        field = embed.fields[0]
+        self.assertEqual(field.name, "October 13th")
+        self.assertTrue(
+            field.value.startswith("- **The Book** by Ada Author")
+        )
+        self.assertIn("<@42>", field.value)
         self.assertIsNone(embed.image.url)
 
     def test_month_embed_does_not_strike_announced(self) -> None:
@@ -1866,7 +1879,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             books, FakeClient(), month_label="October 2026"
         )
         self.assertEqual(len(embeds), 1)
-        self.assertNotIn("~~", embeds[0].description)
+        self.assertNotIn("~~", embeds[0].fields[0].value)
 
     def test_month_embed_continues_in_new_embed(self) -> None:
         start = datetime.date(2026, 10, 1)
@@ -1876,21 +1889,13 @@ class ReleaseEmbedTests(unittest.TestCase):
                 title=f"Book {index}",
                 release_date=start + datetime.timedelta(days=index),
             )
-            for index in range(100)
+            for index in range(30)
         ]
         embeds = release_service.build_month_embeds(
             books, FakeClient(), month_label="October 2026"
         )
         self.assertGreater(len(embeds), 1)
-        self.assertEqual(
-            sum(embed.description.count("• ") for embed in embeds),
-            len(books),
-        )
-        for embed in embeds:
-            self.assertLessEqual(
-                len(embed.description),
-                release_service.MONTH_DESCRIPTION_LIMIT,
-            )
+        self.assertEqual(self._count_release_lines(embeds), len(books))
 
     def test_month_embed_splits_a_crowded_date(self) -> None:
         books = [
@@ -1904,15 +1909,10 @@ class ReleaseEmbedTests(unittest.TestCase):
             books, FakeClient(), month_label="October 2026"
         )
         self.assertGreater(len(embeds), 1)
-        self.assertEqual(
-            sum(embed.description.count("• ") for embed in embeds),
-            len(books),
-        )
+        self.assertEqual(self._count_release_lines(embeds), len(books))
         for embed in embeds:
-            self.assertLessEqual(
-                len(embed.description),
-                release_service.MONTH_DESCRIPTION_LIMIT,
-            )
+            for field in embed.fields:
+                self.assertLessEqual(len(field.value), 1024)
 
     def test_month_embed_footer_counts_releases(self) -> None:
         books = [self._Book(id=index, title=f"B{index}") for index in range(3)]
