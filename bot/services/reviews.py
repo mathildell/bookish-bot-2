@@ -357,10 +357,6 @@ class ReviewService:
 
     # -------------------------------------------------------------- feeds
 
-    async def get_feed(self, discord_user_id: int) -> ReviewFeed | None:
-        async with session_scope() as session:
-            return await self._find_feed(session, discord_user_id)
-
     async def all_feeds(self) -> list[ReviewFeed]:
         async with session_scope() as session:
             return list(
@@ -459,6 +455,22 @@ class ReviewService:
             )
         ).scalar_one_or_none()
 
+    @staticmethod
+    async def _entries_for_feed(
+        session, discord_user_id: int
+    ) -> list[ReviewEntry]:
+        return list(
+            (
+                await session.execute(
+                    select(ReviewEntry).where(
+                        ReviewEntry.discord_user_id == discord_user_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
     async def _record(
         self,
         discord_user_id: int,
@@ -499,13 +511,38 @@ class ReviewService:
         async with self._poll_lock:
             return await self._poll_feeds(guild, channel, client)
 
+    async def repost_entry(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+        *,
+        discord_user_id: int,
+        entry_id: str,
+    ) -> bool:
+        """Re-post a single tracked review, leaving every other entry alone."""
+        async with self._poll_lock:
+            return (
+                await self._poll_feeds(
+                    guild,
+                    channel,
+                    client,
+                    only=(discord_user_id, entry_id),
+                )
+                > 0
+            )
+
     async def _poll_feeds(
         self,
         guild: discord.Guild,
         channel: discord.abc.Messageable,
         client: discord.Client,
+        *,
+        only: tuple[int, str] | None = None,
     ) -> int:
         feeds = await self.all_feeds()
+        if only is not None:
+            feeds = [feed for feed in feeds if feed.discord_user_id == only[0]]
         if not feeds:
             return 0
         members = await resolve_members(
@@ -530,11 +567,17 @@ class ReviewService:
                         exc,
                     )
                     continue
-                for entry in data.entries:
-                    async with session_scope() as session:
-                        row = await self._find_entry(
-                            session, feed.discord_user_id, entry.entry_id
+                async with session_scope() as session:
+                    tracked = {
+                        row.entry_id: row
+                        for row in await self._entries_for_feed(
+                            session, feed.discord_user_id
                         )
+                    }
+                for entry in data.entries:
+                    if only is not None and entry.entry_id != only[1]:
+                        continue
+                    row = tracked.get(entry.entry_id)
                     if should_post(entry, row, now, feed.feed_since):
                         if member is None:
                             logger.warning(

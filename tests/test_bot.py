@@ -114,6 +114,24 @@ class ParseEmojiTests(unittest.TestCase):
     def test_unicode_emoji_is_returned_as_is(self) -> None:
         self.assertEqual(parse_emoji("😀"), "😀")
 
+    def test_zwj_sequence_is_accepted(self) -> None:
+        family = "\U0001f469\u200d\U0001f469\u200d\U0001f467"
+        self.assertEqual(parse_emoji(family), family)
+
+    def test_skin_tone_modifier_is_accepted(self) -> None:
+        wave = "\U0001f44b\U0001f3fd"
+        self.assertEqual(parse_emoji(wave), wave)
+
+    def test_keycap_and_variation_selector_are_accepted(self) -> None:
+        for value in ("1\ufe0f\u20e3", "\u2764\ufe0f", "\U0001f1fa\U0001f1f8"):
+            with self.subTest(value=value):
+                self.assertEqual(parse_emoji(value), value)
+
+    def test_plain_text_is_rejected(self) -> None:
+        for value in ("hello", "cat", ":cat:", "aa"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse_emoji(value)
+
     def test_empty_emoji_raises(self) -> None:
         with self.assertRaises(ValueError):
             parse_emoji("")
@@ -431,6 +449,13 @@ class LevelFormulaTests(unittest.TestCase):
         self.assertEqual(level_service.level_from_total_xp(75), 1)
         self.assertEqual(level_service.level_from_total_xp(249), 1)
         self.assertEqual(level_service.level_from_total_xp(250), 2)
+
+    def test_level_from_total_xp_matches_a_linear_scan(self) -> None:
+        expected = 0
+        for xp in range(0, 20000):
+            if xp >= level_service.total_xp_for_level(expected + 1):
+                expected += 1
+            self.assertEqual(level_service.level_from_total_xp(xp), expected)
 
     def test_random_gain_within_bounds(self) -> None:
         for _ in range(200):
@@ -2178,6 +2203,40 @@ class SendEmbedBatchesTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(posted, [])
         self.assertEqual(channel.messages, [])
+
+
+class PostMonthlyTests(unittest.IsolatedAsyncioTestCase):
+    class _Service(release_service.ReleaseService):
+        def __init__(self, books) -> None:
+            super().__init__(1)
+            self._books = books
+            self.marked: list[str] = []
+
+        async def month_releases(self, year, month):
+            return list(self._books)
+
+        async def mark_monthly_posted(self, period):
+            self.marked.append(period)
+
+    @staticmethod
+    def _book():
+        return ReleaseEmbedTests._Book()
+
+    async def test_failed_send_is_not_marked_posted(self) -> None:
+        service = self._Service([self._book()])
+        channel = FakeSendChannel(max_embeds=0)
+        await service._post_monthly(
+            None, channel, FakeClient(), datetime.date(2026, 10, 1)
+        )
+        self.assertEqual(service.marked, [])
+
+    async def test_successful_send_is_marked_posted(self) -> None:
+        service = self._Service([self._book()])
+        channel = FakeSendChannel()
+        await service._post_monthly(
+            None, channel, FakeClient(), datetime.date(2026, 10, 1)
+        )
+        self.assertEqual(service.marked, ["2026-10"])
 
 
 class MonthOptionsTests(unittest.TestCase):

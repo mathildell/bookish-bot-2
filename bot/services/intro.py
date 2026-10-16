@@ -185,10 +185,6 @@ class IntroService:
                 .all()
             )
 
-    async def get_question(self, question_id: int) -> IntroQuestion | None:
-        async with session_scope() as session:
-            return await self._find_question(session, question_id)
-
     async def add_question(
         self, content: str, placeholder: str | None, active: bool
     ) -> IntroQuestion:

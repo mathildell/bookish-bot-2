@@ -1002,7 +1002,17 @@ class ReleaseService:
                 ]
             )
 
-            await _send_embed_batches(channel, embeds, content=content)
+            posted = await _send_embed_batches(
+                channel, embeds, content=content
+            )
+            if len(posted) < len(embeds):
+                logger.warning(
+                    "Monthly overview only partly posted (%d/%d embeds); "
+                    "will retry",
+                    len(posted),
+                    len(embeds),
+                )
+                return len(books)
 
         await self.mark_monthly_posted(period)
         return len(books)

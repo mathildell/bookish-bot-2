@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -39,11 +40,16 @@ def total_xp_for_level(level: int) -> int:
 
 
 def level_from_total_xp(xp: int) -> int:
-    """Compute the level reached from a total accumulated XP amount."""
-    if xp < 0:
-        xp = 0
-    level = 0
-    while xp >= total_xp_for_level(level + 1):
+    """Compute the level reached from a total accumulated XP amount.
+
+    Closed form of the largest ``level`` with ``total_xp_for_level(level) <= xp``,
+    i.e. the non-negative root of ``50 * level**2 + 25 * level - xp = 0``.
+    ``isqrt`` floors the root, so at most one correction step is needed.
+    """
+    if xp <= 0:
+        return 0
+    level = (math.isqrt(625 + 200 * xp) - 25) // 100
+    if total_xp_for_level(level + 1) <= xp:
         level += 1
     return level
 

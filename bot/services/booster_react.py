@@ -9,6 +9,7 @@ Port of the old Ruby "BoosterReact" feature:
 
 from __future__ import annotations
 
+import logging
 import re
 
 import discord
@@ -18,9 +19,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..db import session_scope
 from ..models import BoosterReact
 
+logger = logging.getLogger(__name__)
+
 CUSTOM_EMOJI_RE = re.compile(r"^<(?P<animated>a?):(?P<name>[a-zA-Z0-9_]+):(?P<id>[0-9]+)>$")
 _NON_IDENTIFIER_CHARS = re.compile(r"[^a-zA-Z0-9:_.\s]+")
 _WS_RUN = re.compile(r"\s+")
+
+_UNICODE_EMOJI_RE = re.compile(
+    "["
+    "\U0001f000-\U0001faff"  # pictographs, transport, symbols, extended-A
+    "\u2300-\u23ff"  # misc technical
+    "\u2600-\u27bf"  # misc symbols and dingbats
+    "\u2900-\u297f"  # supplemental arrows-B
+    "\u2b00-\u2bff"  # misc symbols and arrows
+    "\u2190-\u21ff"  # arrows
+    "\u25a0-\u25ff"  # geometric shapes
+    "\u203c\u2049\u2122\u2139"
+    "\u00a9\u00ae\u24c2\u20e3"
+    "\u3030\u303d\u3297\u3299"
+    "]"
+)
+_EMOJI_JOINER_RE = re.compile(
+    "[\u200d\ufe0e\ufe0f\u20e3\U0001f3fb-\U0001f3ff0-9#*]"
+)
+
+
+def is_valid_emoji(raw: str) -> bool:
+    """Whether ``raw`` is a custom (``<:name:id>``) or unicode emoji."""
+    if not raw:
+        return False
+    if CUSTOM_EMOJI_RE.match(raw):
+        return True
+    if not _UNICODE_EMOJI_RE.search(raw):
+        return False
+    return all(
+        _UNICODE_EMOJI_RE.match(char) or _EMOJI_JOINER_RE.match(char)
+        for char in raw
+    )
 
 
 def clean_identifier(value: str) -> str:
@@ -49,6 +84,8 @@ def parse_emoji(raw: str) -> discord.PartialEmoji | str:
             id=int(match.group("id")),
             animated=bool(match.group("animated")),
         )
+    if not is_valid_emoji(raw):
+        raise ValueError(f"Not an emoji: {raw!r}")
     return raw
 
 
@@ -96,10 +133,17 @@ class BoosterReactService:
             rows = (
                 (await session.execute(select(BoosterReact))).scalars().all()
             )
-        self._records = {
-            row.discord_user_id: self._build_entry(row)
-            for row in rows
-        }
+        records: dict[int, dict] = {}
+        for row in rows:
+            if not is_valid_emoji(row.emoji or ""):
+                logger.warning(
+                    "Skipping booster react for %s with invalid emoji %r",
+                    row.discord_user_id,
+                    row.emoji,
+                )
+                continue
+            records[row.discord_user_id] = self._build_entry(row)
+        self._records = records
 
     @staticmethod
     def _build_entry(row: BoosterReact) -> dict:

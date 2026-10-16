@@ -104,6 +104,23 @@ def _added_thanks(
     )
 
 
+def _already_exists_message(existing: BookRelease, user_id: int) -> str:
+    """Private error shown when the same book is added a second time."""
+    title = discord.utils.escape_markdown(existing.title)
+    if existing.discord_user_id == user_id:
+        return t(
+            "releases.errors.already_exists_self",
+            title=title,
+            date=format_created_stamp(existing.created_at),
+        )
+    return t(
+        "releases.errors.already_exists_other",
+        title=title,
+        member=f"<@{existing.discord_user_id}>",
+        date=format_plain_date(existing.created_at.date()),
+    )
+
+
 async def _scrape(
     interaction: discord.Interaction, url: str
 ) -> BookData | None:
@@ -272,10 +289,19 @@ class ReleaseConfirmView(discord.ui.View):
 @app_commands.describe(url=t("releases.add.param_url"))
 async def add_release(interaction: discord.Interaction, url: str) -> None:
     try:
-        parse_source_url(url)
+        source, source_id = parse_source_url(url)
     except BookScrapeError as exc:
         await interaction.response.send_message(
             t(exc.key, **exc.variables), ephemeral=True
+        )
+        return
+
+    service = _service(interaction)
+    existing = await service.find_by_source(source, source_id)
+    if existing is not None:
+        await interaction.response.send_message(
+            _already_exists_message(existing, interaction.user.id),
+            ephemeral=True,
         )
         return
 
@@ -287,26 +313,6 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
         await interaction.followup.send(
             t("releases.errors.not_in_future"), ephemeral=True
         )
-        return
-
-    service = _service(interaction)
-    existing = await service.find_by_source(data.source, data.source_id)
-    if existing is not None:
-        title = discord.utils.escape_markdown(existing.title)
-        if existing.discord_user_id == interaction.user.id:
-            message = t(
-                "releases.errors.already_exists_self",
-                title=title,
-                date=format_created_stamp(existing.created_at),
-            )
-        else:
-            message = t(
-                "releases.errors.already_exists_other",
-                title=title,
-                member=f"<@{existing.discord_user_id}>",
-                date=format_plain_date(existing.created_at.date()),
-            )
-        await interaction.followup.send(message, ephemeral=True)
         return
 
     book = await service.add(data, interaction.user.id)

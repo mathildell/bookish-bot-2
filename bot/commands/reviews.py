@@ -191,7 +191,19 @@ async def repost(
         )
         return
 
-    await service.post_new_reviews(interaction.guild, channel, interaction.client)
+    reposted = await service.repost_entry(
+        interaction.guild,
+        channel,
+        interaction.client,
+        discord_user_id=target.id,
+        entry_id=entry_id,
+    )
+    if not reposted:
+        await interaction.followup.send(
+            t("reviews.repost.not_found", entry=entry_id), ephemeral=True
+        )
+        return
+
     await interaction.followup.send(
         t("reviews.repost.success", user=target.mention, entry=entry_id),
         ephemeral=True,
