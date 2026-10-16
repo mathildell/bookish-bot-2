@@ -314,9 +314,17 @@ streak's totals and rank are kept.
 /streaks register amount: unit: timezone:
 ```
 **Permissions:** Everyone
-Register or edit a goal. `timezone` is searchable — start typing a city.
-Pick a reminder schedule from the buttons: ❌ none, 🕑 a custom hour (1 AM–10 PM
-your time), 🌙 a last-chance ping an hour before midnight, or 2️⃣ both.
+Register a daily goal (first time only). `timezone` is searchable — start
+typing a city. Pick a reminder schedule from the buttons: ❌ none, 🕑 a custom
+hour (1 AM–10 PM your time), 🌙 a last-chance ping an hour before midnight, or
+2️⃣ both. If you already have a goal, use `/streaks edit` instead.
+
+```
+/streaks edit
+```
+**Permissions:** Everyone
+Change an existing goal: amount & unit, timezone, or reminders. Each choice
+opens its own form; your streak and progress are left untouched.
 
 ```
 /streaks log amount:
@@ -330,15 +338,18 @@ streak had already closed, a fresh one starts and a repair button is offered.
 /streaks today
 ```
 **Permissions:** Everyone
-Answer whether you have logged today.
+Reports whether you have logged today, with what you logged and when. If you
+have not logged and it is past 5 PM your time, it also reminds you when the
+streak closes.
 
 ```
 /streaks view [user:]
 ```
 **Permissions:** Everyone
 Show a streak: the five-day visual, timezone, reminders, goal, start date,
-rescues, closing time, whether today is logged, level, coupons and XP. Shows a
-repair button for your own rescuable streak.
+rescues, closing time, whether today is logged, level, coupons and XP. Your own
+streak shows an **Edit this streak** button plus a repair button when it can be
+rescued.
 
 ```
 /streaks leaderboard
@@ -358,6 +369,14 @@ Set the channel for streak commands and reminders.
 **Permissions:** 🔒 Admin
 Backfill a daily log (defaults to today; `date` is `YYYY-MM-DD`) and adjust or
 reopen the streak accordingly.
+
+```
+/streaks admin dryrun state:
+```
+**Permissions:** 🔒 Admin
+Turn XP gain from streaks `on` or `off`. While off, streaks, levels and rescues
+still progress, but members earn no XP — the log and view show what they would
+have earned and note that it did not reach their pool.
 
 ## Admin tools
 

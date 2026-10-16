@@ -9,6 +9,7 @@ its dotted path and interpolate ``%{variable}`` placeholders::
 
 from __future__ import annotations
 
+import random
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -70,5 +71,29 @@ def t(key: str, **variables) -> str:
 
     if not isinstance(text, str):
         raise MissingText(f"{key} is not a string")
+
+    return _interpolate(text, variables) if variables else text
+
+
+def t_choice(key: str, **variables) -> str:
+    """Pick one entry at random from a list of texts, then interpolate it.
+
+    A key holding a single string is accepted and returned as-is.
+    """
+    try:
+        value = _load_texts()[key]
+    except KeyError as exc:
+        raise MissingText(key) from exc
+
+    if isinstance(value, str):
+        entries = [value]
+    elif isinstance(value, list) and value:
+        entries = value
+    else:
+        raise MissingText(f"{key} is not a non-empty list of strings")
+
+    text = random.choice(entries)
+    if not isinstance(text, str):
+        raise MissingText(f"{key} is not a list of strings")
 
     return _interpolate(text, variables) if variables else text

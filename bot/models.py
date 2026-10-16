@@ -489,6 +489,8 @@ class StreakSetting(Base):
         BigInteger, unique=True, index=True, nullable=False
     )
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # When set, streak levels still progress but no XP reaches the members.
+    dry_run: Mapped[bool] = mapped_column(default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

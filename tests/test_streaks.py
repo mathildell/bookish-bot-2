@@ -14,6 +14,7 @@ from datetime import date, datetime
 from types import SimpleNamespace
 
 from bot.services import streaks
+from bot.texts import MissingText, t, t_choice
 
 
 ICONS = {
@@ -242,6 +243,26 @@ class SlotTests(unittest.TestCase):
             icons=ICONS,
         )
         self.assertEqual(slots, ["U", "U", "U", "U", "U"])
+
+
+class TextChoiceTests(unittest.TestCase):
+    def test_picks_from_a_variety_list(self) -> None:
+        seen = {
+            t_choice("streaks.reminders.content", mentions="@someone")
+            for _ in range(200)
+        }
+        self.assertGreater(len(seen), 1)
+        self.assertTrue(all("@someone" in entry for entry in seen))
+
+    def test_single_string_is_accepted(self) -> None:
+        self.assertEqual(
+            t_choice("streaks.info.dry_run_value"),
+            t("streaks.info.dry_run_value"),
+        )
+
+    def test_unknown_key_raises(self) -> None:
+        with self.assertRaises(MissingText):
+            t_choice("streaks.nope.missing")
 
 
 if __name__ == "__main__":

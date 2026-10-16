@@ -46,7 +46,7 @@ from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
 from .services.reviews import ReviewService
 from .services.streaks import StreakService
-from .texts import t
+from .texts import t, t_choice
 
 logger = logging.getLogger("bh2")
 
@@ -333,7 +333,7 @@ async def run() -> None:
                 continue
             embed = discord.Embed(
                 title=t(title_key),
-                description=t(content_key, mentions=", ".join(mentions)),
+                description=t_choice(content_key, mentions=", ".join(mentions)),
                 colour=getattr(bot, "default_embed_color", None),
             )
             embed.set_footer(text=t("streaks.reminders.footer"))

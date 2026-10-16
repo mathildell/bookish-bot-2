@@ -6,8 +6,10 @@ Admins can point the feature at a channel and backfill missed days.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import date as _date
 from datetime import datetime, time
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import discord
@@ -178,6 +180,37 @@ def _register_step_embed(
         amount=amount,
         unit=unit,
         timezone=timezone,
+        options=t("streaks.shared.reminder_options"),
+    )
+    set_transparent_image(embed, client)
+    return embed
+
+
+def _edit_menu_embed(client: discord.Client) -> discord.Embed:
+    embed = new_embed(client)
+    embed.title = t("streaks.edit.title")
+    embed.description = t("streaks.edit.menu_description")
+    set_transparent_image(embed, client)
+    return embed
+
+
+def _edit_confirmed_embed(
+    client: discord.Client, goal: StreakGoal
+) -> discord.Embed:
+    embed = new_embed(client)
+    embed.title = t("streaks.edit.confirmed_title")
+    embed.description = t("streaks.edit.confirmed_description")
+    _add_goal_fields(embed, goal)
+    set_transparent_image(embed, client)
+    return embed
+
+
+def _reminders_prompt_embed(client: discord.Client) -> discord.Embed:
+    embed = new_embed(client)
+    embed.title = t("streaks.edit.reminders_title")
+    embed.description = t(
+        "streaks.edit.reminders_description",
+        options=t("streaks.shared.reminder_options"),
     )
     set_transparent_image(embed, client)
     return embed
@@ -252,6 +285,12 @@ def _log_embed(
             content += t("streaks.log.level_up_anniversary")
         embed.add_field(
             name=t("streaks.log.level_up_title"), value=content, inline=False
+        )
+    if result.progress.dry_run and result.progress.xp_awarded > 0:
+        embed.add_field(
+            name=t("streaks.info.dry_run_field"),
+            value=t("streaks.log.dry_run", xp=result.progress.xp_awarded),
+            inline=False,
         )
     set_transparent_image(embed, client)
     return embed
@@ -359,6 +398,13 @@ def _view_embed(
             ),
             inline=True,
         )
+    service = getattr(client, "streaks", None)
+    if service is not None and service.dry_run:
+        embed.add_field(
+            name=t("streaks.info.dry_run_field"),
+            value=t("streaks.info.dry_run_value"),
+            inline=False,
+        )
     set_transparent_image(embed, client)
     return embed
 
@@ -428,64 +474,70 @@ class _HourSelect(discord.ui.Select):
         await self.view.save(interaction, int(self.values[0]))  # type: ignore[attr-defined]
 
 
+async def _author_check(interaction: discord.Interaction, author_id: int) -> bool:
+    if interaction.user.id == author_id:
+        return True
+    await interaction.response.send_message(
+        t("components.not_author"), ephemeral=True
+    )
+    return False
+
+
+ReminderSaver = Callable[
+    [discord.Interaction, str, int | None], Awaitable[StreakGoal]
+]
+ConfirmBuilder = Callable[[discord.Client, StreakGoal], discord.Embed]
+
+
 class _HourSelectView(discord.ui.View):
     def __init__(
         self,
         author_id: int,
-        amount: int,
-        unit: str,
-        timezone: str,
         reminder: str,
+        save_reminder: ReminderSaver,
+        confirm_builder: ConfirmBuilder,
     ) -> None:
         super().__init__(timeout=180)
         self.author_id = author_id
-        self.amount = amount
-        self.unit = unit
-        self.timezone = timezone
         self.reminder = reminder
+        self.save_reminder = save_reminder
+        self.confirm_builder = confirm_builder
         self.add_item(_HourSelect())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await _author_check(interaction, self.author_id)
 
     async def save(self, interaction: discord.Interaction, hour: int) -> None:
-        goal = await _service(interaction).save_goal(
-            user_id=interaction.user.id,
-            amount=self.amount,
-            unit=self.unit,
-            timezone=self.timezone,
-            reminder=self.reminder,
-            custom_hour=hour,
-        )
+        goal = await self.save_reminder(interaction, self.reminder, hour)
         await interaction.response.edit_message(
-            embed=_register_confirmed_embed(interaction.client, goal), view=None
+            embed=self.confirm_builder(interaction.client, goal), view=None
         )
 
 
-class _RegisterReminderView(discord.ui.View):
+class _ReminderChoiceView(discord.ui.View):
     def __init__(
-        self, author_id: int, amount: int, unit: str, timezone: str
+        self,
+        author_id: int,
+        save_reminder: ReminderSaver,
+        confirm_builder: ConfirmBuilder,
     ) -> None:
         super().__init__(timeout=180)
         self.author_id = author_id
-        self.amount = amount
-        self.unit = unit
-        self.timezone = timezone
+        self.save_reminder = save_reminder
+        self.confirm_builder = confirm_builder
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await _author_check(interaction, self.author_id)
 
     async def _save(self, interaction: discord.Interaction, reminder: str) -> None:
-        goal = await _service(interaction).save_goal(
-            user_id=interaction.user.id,
-            amount=self.amount,
-            unit=self.unit,
-            timezone=self.timezone,
-            reminder=reminder,
-            custom_hour=None,
-        )
+        goal = await self.save_reminder(interaction, reminder, None)
         await interaction.response.edit_message(
-            embed=_register_confirmed_embed(interaction.client, goal), view=None
+            embed=self.confirm_builder(interaction.client, goal), view=None
+        )
+
+    def _hour_view(self, reminder: str) -> _HourSelectView:
+        return _HourSelectView(
+            self.author_id, reminder, self.save_reminder, self.confirm_builder
         )
 
     @discord.ui.button(emoji="❌", style=discord.ButtonStyle.secondary)
@@ -499,10 +551,7 @@ class _RegisterReminderView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await interaction.response.edit_message(
-            embed=_hour_embed(interaction.client),
-            view=_HourSelectView(
-                self.author_id, self.amount, self.unit, self.timezone, "custom"
-            ),
+            embed=_hour_embed(interaction.client), view=self._hour_view("custom")
         )
 
     @discord.ui.button(emoji="🌙", style=discord.ButtonStyle.secondary)
@@ -516,20 +565,213 @@ class _RegisterReminderView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await interaction.response.edit_message(
-            embed=_hour_embed(interaction.client),
-            view=_HourSelectView(
-                self.author_id, self.amount, self.unit, self.timezone, "both"
+            embed=_hour_embed(interaction.client), view=self._hour_view("both")
+        )
+
+
+async def _edit_save_reminder(
+    interaction: discord.Interaction, reminder: str, custom_hour: int | None
+) -> StreakGoal:
+    service = _service(interaction)
+    goal = await service.get_goal(interaction.user.id)
+    if goal is None:
+        raise streak_service.NotRegistered()
+    return await service.save_goal(
+        user_id=interaction.user.id,
+        amount=goal.amount,
+        unit=goal.unit,
+        timezone=goal.timezone,
+        reminder=reminder,
+        custom_hour=custom_hour,
+    )
+
+
+class _AmountUnitModal(discord.ui.Modal):
+    def __init__(self, goal: StreakGoal) -> None:
+        super().__init__(title=t("streaks.edit.amount_modal_title"))
+        self.amount = discord.ui.TextInput(
+            label=t("streaks.edit.amount_param"), default=str(goal.amount)
+        )
+        self.unit = discord.ui.TextInput(
+            label=t("streaks.edit.unit_param"), default=goal.unit
+        )
+        self.add_item(self.amount)
+        self.add_item(self.unit)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        raw = str(self.amount.value).strip()
+        try:
+            amount = int(raw)
+        except ValueError:
+            await interaction.response.send_message(
+                t("streaks.errors.invalid_amount", raw=raw), ephemeral=True
+            )
+            return
+        if amount <= 0:
+            await interaction.response.send_message(
+                t("streaks.errors.amount_positive"), ephemeral=True
+            )
+            return
+        unit = str(self.unit.value).strip()
+        if not unit:
+            await interaction.response.send_message(
+                t("streaks.errors.invalid_amount", raw=unit), ephemeral=True
+            )
+            return
+        service = _service(interaction)
+        goal = await service.get_goal(interaction.user.id)
+        if goal is None:
+            await interaction.response.send_message(
+                t("streaks.errors.not_registered"), ephemeral=True
+            )
+            return
+        goal = await service.save_goal(
+            user_id=interaction.user.id,
+            amount=amount,
+            unit=unit,
+            timezone=goal.timezone,
+            reminder=goal.reminder,
+            custom_hour=goal.custom_hour,
+        )
+        await interaction.response.edit_message(
+            embed=_edit_confirmed_embed(interaction.client, goal), view=None
+        )
+
+
+class _TimezoneModal(discord.ui.Modal):
+    def __init__(self, goal: StreakGoal) -> None:
+        super().__init__(title=t("streaks.edit.timezone_modal_title"))
+        self.timezone = discord.ui.TextInput(
+            label=t("streaks.edit.timezone_param"), default=goal.timezone
+        )
+        self.add_item(self.timezone)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        zone = valid_timezone(str(self.timezone.value))
+        if zone is None:
+            await interaction.response.send_message(
+                t(
+                    "streaks.errors.invalid_timezone",
+                    timezone=str(self.timezone.value),
+                ),
+                ephemeral=True,
+            )
+            return
+        service = _service(interaction)
+        goal = await service.get_goal(interaction.user.id)
+        if goal is None:
+            await interaction.response.send_message(
+                t("streaks.errors.not_registered"), ephemeral=True
+            )
+            return
+        goal = await service.save_goal(
+            user_id=interaction.user.id,
+            amount=goal.amount,
+            unit=goal.unit,
+            timezone=zone,
+            reminder=goal.reminder,
+            custom_hour=goal.custom_hour,
+        )
+        await interaction.response.edit_message(
+            embed=_edit_confirmed_embed(interaction.client, goal), view=None
+        )
+
+
+class StreakEditView(discord.ui.View):
+    def __init__(self, author_id: int) -> None:
+        super().__init__(timeout=180)
+        self.author_id = author_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return await _author_check(interaction, self.author_id)
+
+    async def _goal(self, interaction: discord.Interaction) -> StreakGoal | None:
+        goal = await _service(interaction).get_goal(interaction.user.id)
+        if goal is None:
+            await interaction.response.send_message(
+                t("streaks.errors.not_registered"), ephemeral=True
+            )
+        return goal
+
+    @discord.ui.button(
+        label=t("streaks.edit.amount_unit_button"),
+        style=discord.ButtonStyle.primary,
+    )
+    async def amount_unit(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        goal = await self._goal(interaction)
+        if goal is None:
+            return
+        await interaction.response.send_modal(_AmountUnitModal(goal))
+
+    @discord.ui.button(
+        label=t("streaks.edit.timezone_button"),
+        style=discord.ButtonStyle.secondary,
+    )
+    async def timezone(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        goal = await self._goal(interaction)
+        if goal is None:
+            return
+        await interaction.response.send_modal(_TimezoneModal(goal))
+
+    @discord.ui.button(
+        label=t("streaks.edit.reminders_button"),
+        style=discord.ButtonStyle.secondary,
+    )
+    async def reminders(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await interaction.response.edit_message(
+            embed=_reminders_prompt_embed(interaction.client),
+            view=_ReminderChoiceView(
+                self.author_id, _edit_save_reminder, _edit_confirmed_embed
             ),
         )
 
 
-async def _author_check(interaction: discord.Interaction, author_id: int) -> bool:
-    if interaction.user.id == author_id:
-        return True
-    await interaction.response.send_message(
-        t("components.not_author"), ephemeral=True
+async def _do_rescue(interaction: discord.Interaction) -> None:
+    service = _service(interaction)
+    found = await service.rescuable_for_user(interaction.user.id)
+    if found is None:
+        await interaction.response.send_message(
+            t("streaks.errors.cant_rescue"), ephemeral=True
+        )
+        return
+    streak, _goal = found
+    try:
+        result = await service.revive(
+            streak_id=streak.id, user_id=interaction.user.id
+        )
+    except streak_service.StreakError:
+        await interaction.response.send_message(
+            t("streaks.errors.cant_rescue"), ephemeral=True
+        )
+        return
+    embed = _view_embed(
+        interaction.client,
+        interaction.user,
+        result.goal,
+        result.streak,
+        result.logs,
     )
-    return False
+    await interaction.response.edit_message(embed=embed, view=None)
+    await _handle_progress(interaction, result.progress, interaction.user)
+
+
+class _RescueButton(discord.ui.Button):
+    def __init__(self) -> None:
+        super().__init__(
+            label=t("streaks.shared.rescue_button"),
+            emoji=t("streaks.shared.rescue_emoji"),
+            style=discord.ButtonStyle.secondary,
+            custom_id=RESCUE_CUSTOM_ID,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await _do_rescue(interaction)
 
 
 class StreakRescueView(discord.ui.View):
@@ -537,42 +779,32 @@ class StreakRescueView(discord.ui.View):
 
     def __init__(self) -> None:
         super().__init__(timeout=None)
+        self.add_item(_RescueButton())
 
-    @discord.ui.button(
-        label=t("streaks.shared.rescue_button"),
-        emoji=t("streaks.shared.rescue_emoji"),
-        style=discord.ButtonStyle.secondary,
-        custom_id=RESCUE_CUSTOM_ID,
-    )
-    async def rescue(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ) -> None:
-        service = _service(interaction)
-        found = await service.rescuable_for_user(interaction.user.id)
-        if found is None:
-            await interaction.response.send_message(
-                t("streaks.errors.cant_rescue"), ephemeral=True
-            )
-            return
-        streak, _goal = found
-        try:
-            result = await service.revive(
-                streak_id=streak.id, user_id=interaction.user.id
-            )
-        except streak_service.StreakError:
-            await interaction.response.send_message(
-                t("streaks.errors.cant_rescue"), ephemeral=True
-            )
-            return
-        embed = _view_embed(
-            interaction.client,
-            interaction.user,
-            result.goal,
-            result.streak,
-            result.logs,
+
+class _EditButton(discord.ui.Button):
+    def __init__(self) -> None:
+        super().__init__(
+            label=t("streaks.edit.button_on_view"),
+            emoji="✏️",
+            style=discord.ButtonStyle.secondary,
         )
-        await interaction.response.edit_message(embed=embed, view=None)
-        await _handle_progress(interaction, result.progress, interaction.user)
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(
+            embed=_edit_menu_embed(interaction.client),
+            view=StreakEditView(interaction.user.id),
+            ephemeral=True,
+        )
+
+
+class _ViewActions(discord.ui.View):
+    def __init__(self, *, rescue: bool, edit: bool) -> None:
+        super().__init__(timeout=300)
+        if rescue:
+            self.add_item(_RescueButton())
+        if edit:
+            self.add_item(_EditButton())
 
 
 class _LeaderboardView(discord.ui.View):
@@ -638,6 +870,11 @@ async def register(
 ) -> None:
     if not await _channel_guard(interaction):
         return
+    if await _service(interaction).get_goal(interaction.user.id) is not None:
+        await interaction.response.send_message(
+            t("streaks.errors.already_registered"), ephemeral=True
+        )
+        return
     if amount <= 0:
         await interaction.response.send_message(
             t("streaks.errors.amount_positive"), ephemeral=True
@@ -649,11 +886,25 @@ async def register(
             t("streaks.errors.invalid_timezone", timezone=timezone), ephemeral=True
         )
         return
-    view = _RegisterReminderView(
-        interaction.user.id, amount, unit.strip(), zone
+    clean_unit = unit.strip()
+
+    async def save_reminder(
+        inner: discord.Interaction, reminder: str, custom_hour: int | None
+    ) -> StreakGoal:
+        return await _service(inner).save_goal(
+            user_id=inner.user.id,
+            amount=amount,
+            unit=clean_unit,
+            timezone=zone,
+            reminder=reminder,
+            custom_hour=custom_hour,
+        )
+
+    view = _ReminderChoiceView(
+        interaction.user.id, save_reminder, _register_confirmed_embed
     )
     await interaction.response.send_message(
-        embed=_register_step_embed(interaction.client, amount, unit.strip(), zone),
+        embed=_register_step_embed(interaction.client, amount, clean_unit, zone),
         view=view,
         ephemeral=True,
     )
@@ -667,6 +918,22 @@ async def _timezone_autocomplete(
         app_commands.Choice(name=label, value=value)
         for value, label in search_timezones(current)
     ]
+
+
+@streaks_group.command(name="edit", description=t("streaks.edit.description"))
+async def edit(interaction: discord.Interaction) -> None:
+    if not await _channel_guard(interaction):
+        return
+    if await _service(interaction).get_goal(interaction.user.id) is None:
+        await interaction.response.send_message(
+            t("streaks.errors.not_registered"), ephemeral=True
+        )
+        return
+    await interaction.response.send_message(
+        embed=_edit_menu_embed(interaction.client),
+        view=StreakEditView(interaction.user.id),
+        ephemeral=True,
+    )
 
 
 @streaks_group.command(name="log", description=t("streaks.log.description"))
@@ -697,15 +964,41 @@ async def today(interaction: discord.Interaction) -> None:
     if not await _channel_guard(interaction):
         return
     try:
-        logged = await _service(interaction).logged_today(interaction.user.id)
+        status = await _service(interaction).today_status(interaction.user.id)
     except streak_service.StreakError:
         await interaction.response.send_message(
             t("streaks.today.not_registered"), ephemeral=True
         )
         return
-    await interaction.response.send_message(
-        t("streaks.today.yes" if logged else "streaks.today.no"), ephemeral=True
-    )
+
+    goal = status.goal
+    if status.logged:
+        message = t(
+            "streaks.today.yes",
+            amount=status.amount,
+            unit=goal.unit,
+            date=f"<t:{_day_timestamp(status.last_date, goal.timezone)}:D>",
+        )
+    elif status.ever_logged and status.last_date is not None:
+        message = t(
+            "streaks.today.no",
+            date=f"<t:{_day_timestamp(status.last_date, goal.timezone)}:D>",
+        )
+    else:
+        message = t("streaks.today.no_first")
+
+    after_five = streak_service.local_hour(
+        streak_service.utcnow(), goal.timezone
+    ) >= 17
+    if not status.logged and after_five and status.closes_at is not None:
+        message += "\n" + t(
+            "streaks.today.hurry",
+            amount=goal.amount,
+            unit=goal.unit,
+            closes=f"<t:{int(status.closes_at.timestamp())}:R>",
+        )
+
+    await interaction.response.send_message(message, ephemeral=True)
 
 
 @streaks_group.command(name="view", description=t("streaks.view.description"))
@@ -723,16 +1016,18 @@ async def view(
             t("streaks.errors.not_registered"), ephemeral=True
         )
         return
+    is_self = target.id == interaction.user.id
     resc = (
         streak is not None
-        and target.id == interaction.user.id
+        and is_self
         and streak_service.is_rescuable(
             streak, goal.timezone, streak_service.utcnow()
         )
     )
+    actions = _ViewActions(rescue=resc, edit=is_self) if (resc or is_self) else None
     await interaction.response.send_message(
         embed=_view_embed(interaction.client, target, goal, streak, logs),
-        view=StreakRescueView() if resc else None,
+        view=actions,
     )
 
 
@@ -771,6 +1066,21 @@ async def set_channel(
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
         t("streaks.channel.set.success", channel=channel.mention)
+    )
+
+
+@admin_group.command(
+    name="dryrun", description=t("streaks.admin.dryrun.description")
+)
+@app_commands.describe(state=t("streaks.admin.dryrun.param_state"))
+async def dryrun(
+    interaction: discord.Interaction, state: Literal["on", "off"]
+) -> None:
+    if not await require_admin(interaction):
+        return
+    await _service(interaction).set_dry_run(state == "on")
+    await interaction.response.send_message(
+        t(f"streaks.admin.dryrun.{state}")
     )
 
 

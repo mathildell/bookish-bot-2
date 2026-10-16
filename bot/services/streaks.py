@@ -327,8 +327,19 @@ class LevelProgress:
     rescues_granted: int
     golden_granted: int
     anniversary: bool
+    dry_run: bool = False
     xp_old_level: int | None = None
     xp_new_level: int | None = None
+
+
+@dataclass
+class TodayStatus:
+    goal: StreakGoal
+    logged: bool
+    ever_logged: bool
+    amount: int | None
+    last_date: date | None
+    closes_at: datetime | None
 
 
 @dataclass
@@ -427,6 +438,7 @@ async def _apply_level_progress(
     guild_id: int,
     user_id: int,
     now: datetime,
+    dry_run: bool = False,
 ) -> LevelProgress:
     """Pay and reward any levels completed by the latest log."""
     previous_level = streak.level
@@ -438,6 +450,7 @@ async def _apply_level_progress(
         rescues_granted=0,
         golden_granted=0,
         anniversary=False,
+        dry_run=dry_run,
     )
     target_level = streak.days_logged // LEVEL_THRESHOLD
     if target_level <= previous_level:
@@ -472,14 +485,15 @@ async def _apply_level_progress(
     progress.xp_awarded = total_award
 
     if total_award > 0:
-        change = await level_service.add_xp(
-            session, guild_id=guild_id, user_id=user_id, amount=total_award
-        )
-        progress.xp_old_level = change.old_level
-        progress.xp_new_level = change.new_level
         streak.last_xp_amount = last_award
         streak.total_xp_awarded += total_award
         streak.last_xp_at = now
+        if not dry_run:
+            change = await level_service.add_xp(
+                session, guild_id=guild_id, user_id=user_id, amount=total_award
+            )
+            progress.xp_old_level = change.old_level
+            progress.xp_new_level = change.new_level
     return progress
 
 
@@ -492,41 +506,51 @@ class StreakService:
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         self._channel_id: int | None = None
+        self._dry_run = False
 
     @property
     def channel_id(self) -> int | None:
         return self._channel_id
 
+    @property
+    def dry_run(self) -> bool:
+        return self._dry_run
+
     # ----------------------------------------------------------- settings
+
+    async def _settings(self, session, *, create: bool = False) -> StreakSetting | None:
+        row = (
+            await session.execute(
+                select(StreakSetting).where(
+                    StreakSetting.guild_id == self.guild_id
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None and create:
+            row = StreakSetting(guild_id=self.guild_id, channel_id=0)
+            session.add(row)
+            await session.flush()
+        return row
 
     async def reload(self) -> None:
         async with session_scope() as session:
-            row = (
-                await session.execute(
-                    select(StreakSetting).where(
-                        StreakSetting.guild_id == self.guild_id
-                    )
-                )
-            ).scalar_one_or_none()
+            row = await self._settings(session)
         self._channel_id = (row.channel_id or None) if row else None
+        self._dry_run = bool(row.dry_run) if row else False
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
-            row = (
-                await session.execute(
-                    select(StreakSetting).where(
-                        StreakSetting.guild_id == self.guild_id
-                    )
-                )
-            ).scalar_one_or_none()
-            if row is None:
-                session.add(
-                    StreakSetting(guild_id=self.guild_id, channel_id=channel_id)
-                )
-            else:
-                row.channel_id = channel_id
+            row = await self._settings(session, create=True)
+            row.channel_id = channel_id
             await session.commit()
         self._channel_id = channel_id
+
+    async def set_dry_run(self, enabled: bool) -> None:
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.dry_run = enabled
+            await session.commit()
+        self._dry_run = enabled
 
     # -------------------------------------------------------------- goals
 
@@ -596,12 +620,40 @@ class StreakService:
                 logs = await _recent_logs(session, streak_id=streak.id)
             return goal, streak, logs
 
-    async def logged_today(self, user_id: int, now: datetime | None = None) -> bool:
+    async def today_status(
+        self, user_id: int, now: datetime | None = None
+    ) -> TodayStatus:
         now = now or utcnow()
-        goal, streak, _ = await self.view(user_id)
-        if streak is None or streak.last_log_date is None:
-            return False
-        return streak.last_log_date == local_date(now, goal.timezone)
+        goal, streak, logs = await self.view(user_id)
+        today = local_date(now, goal.timezone)
+        if streak is not None and streak.last_log_date == today:
+            log = next(
+                (entry for entry in logs if entry.log_date == today), None
+            )
+            return TodayStatus(
+                goal=goal,
+                logged=True,
+                ever_logged=True,
+                amount=log.amount if log is not None else 0,
+                last_date=today,
+                closes_at=None,
+            )
+        last_date = streak.last_log_date if streak is not None else None
+        closes_at = None
+        if (
+            streak is not None
+            and streak.status == STATUS_ONGOING
+            and streak.last_log_date is not None
+        ):
+            closes_at = streak_deadline(streak.last_log_date, goal.timezone)
+        return TodayStatus(
+            goal=goal,
+            logged=False,
+            ever_logged=last_date is not None,
+            amount=None,
+            last_date=last_date,
+            closes_at=closes_at,
+        )
 
     # -------------------------------------------------------------- logging
 
@@ -674,6 +726,7 @@ class StreakService:
                 guild_id=self.guild_id,
                 user_id=user_id,
                 now=now,
+                dry_run=self._dry_run,
             )
             await session.commit()
             recent = await _recent_logs(
@@ -777,6 +830,7 @@ class StreakService:
                 guild_id=self.guild_id,
                 user_id=user_id,
                 now=now,
+                dry_run=self._dry_run,
             )
             await session.commit()
             return ReviveResult(
@@ -861,6 +915,7 @@ class StreakService:
                 guild_id=self.guild_id,
                 user_id=user_id,
                 now=now,
+                dry_run=self._dry_run,
             )
             await session.commit()
             return LogResult(

@@ -29,12 +29,15 @@ Implemented features:
 - **Bot speaks** — `/say` lets admins post a message as the bot into any
   channel or thread, optionally as a reply.
 - **Streaks** — members register a daily reading goal (amount, unit, timezone,
-  reminder schedule) and log each day. Missing a day closes the streak; a
+  reminder schedule) with `/streaks register` (first time only) and change it
+  with `/streaks edit`. They log each day; missing a day closes the streak; a
   normal rescue repairs it within 24h, a golden one within 5 days. Every 5
   logged days completes a level (XP into the normal level system, plus a
   rescue; every 50 levels a golden rescue; every 365 days a celebration). An
-  hourly task sends reminders and closes due streaks; daily logs are purged
-  after 90 days while streak totals persist.
+  hourly task sends reminders (picked at random from a list of phrasings) and
+  closes due streaks; daily logs are purged after 90 days while streak totals
+  persist. `/streaks admin dryrun` toggles XP gain off while still showing what
+  would have been earned.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.

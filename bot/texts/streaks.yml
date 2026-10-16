@@ -24,6 +24,16 @@ streaks:
       custom: "A nudge at %{hour}, your time."
       last_chance: "A nudge an hour before midnight, if you've slacked."
       both: "A nudge at %{hour}, plus the pre-midnight guilt trip."
+    reminder_options: |
+      ## Pick your reminder option:
+      ### ❌  ‎ None
+      > You will not be pinged for streak reminders
+      ### 🕑  ‎ Custom time
+      > Choose at which hour to receive your notification on (will ping you at the same time everyday)
+      ### 🌙  ‎ Last Chance Reminder
+      > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
+      ### 2️⃣  ‎ Both
+      > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
 
   register:
     description: "Set or rewrite your daily reading goal"
@@ -39,20 +49,30 @@ streaks:
       ```
       /streaks edit
       ``` 
-      ## Pick your reminder option:
-      ### ❌  ‎ None
-      > You will not be pinged for streak reminders
-      ### 🕑  ‎ Custom time
-      > Choose at which hour to receive your notification on (will ping you at the same time everyday)
-      ### 🌙  ‎ Last Chance Reminder
-      > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
-      ### 2️⃣  ‎ Both
-      > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
+      %{options}
     custom_title: "Pick your hour"
     custom_description: "Pick any hour from 1AM to 10PM. **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
     confirmed_description: "All set-up! You can edit this at any time using `/streaks edit`. I'll keep my eye on you... :eyes:"
+
+  edit:
+    description: "Change your daily goal or your reminders"
+    title: "Editing your streak"
+    menu_description: "What would you like to change? Your streak and its progress are left well alone."
+    amount_unit_button: "Amount & unit"
+    timezone_button: "Timezone"
+    reminders_button: "Reminders"
+    button_on_view: "Edit this streak"
+    amount_modal_title: "Daily amount & unit"
+    amount_param: "How many (pages, minutes, chapters...)"
+    unit_param: "Unit (pages, minutes, chapters...)"
+    timezone_modal_title: "Your timezone"
+    timezone_param: "Your timezone, spelled out (e.g. Europe/Paris)"
+    reminders_title: "Pick your reminder option"
+    reminders_description: "%{options}"
+    confirmed_title: "Updated"
+    confirmed_description: "Consider it changed. Your streak and progress are untouched."
 
   log:
     description: "Log how much you read today"
@@ -68,11 +88,14 @@ streaks:
     level_up_title: "Level cleared"
     level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
     level_up_anniversary: " And a full year, no less. I've put a note in the channel."
+    dry_run: "Dry run is on, so that **%{xp} XP** stays imaginary for now. It did not reach your pool."
 
   today:
     description: "Have you logged today?"
-    "yes": "✅ Yep, all good."
-    "no": "❌ Oh woops."
+    "yes": "✅ Yep, all good. Logged %{amount} %{unit} on %{date}"
+    "no": "❌ Woops, no. Last log was on %{date}."
+    no_first: "❌ Woops, no. You haven't logged anything yet."
+    hurry: "Better get this/these %{amount} %{unit} quickly, your streak closes %{closes}."
     not_registered: "I can't find a goal for you. You should run `/streaks register` first!"
 
   view:
@@ -101,6 +124,8 @@ streaks:
     total_xp_value: "%{xp} XP"
     on_track_field: "On track for"
     on_track_value: "**%{xp} XP** this window"
+    dry_run_field: "Dry run"
+    dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
   leaderboard:
     description: "Streaks Leaderboard"
@@ -132,6 +157,11 @@ streaks:
       param_date: "Date to record it for (YYYY-MM-DD; defaults to today)"
       success: "Recorded `%{amount}` for %{user} on %{date}."
       success_reopened: "Recorded `%{amount}` for %{user} on %{date}, and reopened the streak it broke."
+    dryrun:
+      description: "Turn XP gain from streaks on or off"
+      param_state: "Whether streak XP reaches members"
+      "on": "Dry run enabled. Streak XP is now a rehearsal; nobody's pool changes."
+      "off": "Dry run disabled. Streak XP counts for real again."
 
   errors:
     generic: "Something went sideways. Don't look at me like that, I'm trying my best!"
@@ -141,13 +171,22 @@ streaks:
     invalid_timezone: "`%{timezone}` isn't a timezone I recognise; please try looking up a metropolis near you instead."
     invalid_date: "`%{raw}` isn't a date I can work with, please use `YYYY-MM-DD`."
     wrong_channel: "Oops, this isn't the streak channel! Try there instead: %{channel}."
+    already_registered: "You already have a streak going. Use `/streaks edit` to change it instead."
     cant_rescue: "That streak can't be rescued anymore. It had a good run. We will remember it fondly."
 
   reminders:
     title: "A small reminder"
-    content: "Oye, oye %{mentions} — your streak would like a word."
+    content:
+      - "Oye, oye %{mentions} — your streak would like a word."
+      - "%{mentions} — the page isn't going to read itself, you know."
+      - "A gentle nudge for %{mentions}: your streak is watching. It always is."
+      - "%{mentions}, a small matter of the book you were going to read today."
     last_chance_title: "Last chance"
-    last_chance_content: "%{mentions} — an hour until midnight, and nothing logged."
+    last_chance_content:
+      - "%{mentions} — an hour until midnight, and nothing logged."
+      - "%{mentions} — the clock is being dramatic, but so is your empty streak."
+      - "One hour, %{mentions}. That is all your streak has left."
+      - "%{mentions}, midnight is approaching and your streak would rather not end tonight."
     footer: "Use /streaks log to log your daily progress!"
 
   anniversary:
