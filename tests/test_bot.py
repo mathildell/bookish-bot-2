@@ -1771,6 +1771,21 @@ class ParseGoodreadsTests(unittest.TestCase):
         self.assertEqual(parsed.tags, ["Sci-Fi"])
         self.assertIn("Blurb here.", parsed.blurb)
 
+    def test_json_ld_decodes_html_entities(self) -> None:
+        html = (
+            '<script type="application/ld+json">'
+            '{"@type": "Book",'
+            ' "name": "The Writer&apos;s Journey",'
+            ' "author": [{"@type": "Person", "name": "O&apos;Brien"}],'
+            ' "description": "<p>The author&apos;s tale.</p>",'
+            ' "datePublished": "2026-10-13"}'
+            "</script>"
+        )
+        parsed = release_sources.parse_goodreads_html(html)
+        self.assertEqual(parsed.title, "The Writer's Journey")
+        self.assertEqual(parsed.authors, ["O'Brien"])
+        self.assertIn("author's tale", parsed.blurb)
+
     def test_two_digit_year_prerelease(self) -> None:
         html = (
             "<main class='BookPage'>"
@@ -1948,10 +1963,16 @@ class ReleaseEmbedTests(unittest.TestCase):
         )
         self.assertEqual(embeds[-1].footer.text, "1 release")
 
-    def test_normalize_title(self) -> None:
+    def test_search_key_ignores_case_and_punctuation(self) -> None:
         self.assertEqual(
-            release_service.normalize_title("  The   HOBBIT "), "the hobbit"
+            release_service.search_key("K. J. Charles"), "kjcharles"
         )
+        self.assertEqual(
+            release_service.search_key("KJ Charles"), "kjcharles"
+        )
+
+    def test_search_key_keeps_accented_letters(self) -> None:
+        self.assertEqual(release_service.search_key("Brontë"), "brontë")
 
     def test_confirm_embed_has_instruction_and_background(self) -> None:
         embed = release_service.build_confirm_embed(FakeClient())
@@ -2114,11 +2135,6 @@ class EmbedBatchTests(unittest.TestCase):
         self.assertEqual(
             [len(batch) for batch in release_service._embed_batches(embeds)],
             [1],
-        )
-
-    def test_escape_like(self) -> None:
-        self.assertEqual(
-            release_service._escape_like("50%_off!"), "50!%!_off!!"
         )
 
 

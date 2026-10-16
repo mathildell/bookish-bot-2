@@ -19,6 +19,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import date
+from html import unescape
 from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
@@ -183,14 +184,20 @@ def _condense_newlines(value: str) -> str:
 
 
 def _as_text(value) -> str:
+    """Plain text, with HTML entities (``&apos;``, ``&amp;`` …) decoded."""
+    return unescape(str(value).strip()) if value is not None else ""
+
+
+def _as_html(value) -> str:
+    """Raw markup for :func:`html_to_markdown`, entities left untouched."""
     return str(value).strip() if value is not None else ""
 
 
 def _as_text_list(value) -> list[str]:
     if isinstance(value, list):
-        return [str(item).strip() for item in value if str(item).strip()]
+        return [text for item in value if (text := _as_text(item))]
     if isinstance(value, str) and value.strip():
-        return [part.strip() for part in value.split(",") if part.strip()]
+        return [text for part in value.split(",") if (text := _as_text(part))]
     return []
 
 
@@ -204,8 +211,9 @@ def _author_names(value) -> list[str]:
             name = item
         else:
             name = None
-        if name and str(name).strip():
-            names.append(str(name).strip())
+        text = _as_text(name)
+        if text:
+            names.append(text)
     return names
 
 
@@ -294,7 +302,7 @@ def parse_goodreads_html(html: str) -> ParsedBook:
         authors = _author_names(book.get("author"))
         release_date = parse_date_text(_as_text(book.get("datePublished")))
         image_url = _image_url(book.get("image"))
-        blurb = html_to_markdown(_as_text(book.get("description")))
+        blurb = html_to_markdown(_as_html(book.get("description")))
         tags = _as_text_list(book.get("genre"))
 
     if not title:
@@ -371,7 +379,7 @@ def parse_netgalley_html(html: str) -> ParsedBook:
         authors = _author_names(book.get("author"))
         release_date = parse_date_text(_as_text(book.get("datePublished")))
         image_url = _image_url(book.get("image"))
-        blurb = html_to_markdown(_as_text(book.get("description")))
+        blurb = html_to_markdown(_as_html(book.get("description")))
         tags = _as_text_list(book.get("genre"))
 
     if not title:

@@ -24,7 +24,7 @@ from collections.abc import Container
 from datetime import date, datetime, time, timedelta, timezone
 
 import discord
-from sqlalchemy import String, cast, delete, func, or_, select, update
+from sqlalchemy import delete, func, select, update
 
 from ..db import session_scope
 from ..models import BookRelease, ReleaseEditDraft, ReleaseSetting
@@ -44,7 +44,7 @@ EMBEDS_PER_MESSAGE = 10
 EMBED_MESSAGE_LIMIT = 5500
 MONTH_FIELDS = 25
 
-_WS_RE = re.compile(r"\s+")
+_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 
 
 def _embed_size(embed: discord.Embed) -> int:
@@ -126,9 +126,13 @@ def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
     return value[: limit - 1].rstrip() + "…"
 
 
-def normalize_title(value: str) -> str:
-    """Lower-case and collapse whitespace, for case-insensitive search."""
-    return _WS_RE.sub(" ", (value or "").strip().lower())
+def search_key(value: str) -> str:
+    """Fold ``value`` for punctuation- and spacing-insensitive matching.
+
+    Only letters and digits survive (lower-cased), so ``"KJ Charles"`` and
+    ``"K. J. Charles"`` both fold to ``"kjcharles"``.
+    """
+    return "".join(_WORD_RE.findall((value or "").lower()))
 
 
 _REFERENCE_WORDS = 2
@@ -137,7 +141,6 @@ _REFERENCE_SUFFIX_LENGTH = 4
 _REFERENCE_MAX_LENGTH = 64
 _REFERENCE_FALLBACK = "book"
 _REFERENCE_ALPHABET = string.ascii_lowercase + string.digits
-_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _APOSTROPHE_RE = re.compile(r"['\u2019]")
 
 
@@ -180,17 +183,6 @@ def unique_reference(title: str, taken: Container[str]) -> str:
         suffixed = f"{candidate}-{_random_suffix()}"
         if suffixed not in taken:
             return suffixed
-
-
-_LIKE_ESCAPE = "!"
-
-
-def _escape_like(value: str) -> str:
-    return (
-        value.replace(_LIKE_ESCAPE, _LIKE_ESCAPE * 2)
-        .replace("%", _LIKE_ESCAPE + "%")
-        .replace("_", _LIKE_ESCAPE + "_")
-    )
 
 
 def _one_month_before(value: date) -> date:
@@ -560,30 +552,28 @@ class ReleaseService:
             ).scalar_one_or_none()
 
     async def search(self, keyword: str) -> list[BookRelease]:
-        """Books whose title or any author contains ``keyword``."""
-        normalized = normalize_title(keyword)
-        if not normalized:
+        """Books whose title or any author matches ``keyword``.
+
+        Matching ignores case, punctuation and spacing at the same time, so a
+        partial query such as ``"KJ Charles"`` also finds ``"K. J. Charles"``.
+        """
+        needle = search_key(keyword)
+        if not needle:
             return []
-        term = f"%{_escape_like(normalized)}%"
         async with session_scope() as session:
             rows = (
                 await session.execute(
                     select(BookRelease)
-                    .where(
-                        BookRelease.guild_id == self.guild_id,
-                        or_(
-                            func.lower(BookRelease.title).like(
-                                term, escape=_LIKE_ESCAPE
-                            ),
-                            func.lower(
-                                cast(BookRelease.authors, String)
-                            ).like(term, escape=_LIKE_ESCAPE),
-                        ),
-                    )
+                    .where(BookRelease.guild_id == self.guild_id)
                     .order_by(BookRelease.release_date, BookRelease.title)
                 )
             ).scalars()
-        return list(rows)
+            return [
+                book
+                for book in rows
+                if needle in search_key(book.title)
+                or needle in search_key(" ".join(book.authors or []))
+            ]
 
     async def count_upcoming(self) -> int:
         async with session_scope() as session:
