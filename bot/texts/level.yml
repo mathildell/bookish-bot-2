@@ -1,7 +1,7 @@
 # Leveling system texts
 level:
   xp_group_description: "XP and leveling commands"
-  cannot_remove_more: "Cannot remove more XP than %{user} has."
+  cannot_remove_more: "You can't remove more XP than %{user} has, that's brutal!"
   xp_added: "Added `%{amount}` XP to %{user}. New level: %{level} (%{current}/%{needed})"
   xp_removed: "Removed `%{amount}` XP from %{user}. New level: %{level} (%{current}/%{needed})"
   level_up: "**Congratulations %{user}!** You made it to level %{level}! <a:aMushroomJump:1407185627472203818> :sparkles:"

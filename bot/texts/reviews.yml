@@ -9,7 +9,7 @@ reviews:
       param_user: "Member to set the feed for (admins only; defaults to you)"
       success: "Saved %{user}'s Goodreads feed."
       success_reset: "Saved %{user}'s Goodreads feed. Existing reviews won't be posted, only new ones."
-      invalid_url: "That doesn't look like a Goodreads reviews RSS feed. Copy the URL from Goodreads under My Books, then the shelf's RSS link."
+      invalid_url: "That doesn't look like a Goodreads reviews RSS feed. Go to My Books, then get the shelf's RSS link by clicking on the little icon under the table, then grab the URL and paste it here."
     remove:
       description: "Unlink a Goodreads reviews RSS feed"
       param_user: "Member whose feed to remove (admins only; defaults to you)"
