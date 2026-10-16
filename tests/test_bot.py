@@ -458,6 +458,27 @@ class _FakeHTTPResponse:
     reason = "Forbidden"
 
 
+class _FakePayloadTooLarge:
+    status = 413
+    reason = "Payload Too Large"
+
+
+class FakeSendChannel:
+    """Records messages and mimics Discord rejecting oversized ones."""
+
+    def __init__(self, *, max_embeds: int = 10) -> None:
+        self.max_embeds = max_embeds
+        self.messages: list[tuple[str | None, list[discord.Embed]]] = []
+
+    async def send(self, *, content=None, embeds=None):
+        embeds = list(embeds or [])
+        if len(embeds) > self.max_embeds:
+            raise discord.HTTPException(
+                _FakePayloadTooLarge(), {"message": "too big", "code": 40005}
+            )
+        self.messages.append((content, embeds))
+
+
 class FakeNotifyChannel:
     def __init__(self, *, fail: bool = False) -> None:
         self.sent: list[str] = []
@@ -2099,6 +2120,46 @@ class EmbedBatchTests(unittest.TestCase):
         self.assertEqual(
             release_service._escape_like("50%_off!"), "50!%!_off!!"
         )
+
+
+class SendEmbedBatchesTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _embed(size: int) -> discord.Embed:
+        return discord.Embed(title="x" * size)
+
+    async def test_posts_all_embeds_across_messages(self) -> None:
+        channel = FakeSendChannel()
+        embeds = [self._embed(10) for _ in range(25)]
+        posted = await release_service._send_embed_batches(channel, embeds)
+        self.assertEqual(posted, list(range(25)))
+        self.assertEqual(
+            [len(batch) for _, batch in channel.messages], [10, 10, 5]
+        )
+
+    async def test_splits_further_when_discord_rejects_batch(self) -> None:
+        channel = FakeSendChannel(max_embeds=4)
+        embeds = [self._embed(10) for _ in range(10)]
+        posted = await release_service._send_embed_batches(channel, embeds)
+        self.assertEqual(posted, list(range(10)))
+        for _, batch in channel.messages:
+            self.assertLessEqual(len(batch), 4)
+
+    async def test_content_is_only_on_the_first_message(self) -> None:
+        channel = FakeSendChannel()
+        embeds = [self._embed(10) for _ in range(12)]
+        await release_service._send_embed_batches(
+            channel, embeds, content="heads up"
+        )
+        self.assertEqual(channel.messages[0][0], "heads up")
+        self.assertTrue(all(c is None for c, _ in channel.messages[1:]))
+
+    async def test_unsendable_single_embed_is_skipped(self) -> None:
+        channel = FakeSendChannel(max_embeds=0)
+        posted = await release_service._send_embed_batches(
+            channel, [self._embed(10)]
+        )
+        self.assertEqual(posted, [])
+        self.assertEqual(channel.messages, [])
 
 
 class MonthOptionsTests(unittest.TestCase):

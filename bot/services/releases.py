@@ -78,6 +78,48 @@ def _embed_batches(embeds: list[discord.Embed]) -> list[list[int]]:
     return batches
 
 
+async def _send_embed_batches(
+    channel: discord.abc.Messageable,
+    embeds: list[discord.Embed],
+    *,
+    content: str | None = None,
+) -> list[int]:
+    """Post embeds in as many messages as Discord's limits require.
+
+    ``_embed_batches`` does the bulk of the packing, but Discord's own size
+    accounting can disagree with ours; when a message is rejected anyway we
+    split that batch in half and retry, so an oversized batch never costs us
+    the releases. Returns the indices that were actually posted.
+    """
+    pending = list(reversed(_embed_batches(embeds)))
+    posted: list[int] = []
+    first = True
+    while pending:
+        indices = pending.pop()
+        try:
+            await channel.send(
+                content=content if first else None,
+                embeds=[embeds[index] for index in indices],
+            )
+        except discord.HTTPException as error:
+            oversized = (
+                getattr(error, "status", None) == 413
+                or getattr(error, "code", None) == 40005
+            )
+            if oversized and len(indices) > 1:
+                middle = len(indices) // 2
+                pending.append(indices[middle:])
+                pending.append(indices[:middle])
+                continue
+            logger.warning(
+                "Could not post %d release embed(s)", len(indices), exc_info=True
+            )
+            continue
+        first = False
+        posted.extend(indices)
+    return posted
+
+
 def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
     if len(value) <= limit:
         return value
@@ -856,22 +898,8 @@ class ReleaseService:
             )
             for book in books
         ]
-        posted_ids: list[int] = []
-        first = True
-        for indices in _embed_batches(embeds):
-            batch = [embeds[index] for index in indices]
-            try:
-                await channel.send(
-                    content=content if first else None, embeds=batch
-                )
-            except discord.HTTPException:
-                logger.warning(
-                    "Could not post %d release(s)", len(batch), exc_info=True
-                )
-                continue
-            first = False
-            posted_ids.extend(books[index].id for index in indices)
-
+        posted = await _send_embed_batches(channel, embeds, content=content)
+        posted_ids = [books[index].id for index in posted]
         await self.mark_announced(posted_ids)
         return len(posted_ids)
 
@@ -916,19 +944,7 @@ class ReleaseService:
                 ]
             )
 
-            first = True
-            for indices in _embed_batches(embeds):
-                batch = [embeds[index] for index in indices]
-                try:
-                    await channel.send(
-                        content=content if first else None, embeds=batch
-                    )
-                except discord.HTTPException:
-                    logger.warning(
-                        "Could not post monthly overview", exc_info=True
-                    )
-                    continue
-                first = False
+            await _send_embed_batches(channel, embeds, content=content)
 
         await self.mark_monthly_posted(period)
         return len(books)
