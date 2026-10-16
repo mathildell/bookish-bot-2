@@ -1753,6 +1753,18 @@ class ParseGoodreadsTests(unittest.TestCase):
         self.assertEqual(parsed.title, "To Dream in Darkness")
         self.assertEqual(parsed.release_date, datetime.date(2026, 10, 27))
 
+    def test_blurb_condenses_blank_lines(self) -> None:
+        html = (
+            "<main class='BookPage'>"
+            "<h1 data-testid='bookTitle'>X</h1>"
+            "<div class='PreReleaseDetails'>Expected 27 Oct 26</div>"
+            "<div class='BookPageMetadataSection__description'>"
+            "<div class='Formatted'><p>One</p><p></p><p>Two</p></div>"
+            "</div></main>"
+        )
+        parsed = release_sources.parse_goodreads_html(html)
+        self.assertEqual(parsed.blurb, "One\nTwo")
+
     def test_missing_release_date_raises(self) -> None:
         with self.assertRaises(release_sources.BookScrapeError) as ctx:
             release_sources.parse_goodreads_html(
@@ -1817,7 +1829,7 @@ class ReleaseEmbedTests(unittest.TestCase):
         self.assertIn(t("releases.sources.goodreads"), embed.title)
         self.assertEqual(embed.url, "https://goodreads.com/book/show/1")
         self.assertIn("Ada Author", embed.fields[0].value)
-        self.assertIn("(id: 1)", embed.footer.text)
+        self.assertIn("(id: the-book)", embed.footer.text)
 
     def test_month_embeds_mark_announced(self) -> None:
         books = [
@@ -1833,6 +1845,43 @@ class ReleaseEmbedTests(unittest.TestCase):
     def test_normalize_title(self) -> None:
         self.assertEqual(
             release_service.normalize_title("  The   HOBBIT "), "the hobbit"
+        )
+
+
+class BookReferenceTests(unittest.TestCase):
+    def test_uses_first_three_words(self) -> None:
+        self.assertEqual(
+            release_service.book_reference("To Dream in Darkness"),
+            "to-dream-in",
+        )
+
+    def test_strips_punctuation_and_possessives(self) -> None:
+        self.assertEqual(
+            release_service.book_reference("A Court's Throne: Part 2"),
+            "a-courts-throne",
+        )
+
+    def test_short_title_keeps_all_words(self) -> None:
+        self.assertEqual(release_service.book_reference("Dune"), "dune")
+
+    def test_blank_title_falls_back(self) -> None:
+        self.assertEqual(release_service.book_reference("   "), "book")
+
+
+class CondenseNewlinesTests(unittest.TestCase):
+    def test_collapses_blank_lines(self) -> None:
+        self.assertEqual(
+            release_sources._condense_newlines("a\n\n\nb\n\nc"), "a\nb\nc"
+        )
+
+    def test_normalises_carriage_returns(self) -> None:
+        self.assertEqual(
+            release_sources._condense_newlines("a\r\n\r\nb"), "a\nb"
+        )
+
+    def test_plain_text_is_unchanged(self) -> None:
+        self.assertEqual(
+            release_sources._condense_newlines("one\n two"), "one\n two"
         )
 
 

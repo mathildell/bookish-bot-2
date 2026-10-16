@@ -21,16 +21,17 @@ releases:
   add:
     description: "Add an upcoming book from a Goodreads or NetGalley URL"
     param_url: "Goodreads or NetGalley book URL"
-    success: "Added **%{title}** (id: %{id})."
+    success: "Added **%{title}** (id: %{reference})."
   edit:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"
-    param_book_id: "Id of the book to update (from /releases list), if its title changed"
+    param_book_id: "Numeric id of the book to update, if its title changed"
     old_prefix: "BEFORE"
     new_prefix: "AFTER"
     confirm: "Confirm update"
     cancel: "Cancel"
     updated: "Updated **%{title}**."
+    confirmed: "Update confirmed."
     cancelled: "Update cancelled."
     expired: "This update has expired. Run the command again."
     not_found: "No tracked book matches that URL or id. Use `/releases add` to add it."
@@ -40,7 +41,7 @@ releases:
     not_found: "**%{title}** isn't tracked yet. Add it with `/releases add url:` using its Goodreads or NetGalley link."
   view:
     description: "Show one tracked book"
-    param_book_id: "Id of the book (shown in /releases list)"
+    param_book_id: "Numeric id of the tracked book"
     not_found: "No tracked book with id %{id}."
   list:
     description: "List upcoming releases"
@@ -84,8 +85,8 @@ releases:
     tags_field: "Tags"
     tags_none: "—"
     description_field: "Description"
-    added_by: "Added by %{user} (id: %{id})"
-    added_by_unknown: "id: %{id}"
+    added_by: "Added by %{user} (id: %{reference})"
+    added_by_unknown: "id: %{reference}"
   month_embed:
     title: "New releases coming in %{month}!"
     line: "**%{title}** by %{authors}"
@@ -106,4 +107,4 @@ releases:
     not_in_future: "That book's release date is in the past, so it can't be tracked."
     scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
     browser_missing: "There was a problem with the browser reading the provided web page."
-    already_exists: "**%{title}** was already added by %{user} (id: %{id}). Use `/releases edit` to refresh it."
+    already_exists: "**%{title}** was already added by %{user} (id: %{reference}). Use `/releases edit` to refresh it."

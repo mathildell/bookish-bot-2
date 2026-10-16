@@ -20,7 +20,11 @@ from ..services.release_sources import (
     book_data_from_dict,
     parse_source_url,
 )
-from ..services.releases import ReleaseService, build_book_embed
+from ..services.releases import (
+    ReleaseService,
+    book_reference,
+    build_book_embed,
+)
 from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
@@ -189,13 +193,14 @@ class ReleaseConfirmView(discord.ui.View):
             )
             return
         embed = build_book_embed(book, interaction.user, interaction.client)
+        title = discord.utils.escape_markdown(book.title)
+        # Keep the confirmation prompt private, but post the updated book for
+        # everyone to see.
         await interaction.response.edit_message(
-            content=t(
-                "releases.edit.updated",
-                title=discord.utils.escape_markdown(book.title),
-            ),
-            embeds=[embed],
-            view=None,
+            content=t("releases.edit.confirmed"), embeds=[], view=None
+        )
+        await interaction.followup.send(
+            content=t("releases.edit.updated", title=title), embeds=[embed]
         )
 
     @discord.ui.button(
@@ -221,7 +226,7 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
         )
         return
 
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
     data = await _scrape(interaction, url)
     if data is None:
         return
@@ -239,7 +244,7 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
                 "releases.errors.already_exists",
                 title=discord.utils.escape_markdown(existing.title),
                 user=f"<@{existing.discord_user_id}>",
-                id=existing.id,
+                reference=book_reference(existing.title),
             ),
             ephemeral=True,
         )
@@ -251,10 +256,9 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
         content=t(
             "releases.add.success",
             title=discord.utils.escape_markdown(book.title),
-            id=book.id,
+            reference=book_reference(book.title),
         ),
         embed=embed,
-        ephemeral=True,
     )
 
 
@@ -307,7 +311,6 @@ async def edit_release(
         interaction.user,
         interaction.client,
         prefix=t("releases.edit.new_prefix"),
-        book_id=book.id,
     )
     view = ReleaseConfirmView(draft.id, interaction.user.id)
     await interaction.followup.send(
@@ -343,26 +346,22 @@ async def find_release(interaction: discord.Interaction, title: str) -> None:
 
 @releases_group.command(name="list", description=t("releases.list.description"))
 async def list_releases(interaction: discord.Interaction) -> None:
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer()
     service = _service(interaction)
     total = await service.count_upcoming()
     if total == 0:
-        await interaction.followup.send(
-            t("releases.list.empty"), ephemeral=True
-        )
+        await interaction.followup.send(t("releases.list.empty"))
         return
 
     source = _ReleaseListSource(
         service, interaction.guild, interaction.client, total
     )
     if source.page_count == 1:
-        await interaction.followup.send(
-            embeds=await source.get_page(0), ephemeral=True
-        )
+        await interaction.followup.send(embeds=await source.get_page(0))
         return
     view = ReleaseListView(source, interaction.user.id)
     view.message = await interaction.followup.send(
-        embeds=await view.load_page(0), view=view, ephemeral=True
+        embeds=await view.load_page(0), view=view
     )
 
 

@@ -173,6 +173,15 @@ def parse_date_text(value: str | None) -> date | None:
     return None
 
 
+_MULTI_NEWLINE_RE = re.compile(r"\n{2,}")
+
+
+def _condense_newlines(value: str) -> str:
+    """Collapse runs of blank lines into a single line break."""
+    text = (value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return _MULTI_NEWLINE_RE.sub("\n", text).strip()
+
+
 def _as_text(value) -> str:
     return str(value).strip() if value is not None else ""
 
@@ -326,6 +335,8 @@ def parse_goodreads_html(html: str) -> ParsedBook:
             ],
         )
 
+    blurb = _condense_newlines(blurb)
+
     if release_date is None:
         release_date = parse_date_text(
             _text(soup.select_one(".PreReleaseDetails"))
@@ -386,6 +397,8 @@ def parse_netgalley_html(html: str) -> ParsedBook:
         blurb = html_to_markdown(_inner_html(soup.select_one("#descriptionFullTextBox")))
     if not tags:
         tags = _text_list(soup, [".categories a", "[itemprop='genre']"])
+
+    blurb = _condense_newlines(blurb)
 
     if release_date is None:
         release_date = parse_date_text(_text(soup.select_one(".publication-dates")))

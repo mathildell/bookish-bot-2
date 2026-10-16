@@ -90,6 +90,21 @@ def normalize_title(value: str) -> str:
     return _WS_RE.sub(" ", (value or "").strip().lower())
 
 
+_REFERENCE_WORDS = 3
+_WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
+_APOSTROPHE_RE = re.compile(r"['\u2019]")
+
+
+def book_reference(title: str) -> str:
+    """A short, URL-like handle shown in place of the numeric id.
+
+    E.g. ``"To Dream in Darkness"`` -> ``"to-dream-in"``.
+    """
+    cleaned = _APOSTROPHE_RE.sub("", (title or "").lower())
+    words = _WORD_RE.findall(cleaned)
+    return "-".join(words[:_REFERENCE_WORDS]) or "book"
+
+
 _LIKE_ESCAPE = "!"
 
 
@@ -119,7 +134,6 @@ def build_book_embed(
     client: discord.Client,
     *,
     prefix: str | None = None,
-    book_id: int | None = None,
 ) -> discord.Embed:
     """Build the embed shown for a single release (command or announcement)."""
     embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
@@ -165,20 +179,20 @@ def build_book_embed(
             inline=False,
         )
 
-    identifier = book_id if book_id is not None else getattr(book, "id", None)
+    reference = book_reference(title)
     if member is not None:
         avatar = getattr(member, "display_avatar", None)
         embed.set_footer(
             text=t(
                 "releases.embed.added_by",
                 user=discord.utils.escape_markdown(member.display_name),
-                id=identifier,
+                reference=reference,
             ),
             icon_url=getattr(avatar, "url", None),
         )
     else:
         embed.set_footer(
-            text=t("releases.embed.added_by_unknown", id=identifier)
+            text=t("releases.embed.added_by_unknown", reference=reference)
         )
 
     background = getattr(client, "transparent_embed_image", None)
