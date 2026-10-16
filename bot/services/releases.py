@@ -828,7 +828,12 @@ class ReleaseService:
             dict.fromkeys(f"<@{book.discord_user_id}>" for book in books)
         )
         singular = len(books) == 1
-        content = "\n".join(
+
+        if self._ping_role_id:
+            content = f"-# <@&{self._ping_role_id}>\n"
+        else content = ""
+
+        content += "\n".join(
             [
                 t(
                     "releases.post.daily_title_singular"
@@ -843,8 +848,6 @@ class ReleaseService:
                 ),
             ]
         )
-        if self._ping_role_id:
-            content += f"\n-# <@&{self._ping_role_id}>"
 
         embeds = [
             build_book_embed(
@@ -900,14 +903,15 @@ class ReleaseService:
             embeds = build_month_embeds(
                 books, client, month_label=month_label
             )
-            content = "\n".join(
+            if self._ping_role_id:
+                content += f"-# <@&{self._ping_role_id}>\n"
+            else content = ""
+            content += "\n".join(
                 [
                     t("releases.post.monthly_title", month=month_name),
                     t("releases.post.monthly_thanks"),
                 ]
             )
-            if self._ping_role_id:
-                content += f"\n-# <@&{self._ping_role_id}>"
 
             first = True
             for indices in _embed_batches(embeds):
