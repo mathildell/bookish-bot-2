@@ -39,6 +39,7 @@ from bot.services.release_sources import (  # noqa: E402
     BookScrapeError,
     parse_source_url,
 )
+from bot.services.releases import unique_reference  # noqa: E402
 
 
 SKIPPED_SOURCES = frozenset({"google"})
@@ -195,6 +196,15 @@ async def run(args: argparse.Namespace) -> None:
 
     created = skipped = 0
     async with session_scope() as session:
+        taken = {
+            value
+            for value in await session.scalars(
+                select(BookRelease.reference).where(
+                    BookRelease.guild_id == guild_id
+                )
+            )
+            if value
+        }
         for old in releases:
             existing = (
                 await session.execute(
@@ -210,11 +220,14 @@ async def run(args: argparse.Namespace) -> None:
                 action = "skip (already imported)"
             else:
                 created += 1
-                action = "create"
+                reference = unique_reference(old.title, taken)
+                taken.add(reference)
+                action = f"create ({reference})"
                 if not args.dry_run:
                     book = BookRelease(
                         guild_id=guild_id,
                         title=old.title,
+                        reference=reference,
                         authors=old.authors,
                         release_date=old.release_date,
                         blurb=old.blurb or None,

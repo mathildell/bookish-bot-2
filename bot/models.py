@@ -272,6 +272,9 @@ class BookRelease(Base):
     guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
 
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    # Short, human-friendly handle shown in place of the numeric id. Unique
+    # within a guild; derived from the title (see releases.unique_reference).
+    reference: Mapped[str] = mapped_column(String(64), nullable=False)
     authors: Mapped[list] = mapped_column(JSON, default=list)
     release_date: Mapped[date] = mapped_column(Date, nullable=False)
     blurb: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -304,6 +307,12 @@ class BookRelease(Base):
             "guild_id",
             "source",
             "source_id",
+            unique=True,
+        ),
+        Index(
+            "ix_book_releases_guild_reference_unique",
+            "guild_id",
+            "reference",
             unique=True,
         ),
         Index("ix_book_releases_guild_release_date", "guild_id", "release_date"),

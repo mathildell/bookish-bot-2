@@ -1840,6 +1840,12 @@ class ReleaseEmbedTests(unittest.TestCase):
         self.assertIn("Ada Author", embed.fields[0].value)
         self.assertIn("(id: the-book)", embed.footer.text)
 
+    def test_embed_prefers_stored_reference(self) -> None:
+        embed = release_service.build_book_embed(
+            self._Book(reference="custom-handle"), FakeMember(), FakeClient()
+        )
+        self.assertIn("(id: custom-handle)", embed.footer.text)
+
     def test_month_embeds_mark_announced(self) -> None:
         books = [
             self._Book(id=1, announcement_sent=True),
@@ -1887,16 +1893,16 @@ class ReleaseEmbedTests(unittest.TestCase):
 
 
 class BookReferenceTests(unittest.TestCase):
-    def test_uses_first_three_words(self) -> None:
+    def test_base_uses_first_two_words(self) -> None:
         self.assertEqual(
             release_service.book_reference("To Dream in Darkness"),
-            "to-dream-in",
+            "to-dream",
         )
 
     def test_strips_punctuation_and_possessives(self) -> None:
         self.assertEqual(
             release_service.book_reference("A Court's Throne: Part 2"),
-            "a-courts-throne",
+            "a-courts",
         )
 
     def test_short_title_keeps_all_words(self) -> None:
@@ -1904,6 +1910,32 @@ class BookReferenceTests(unittest.TestCase):
 
     def test_blank_title_falls_back(self) -> None:
         self.assertEqual(release_service.book_reference("   "), "book")
+
+    def test_unique_prefers_two_words(self) -> None:
+        self.assertEqual(
+            release_service.unique_reference("To Dream in Darkness", set()),
+            "to-dream",
+        )
+
+    def test_unique_escalates_to_three_words(self) -> None:
+        self.assertEqual(
+            release_service.unique_reference(
+                "To Dream in Darkness", {"to-dream"}
+            ),
+            "to-dream-in",
+        )
+
+    def test_unique_adds_random_suffix_when_exhausted(self) -> None:
+        handle = release_service.unique_reference("Untitled", {"untitled"})
+        self.assertTrue(handle.startswith("untitled-"))
+        self.assertEqual(len(handle), len("untitled-") + 4)
+        self.assertNotEqual(handle, "untitled")
+
+    def test_unique_separates_two_untitled_books(self) -> None:
+        taken = {"untitled"}
+        second = release_service.unique_reference("Untitled", taken)
+        self.assertNotEqual(second, "untitled")
+        self.assertNotIn(second, taken)
 
 
 class OneMonthBeforeTests(unittest.TestCase):

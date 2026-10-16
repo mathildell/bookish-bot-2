@@ -25,7 +25,7 @@ releases:
   update:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"
-    param_book_id: "Numeric id of the book to update, if its title changed"
+    param_book: "Numeric id or handle of the book to update, if its title changed"
     old_prefix: ":one:"
     new_prefix: ":two:"
     confirm: "Confirm update"
@@ -42,15 +42,15 @@ releases:
     confirmed: "Update confirmed."
     cancelled: "Update cancelled."
     expired: "This update has expired. Run the command again."
-    not_found: "No tracked book matches that URL or id. Use `/releases add` to add it."
+    not_found: "No tracked book matches that URL, id or handle. Use `/releases add` to add it."
   find:
     description: "Check whether a book is already tracked"
     param_title: "Book title (or part of it) to search for"
     not_found: "**%{title}** isn't tracked yet. Add it with `/releases add url:` using its Goodreads or NetGalley link."
   view:
     description: "Show one tracked book"
-    param_book_id: "Numeric id of the tracked book"
-    not_found: "No tracked book with id %{id}."
+    param_book: "Numeric id or handle of the tracked book"
+    not_found: "No tracked book matching **%{query}**."
   list:
     description: "List upcoming releases"
     empty: "No upcoming releases are tracked yet."
@@ -58,9 +58,9 @@ releases:
     month_option: "%{month} %{year}"
   remove:
     description: "Remove a tracked book (admins only)"
-    param_book_id: "Id of the book to remove"
+    param_book: "Numeric id or handle of the book to remove"
     success: "Removed **%{title}**."
-    not_found: "No tracked book with id %{id}."
+    not_found: "No tracked book matching **%{query}**."
   channel:
     group_description: "Where release announcements are posted"
     set:

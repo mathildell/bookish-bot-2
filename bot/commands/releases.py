@@ -14,6 +14,7 @@ from math import ceil
 import discord
 from discord import app_commands
 
+from ..models import BookRelease
 from ..services.release_sources import (
     BookData,
     BookScrapeError,
@@ -22,7 +23,6 @@ from ..services.release_sources import (
 )
 from ..services.releases import (
     ReleaseService,
-    book_reference,
     build_book_embed,
     build_confirm_embed,
     disambiguate_embed_urls,
@@ -62,6 +62,16 @@ force_group = app_commands.Group(
 
 def _service(interaction: discord.Interaction) -> ReleaseService:
     return interaction.client.releases
+
+
+async def _resolve_book(
+    service: ReleaseService, value: str
+) -> BookRelease | None:
+    """Look a book up by numeric id or by its handle."""
+    value = value.strip()
+    if value.isdigit():
+        return await service.get(int(value))
+    return await service.get_by_reference(value.lower())
 
 
 def _announcement_channel(
@@ -270,7 +280,7 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
                 "releases.errors.already_exists",
                 title=discord.utils.escape_markdown(existing.title),
                 user=f"<@{existing.discord_user_id}>",
-                reference=book_reference(existing.title),
+                reference=existing.reference,
             ),
             ephemeral=True,
         )
@@ -282,7 +292,7 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
         content=t(
             "releases.add.success",
             title=discord.utils.escape_markdown(book.title),
-            reference=book_reference(book.title),
+            reference=book.reference,
         ),
         embed=embed,
     )
@@ -293,10 +303,10 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
 )
 @app_commands.describe(
     url=t("releases.update.param_url"),
-    book_id=t("releases.update.param_book_id"),
+    book=t("releases.update.param_book"),
 )
 async def update_release(
-    interaction: discord.Interaction, url: str, book_id: int | None = None
+    interaction: discord.Interaction, url: str, book: str | None = None
 ) -> None:
     try:
         parse_source_url(url)
@@ -317,22 +327,22 @@ async def update_release(
         return
 
     service = _service(interaction)
-    if book_id is not None:
-        book = await service.get(book_id)
+    if book is not None:
+        target = await _resolve_book(service, book)
     else:
-        book = await service.find_by_source(data.source, data.source_id)
-        if book is None:
+        target = await service.find_by_source(data.source, data.source_id)
+        if target is None:
             matches = await service.search(data.title)
-            book = matches[0] if matches else None
-    if book is None:
+            target = matches[0] if matches else None
+    if target is None:
         await interaction.followup.send(
             t("releases.update.not_found"), ephemeral=True
         )
         return
 
-    draft = await service.create_draft(book.id, interaction.user.id, data)
+    draft = await service.create_draft(target.id, interaction.user.id, data)
     old_embed = build_book_embed(
-        book,
+        target,
         interaction.user,
         interaction.client,
         prefix=t("releases.update.old_prefix"),
@@ -398,39 +408,39 @@ async def list_releases(interaction: discord.Interaction) -> None:
 
 
 @releases_group.command(name="view", description=t("releases.view.description"))
-@app_commands.describe(book_id=t("releases.view.param_book_id"))
-async def view_release(interaction: discord.Interaction, book_id: int) -> None:
+@app_commands.describe(book=t("releases.view.param_book"))
+async def view_release(interaction: discord.Interaction, book: str) -> None:
     await interaction.response.defer(ephemeral=True)
-    book = await _service(interaction).get(book_id)
-    if book is None:
+    target = await _resolve_book(_service(interaction), book)
+    if target is None:
         await interaction.followup.send(
-            t("releases.view.not_found", id=book_id), ephemeral=True
+            t("releases.view.not_found", query=book), ephemeral=True
         )
         return
     member = (
-        await resolve_members(interaction.guild, [book.discord_user_id])
+        await resolve_members(interaction.guild, [target.discord_user_id])
     )[0]
     await interaction.followup.send(
-        embed=build_book_embed(book, member, interaction.client),
+        embed=build_book_embed(target, member, interaction.client),
         ephemeral=True,
     )
 
 
 @releases_group.command(name="remove", description=t("releases.remove.description"))
-@app_commands.describe(book_id=t("releases.remove.param_book_id"))
-async def remove_release(interaction: discord.Interaction, book_id: int) -> None:
+@app_commands.describe(book=t("releases.remove.param_book"))
+async def remove_release(interaction: discord.Interaction, book: str) -> None:
     if not await require_admin(interaction):
         return
     await interaction.response.defer(ephemeral=True)
     service = _service(interaction)
-    book = await service.get(book_id)
-    if book is None:
+    target = await _resolve_book(service, book)
+    if target is None:
         await interaction.followup.send(
-            t("releases.remove.not_found", id=book_id), ephemeral=True
+            t("releases.remove.not_found", query=book), ephemeral=True
         )
         return
-    title = discord.utils.escape_markdown(book.title)
-    await service.remove(book_id)
+    title = discord.utils.escape_markdown(target.title)
+    await service.remove(target.id)
     await interaction.followup.send(
         t("releases.remove.success", title=title), ephemeral=True
     )

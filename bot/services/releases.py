@@ -18,6 +18,9 @@ import asyncio
 import calendar
 import logging
 import re
+import secrets
+import string
+from collections.abc import Container
 from datetime import date, datetime, time, timedelta, timezone
 
 import discord
@@ -91,19 +94,55 @@ def normalize_title(value: str) -> str:
     return _WS_RE.sub(" ", (value or "").strip().lower())
 
 
-_REFERENCE_WORDS = 3
+_REFERENCE_WORDS = 2
+_REFERENCE_MAX_WORDS = 3
+_REFERENCE_SUFFIX_LENGTH = 4
+_REFERENCE_MAX_LENGTH = 64
+_REFERENCE_FALLBACK = "book"
+_REFERENCE_ALPHABET = string.ascii_lowercase + string.digits
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 _APOSTROPHE_RE = re.compile(r"['\u2019]")
 
 
-def book_reference(title: str) -> str:
-    """A short, URL-like handle shown in place of the numeric id.
-
-    E.g. ``"To Dream in Darkness"`` -> ``"to-dream-in"``.
-    """
+def _reference_words(title: str, count: int) -> str:
     cleaned = _APOSTROPHE_RE.sub("", (title or "").lower())
     words = _WORD_RE.findall(cleaned)
-    return "-".join(words[:_REFERENCE_WORDS]) or "book"
+    base = "-".join(words[:count]) or _REFERENCE_FALLBACK
+    return base[: _REFERENCE_MAX_LENGTH - _REFERENCE_SUFFIX_LENGTH - 1]
+
+
+def book_reference(title: str) -> str:
+    """A short, URL-like handle: the title's first two words.
+
+    Used as the display fallback for a book without a stored reference; e.g.
+    ``"To Dream in Darkness"`` -> ``"to-dream"``.
+    """
+    return _reference_words(title, _REFERENCE_WORDS)
+
+
+def _random_suffix() -> str:
+    return "".join(
+        secrets.choice(_REFERENCE_ALPHABET)
+        for _ in range(_REFERENCE_SUFFIX_LENGTH)
+    )
+
+
+def unique_reference(title: str, taken: Container[str]) -> str:
+    """A handle not present in ``taken``.
+
+    Tries the title's first two words, then its first three, and finally
+    appends a random four-character suffix until the handle is free.
+    """
+    candidate = _reference_words(title, _REFERENCE_WORDS)
+    if candidate not in taken:
+        return candidate
+    candidate = _reference_words(title, _REFERENCE_MAX_WORDS)
+    if candidate not in taken:
+        return candidate
+    while True:
+        suffixed = f"{candidate}-{_random_suffix()}"
+        if suffixed not in taken:
+            return suffixed
 
 
 _LIKE_ESCAPE = "!"
@@ -189,7 +228,7 @@ def build_book_embed(
             inline=False,
         )
 
-    reference = book_reference(title)
+    reference = getattr(book, "reference", None) or book_reference(title)
     if member is not None:
         avatar = getattr(member, "display_avatar", None)
         embed.set_footer(
@@ -386,6 +425,25 @@ class ReleaseService:
                 return None
             return book
 
+    async def get_by_reference(self, reference: str) -> BookRelease | None:
+        async with session_scope() as session:
+            return (
+                await session.execute(
+                    select(BookRelease).where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.reference == reference,
+                    )
+                )
+            ).scalar_one_or_none()
+
+    async def _taken_references(self, session) -> set[str]:
+        rows = await session.execute(
+            select(BookRelease.reference).where(
+                BookRelease.guild_id == self.guild_id
+            )
+        )
+        return set(rows.scalars())
+
     async def find_by_source(
         self, source: str, source_id: str
     ) -> BookRelease | None:
@@ -485,10 +543,14 @@ class ReleaseService:
 
     async def add(self, data: BookData, discord_user_id: int) -> BookRelease:
         async with session_scope() as session:
+            reference = unique_reference(
+                data.title, await self._taken_references(session)
+            )
             book = BookRelease(
                 guild_id=self.guild_id,
                 discord_user_id=discord_user_id,
                 title=data.title,
+                reference=reference,
                 authors=data.authors,
                 release_date=data.release_date,
                 blurb=data.blurb,

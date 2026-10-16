@@ -196,15 +196,17 @@ people who added them and the configured role. Set the channel with
 ```
 **Permissions:** Everyone
 Add an upcoming book from its Goodreads or NetGalley URL. The release date must
-be in the future, and the book must not already be tracked.
+be in the future, and the book must not already be tracked. Each book gets a
+short unique handle (the title's first two words, then three, then a random
+suffix) shown as its id.
 
 ```
-/releases update url: [book_id:]
+/releases update url: [book:]
 ```
 **Permissions:** Everyone
 Re-scrape a tracked book and show a before/after preview with a confirm button.
-`book_id` is only needed when the title changed and the URL no longer matches the
-stored book.
+`book` accepts the numeric id or the handle, and is only needed when the title
+changed and the URL no longer matches the stored book.
 
 ```
 /releases find title:
@@ -221,16 +223,16 @@ Paginated list of upcoming releases, with prev/next buttons and a "jump to
 month" dropdown covering the next year.
 
 ```
-/releases view book_id:
+/releases view book:
 ```
 **Permissions:** Everyone
-Show one tracked book.
+Show one tracked book by its numeric id or handle.
 
 ```
-/releases remove book_id:
+/releases remove book:
 ```
 **Permissions:** 🔒 Admin
-Remove a tracked book.
+Remove a tracked book by its numeric id or handle.
 
 ```
 /releases channel set channel:

@@ -18,7 +18,9 @@ Implemented features:
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
   headless browser) and announce them: an overview on the 1st of each month and
   the day's releases every day. Releases are pruned from the database a month
-  after their release date.
+  after their release date. Each release carries a guild-unique `reference`
+  handle (title's first two words, then three, then a random suffix); commands
+  accept either the numeric id or the handle.
 - **Introductions** — admins configure an intro channel and its questions; a
   sticky message's button lets members post (and later edit) a single
   introduction.
@@ -123,7 +125,7 @@ bot/
     intro.py               intro channel/questions/answers + embed building
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
-scripts/                   one-off utilities (e.g. import_old_xp.py)
+scripts/                   one-off utilities (imports + schema migrations)
 docs/                      may be outdated — do not treat as source of truth
 bookishhideaway/           archived old Ruby project — out of scope, ignore
 ```
