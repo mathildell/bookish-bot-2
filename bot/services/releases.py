@@ -348,7 +348,7 @@ def build_month_embeds(
     if not groups:
         return []
 
-    month_title = t("releases.month_embed.title", month=month_label)
+    month_title = t("releases.month_embed.title")
     embeds: list[discord.Embed] = []
 
     def start_embed() -> discord.Embed:

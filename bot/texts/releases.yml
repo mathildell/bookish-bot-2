@@ -96,7 +96,7 @@ releases:
     added_by: "Added by %{user} (id: %{reference})"
     added_by_unknown: "id: %{reference}"
   month_embed:
-    title: "New releases coming in %{month}!"
+    title: "Upcoming releases"
     date: "%{month} %{day}"
     line: "**%{title}** by %{authors} (%{user})"
     unknown_author: "Unknown"
