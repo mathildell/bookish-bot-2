@@ -35,6 +35,9 @@ FIELD_VALUE_LIMIT = 1024
 BLURB_LIMIT = 350
 DRAFT_TTL = timedelta(hours=2)
 EMBEDS_PER_MESSAGE = 10
+# Discord rejects a message whose embeds total more than 6000 characters;
+# stay under it (the old bot used 5500 too).
+EMBED_MESSAGE_LIMIT = 5500
 MONTH_FIELDS = 25
 
 _WS_RE = re.compile(r"\s+")
@@ -43,6 +46,37 @@ _WS_RE = re.compile(r"\s+")
 def _chunked(items: list, size: int):
     for start in range(0, len(items), size):
         yield items[start : start + size]
+
+
+def _embed_size(embed: discord.Embed) -> int:
+    size = len(embed.title or "") + len(embed.description or "")
+    if embed.footer:
+        size += len(embed.footer.text or "")
+    if embed.author:
+        size += len(embed.author.name or "")
+    for field in embed.fields:
+        size += len(field.name or "") + len(field.value or "")
+    return size
+
+
+def _embed_batches(embeds: list[discord.Embed]) -> list[list[int]]:
+    """Group embed indices so each message stays within Discord's limits."""
+    batches: list[list[int]] = []
+    current: list[int] = []
+    total = 0
+    for index, embed in enumerate(embeds):
+        size = _embed_size(embed)
+        if current and (
+            len(current) >= EMBEDS_PER_MESSAGE
+            or total + size > EMBED_MESSAGE_LIMIT
+        ):
+            batches.append(current)
+            current, total = [], 0
+        current.append(index)
+        total += size
+    if current:
+        batches.append(current)
+    return batches
 
 
 def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
@@ -587,18 +621,19 @@ class ReleaseService:
         if self._ping_role_id:
             content += f"\n-# <@&{self._ping_role_id}>"
 
+        embeds = [
+            build_book_embed(
+                book, member_by_id.get(book.discord_user_id), client
+            )
+            for book in books
+        ]
         posted_ids: list[int] = []
         first = True
-        for batch in _chunked(books, EMBEDS_PER_MESSAGE):
-            embeds = [
-                build_book_embed(
-                    book, member_by_id.get(book.discord_user_id), client
-                )
-                for book in batch
-            ]
+        for indices in _embed_batches(embeds):
+            batch = [embeds[index] for index in indices]
             try:
                 await channel.send(
-                    content=content if first else None, embeds=embeds
+                    content=content if first else None, embeds=batch
                 )
             except discord.HTTPException:
                 logger.warning(
@@ -606,7 +641,7 @@ class ReleaseService:
                 )
                 continue
             first = False
-            posted_ids.extend(book.id for book in batch)
+            posted_ids.extend(books[index].id for index in indices)
 
         await self.mark_announced(posted_ids)
         return len(posted_ids)
@@ -641,7 +676,8 @@ class ReleaseService:
                 content += f"\n-# <@&{self._ping_role_id}>"
 
             first = True
-            for batch in _chunked(embeds, EMBEDS_PER_MESSAGE):
+            for indices in _embed_batches(embeds):
+                batch = [embeds[index] for index in indices]
                 try:
                     await channel.send(
                         content=content if first else None, embeds=batch

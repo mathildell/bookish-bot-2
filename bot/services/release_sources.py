@@ -39,13 +39,16 @@ NETGALLEY_HOSTS = (
 _GOODREADS_PATH_RE = re.compile(r"/book/show/(\d+)")
 _NETGALLEY_PATH_RE = re.compile(r"/catalog/book/(\d+)")
 
+_SCRAPE_ATTEMPTS = 3
+_RETRYABLE_KEYS = frozenset({"releases.errors.scrape_failed"})
+
 _ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
 _DOTTED_DATE_RE = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b")
 _MONTH_DAY_RE = re.compile(
-    r"\b([A-Za-z\u00C0-\u017F]{3,9})\.?\s+(\d{1,2})(?:,)?\s+(\d{4})\b"
+    r"\b([A-Za-z\u00C0-\u017F]{3,9})\.?\s+(\d{1,2})(?:,)?\s+(\d{2,4})\b"
 )
 _DAY_MONTH_RE = re.compile(
-    r"\b(\d{1,2})\s+([A-Za-z\u00C0-\u017F]{3,9})\.?\s+(\d{4})\b"
+    r"\b(\d{1,2})\s+([A-Za-z\u00C0-\u017F]{3,9})\.?\s+(\d{2,4})\b"
 )
 
 _MONTHS = {
@@ -120,6 +123,10 @@ def parse_source_url(value: str) -> tuple[str, str]:
             raise BookScrapeError("releases.errors.invalid_path")
         return "netgalley", match.group(1)
 
+    # NetGalley only renders the dates we parse on these regional sites.
+    if "netgalley" in host:
+        raise BookScrapeError("releases.errors.unsupported_region")
+
     raise BookScrapeError("releases.errors.unsupported_source")
 
 
@@ -129,7 +136,11 @@ def _month_number(name: str) -> int | None:
 
 def _safe_date(year: str | int, month: int, day: str | int) -> date | None:
     try:
-        return date(int(year), int(month), int(day))
+        year_value = int(year)
+        # Goodreads shows upcoming dates with a 2-digit year ("27 Oct 26").
+        if year_value < 100:
+            year_value += 2000
+        return date(year_value, int(month), int(day))
     except (TypeError, ValueError):
         return None
 
@@ -511,12 +522,32 @@ class ReleaseScraper:
         self._playwright = None
 
     async def fetch(self, url: str) -> BookData:
-        """Fetch and parse a book page, returning normalised data."""
+        """Fetch and parse a book page, returning normalised data.
+
+        Transient page-load failures are retried a few times, mirroring the old
+        bot. Permanent outcomes (unsupported URL, missing release date) fail
+        straight away so we don't waste browser loads or hide the real reason.
+        """
         source, source_id = parse_source_url(url)
-        async with self._lock:
-            await self.start()
-            html = await self._load_html(url, source)
-        return build_book_data(url, source, source_id, parse_book_html(source, html))
+        for attempt in range(1, _SCRAPE_ATTEMPTS + 1):
+            try:
+                async with self._lock:
+                    await self.start()
+                    html = await self._load_html(url, source)
+                parsed = parse_book_html(source, html)
+                return build_book_data(url, source, source_id, parsed)
+            except BookScrapeError as exc:
+                if exc.key not in _RETRYABLE_KEYS or attempt == _SCRAPE_ATTEMPTS:
+                    raise
+                logger.warning(
+                    "Retrying scrape of %s (attempt %s/%s) after %s",
+                    url,
+                    attempt,
+                    _SCRAPE_ATTEMPTS,
+                    exc.key,
+                )
+                await asyncio.sleep(2 ** (attempt - 1))
+        raise AssertionError("unreachable")  # pragma: no cover
 
     async def _load_html(self, url: str, source: str) -> str:
         from playwright.async_api import Error as PlaywrightError
@@ -529,8 +560,12 @@ class ReleaseScraper:
             if source == "netgalley":
                 await self._dismiss_consent(page)
 
+            # Wait for the page's content, not just its shell, so we don't read
+            # a half-rendered page and then report a missing release date.
             selector = (
-                "#page-content" if source == "netgalley" else "main.BookPage"
+                "#page-content"
+                if source == "netgalley"
+                else "[data-testid='bookTitle'], .BookPageTitleSection__title, main.BookPage"
             )
             try:
                 await page.wait_for_selector(selector, timeout=15000)

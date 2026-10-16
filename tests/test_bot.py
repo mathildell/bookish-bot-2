@@ -1596,6 +1596,30 @@ class ParseSourceUrlTests(unittest.TestCase):
             ("netgalley", "999"),
         )
 
+    def test_netgalley_supported_regions(self) -> None:
+        for host in (
+            "www.netgalley.com",
+            "www.netgalley.co.uk",
+            "www.netgalley.fr",
+            "www.netgalley.de",
+        ):
+            with self.subTest(host=host):
+                self.assertEqual(
+                    release_sources.parse_source_url(
+                        f"https://{host}/catalog/book/1"
+                    ),
+                    ("netgalley", "1"),
+                )
+
+    def test_netgalley_unsupported_region(self) -> None:
+        with self.assertRaises(release_sources.BookScrapeError) as ctx:
+            release_sources.parse_source_url(
+                "https://www.netgalley.es/catalog/book/1"
+            )
+        self.assertEqual(
+            ctx.exception.key, "releases.errors.unsupported_region"
+        )
+
     def test_unsupported_host(self) -> None:
         with self.assertRaises(release_sources.BookScrapeError) as ctx:
             release_sources.parse_source_url("https://example.com/book/show/1")
@@ -1635,6 +1659,12 @@ class ParseDateTextTests(unittest.TestCase):
             datetime.date(2026, 10, 13),
         )
 
+    def test_two_digit_year(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text("Not yet published Expected 27 Oct 26"),
+            datetime.date(2026, 10, 27),
+        )
+
     def test_french(self) -> None:
         self.assertEqual(
             release_sources.parse_date_text("13 octobre 2026"),
@@ -1653,6 +1683,38 @@ class ParseDateTextTests(unittest.TestCase):
                 "Pub Date Oct 13 2026 | Archive Date Oct 13 2026"
             ),
             datetime.date(2026, 10, 13),
+        )
+
+    def test_netgalley_regions(self) -> None:
+        cases = {
+            "Pub Date 18.10.2026 | Archive Date 18.10.2026": datetime.date(
+                2026, 10, 18
+            ),
+            "Pub Date 8 oct. 2026 | Archive Date 8 oct. 2026": datetime.date(
+                2026, 10, 8
+            ),
+            "Pub Date Nov 17 2026 | Archive Date Nov 17 2026": datetime.date(
+                2026, 11, 17
+            ),
+            "Pub Date 11 Feb 2027 | Archive Date 11 Feb 2027": datetime.date(
+                2027, 2, 11
+            ),
+            "Pub Date 20 août 2026 | Archive Date 30 sept. 2026": datetime.date(
+                2026, 8, 20
+            ),
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(
+                    release_sources.parse_date_text(text), expected
+                )
+
+    def test_netgalley_prefers_first_date(self) -> None:
+        self.assertEqual(
+            release_sources.parse_date_text(
+                "Pub Date Nov 17 2026 | Archive Date Dec 1 2026"
+            ),
+            datetime.date(2026, 11, 17),
         )
 
     def test_missing(self) -> None:
@@ -1678,6 +1740,18 @@ class ParseGoodreadsTests(unittest.TestCase):
         self.assertEqual(parsed.image_url, "https://example.com/dom.jpg")
         self.assertEqual(parsed.tags, ["Sci-Fi"])
         self.assertIn("Blurb here.", parsed.blurb)
+
+    def test_two_digit_year_prerelease(self) -> None:
+        html = (
+            "<main class='BookPage'>"
+            "<h1 data-testid='bookTitle'>To Dream in Darkness</h1>"
+            "<div class='PreReleaseDetails'>"
+            "<span> Not yet published </span> Expected<!-- --> 27 Oct 26"
+            "</div></main>"
+        )
+        parsed = release_sources.parse_goodreads_html(html)
+        self.assertEqual(parsed.title, "To Dream in Darkness")
+        self.assertEqual(parsed.release_date, datetime.date(2026, 10, 27))
 
     def test_missing_release_date_raises(self) -> None:
         with self.assertRaises(release_sources.BookScrapeError) as ctx:
@@ -1759,6 +1833,33 @@ class ReleaseEmbedTests(unittest.TestCase):
     def test_normalize_title(self) -> None:
         self.assertEqual(
             release_service.normalize_title("  The   HOBBIT "), "the hobbit"
+        )
+
+
+class EmbedBatchTests(unittest.TestCase):
+    @staticmethod
+    def _embed(size: int) -> discord.Embed:
+        return discord.Embed(title="x" * size)
+
+    def test_caps_at_ten_per_message(self) -> None:
+        embeds = [self._embed(10) for _ in range(25)]
+        self.assertEqual(
+            [len(batch) for batch in release_service._embed_batches(embeds)],
+            [10, 10, 5],
+        )
+
+    def test_splits_on_total_size(self) -> None:
+        embeds = [self._embed(3000), self._embed(3000), self._embed(100)]
+        self.assertEqual(
+            [len(batch) for batch in release_service._embed_batches(embeds)],
+            [1, 2],
+        )
+
+    def test_single_oversized_embed_is_kept(self) -> None:
+        embeds = [self._embed(6000)]
+        self.assertEqual(
+            [len(batch) for batch in release_service._embed_batches(embeds)],
+            [1],
         )
 
     def test_escape_like(self) -> None:

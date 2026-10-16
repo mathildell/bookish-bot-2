@@ -278,6 +278,11 @@ async def edit_release(
     data = await _scrape(interaction, url)
     if data is None:
         return
+    if data.release_date <= date.today():
+        await interaction.followup.send(
+            t("releases.errors.not_in_future"), ephemeral=True
+        )
+        return
 
     service = _service(interaction)
     if book_id is not None:
