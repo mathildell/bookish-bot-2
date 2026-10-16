@@ -111,13 +111,13 @@ def _already_exists_message(existing: BookRelease, user_id: int) -> str:
         return t(
             "releases.errors.already_exists_self",
             title=title,
-            date=format_created_stamp(existing.created_at),
+            date=format_plain_date(existing.created_at.date(), year=False),
         )
     return t(
         "releases.errors.already_exists_other",
         title=title,
         member=f"<@{existing.discord_user_id}>",
-        date=format_plain_date(existing.created_at.date()),
+        date=format_plain_date(existing.created_at.date(), year=False),
     )
 
 

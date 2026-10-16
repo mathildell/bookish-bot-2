@@ -224,14 +224,21 @@ def parse_user_id(value: str) -> int | None:
     return None
 
 
-def format_plain_date(value: date) -> str:
+def format_plain_date(value: date, year=True) -> str:
     """Render a date as plain text, without a Discord timestamp."""
-    return t(
-        "releases.date.plain",
-        month=t(f"releases.months.{value.month}"),
-        day=_ordinal(value.day),
-        year=value.year,
-    )
+    if year:
+        return t(
+            "releases.date.plain",
+            month=t(f"releases.months.{value.month}"),
+            day=_ordinal(value.day),
+            year=value.year
+        )
+    else:
+        return t(
+            "releases.date.plain_without_year",
+            month=t(f"releases.months.{value.month}"),
+            day=_ordinal(value.day)
+        )
 
 
 def format_created_stamp(value: datetime) -> str:

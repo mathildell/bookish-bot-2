@@ -19,6 +19,7 @@ releases:
     goodreads: "Goodreads"
     netgalley: "NetGalley"
   date:
+    plain_without_year: "%{month} %{day}"
     plain: "%{month} %{day}, %{year}"
   added_thanks: "Thank you for adding the following book to our calendar! We will ping you in %{channel} on %{date}"
   add:
@@ -120,5 +121,5 @@ releases:
     not_in_future: "That book's release date is in the past, so it can't be tracked."
     scrape_failed: "I couldn't read that page. The link may be wrong, or the site may be blocking the bot."
     browser_missing: "There was a problem with the browser reading the provided web page."
-    already_exists_self: "You already added %{title} on %{date} doofus! If you need to update it, use `/releases update`"
-    already_exists_other: "%{title} was already added by %{member} on %{date}. Looks like you folks have the same taste, that's pretty neat!"
+    already_exists_self: "You already added **%{title}** on %{date} doofus! If you need to update it, use `/releases update`"
+    already_exists_other: "**%{title}** was already added by %{member} on %{date}. Looks like you folks have the same taste, that's pretty neat!"
