@@ -24,7 +24,7 @@ from collections.abc import Container
 from datetime import date, datetime, time, timedelta, timezone
 
 import discord
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import String, cast, delete, func, or_, select, update
 
 from ..db import session_scope
 from ..models import BookRelease, ReleaseEditDraft, ReleaseSetting
@@ -458,19 +458,25 @@ class ReleaseService:
                 )
             ).scalar_one_or_none()
 
-    async def search(self, title: str) -> list[BookRelease]:
-        normalized = normalize_title(title)
+    async def search(self, keyword: str) -> list[BookRelease]:
+        """Books whose title or any author contains ``keyword``."""
+        normalized = normalize_title(keyword)
         if not normalized:
             return []
+        term = f"%{_escape_like(normalized)}%"
         async with session_scope() as session:
             rows = (
                 await session.execute(
                     select(BookRelease)
                     .where(
                         BookRelease.guild_id == self.guild_id,
-                        func.lower(BookRelease.title).like(
-                            f"%{_escape_like(normalized)}%",
-                            escape=_LIKE_ESCAPE,
+                        or_(
+                            func.lower(BookRelease.title).like(
+                                term, escape=_LIKE_ESCAPE
+                            ),
+                            func.lower(
+                                cast(BookRelease.authors, String)
+                            ).like(term, escape=_LIKE_ESCAPE),
                         ),
                     )
                     .order_by(BookRelease.release_date, BookRelease.title)

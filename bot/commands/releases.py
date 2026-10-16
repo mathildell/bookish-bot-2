@@ -363,16 +363,20 @@ async def update_release(
     )
 
 
-@releases_group.command(name="find", description=t("releases.find.description"))
-@app_commands.describe(title=t("releases.find.param_title"))
-async def find_release(interaction: discord.Interaction, title: str) -> None:
+@releases_group.command(
+    name="search", description=t("releases.search.description")
+)
+@app_commands.describe(keyword=t("releases.search.param_keyword"))
+async def search_release(
+    interaction: discord.Interaction, keyword: str
+) -> None:
     await interaction.response.defer(ephemeral=True)
-    books = await _service(interaction).search(title)
+    books = await _service(interaction).search(keyword)
     if not books:
         await interaction.followup.send(
             t(
-                "releases.find.not_found",
-                title=discord.utils.escape_markdown(title),
+                "releases.search.not_found",
+                keyword=discord.utils.escape_markdown(keyword),
             ),
             ephemeral=True,
         )
@@ -471,33 +475,6 @@ async def set_role(
     await _service(interaction).set_ping_role(role.id)
     await interaction.response.send_message(
         t("releases.role.set.success", role=role.mention)
-    )
-
-
-@role_group.command(name="clear", description=t("releases.role.clear.description"))
-async def clear_role(interaction: discord.Interaction) -> None:
-    if not await require_admin(interaction):
-        return
-    await _service(interaction).set_ping_role(None)
-    await interaction.response.send_message(
-        t("releases.role.clear.success")
-    )
-
-
-@role_group.command(name="view", description=t("releases.role.view.description"))
-async def view_role(interaction: discord.Interaction) -> None:
-    service = _service(interaction)
-    if not service.ping_role_id:
-        await interaction.response.send_message(
-            t("releases.role.view.none"), ephemeral=True
-        )
-        return
-    await interaction.response.send_message(
-        t(
-            "releases.role.view.current",
-            role=f"<@&{service.ping_role_id}>",
-        ),
-        ephemeral=True,
     )
 
 

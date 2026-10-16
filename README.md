@@ -209,11 +209,12 @@ Re-scrape a tracked book and show a before/after preview with a confirm button.
 changed and the URL no longer matches the stored book.
 
 ```
-/releases find title:
+/releases search keyword:
 ```
 **Permissions:** Everyone
-Check whether a book is already tracked; if it is, its details are shown,
-otherwise the bot explains how to add it.
+Search tracked books by title or author. Matches are listed (paginated when
+there are many), with each book's description; if nothing matches, the bot says
+so and explains how to add it.
 
 ```
 /releases list
@@ -245,18 +246,6 @@ Set the channel where release announcements are posted.
 ```
 **Permissions:** 🔒 Admin
 Set the role pinged with release announcements.
-
-```
-/releases role clear
-```
-**Permissions:** 🔒 Admin
-Stop pinging a role with announcements.
-
-```
-/releases role view
-```
-**Permissions:** Everyone
-Show the role pinged with announcements.
 
 ```
 /releases force daily

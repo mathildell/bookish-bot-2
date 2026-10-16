@@ -43,10 +43,10 @@ releases:
     cancelled: "Update cancelled."
     expired: "This update has expired. Run the command again."
     not_found: "No tracked book matches that URL, id or handle. Use `/releases add` to add it."
-  find:
-    description: "Check whether a book is already tracked"
-    param_title: "Book title (or part of it) to search for"
-    not_found: "**%{title}** isn't tracked yet. Add it with `/releases add url:` using its Goodreads or NetGalley link."
+  search:
+    description: "Search tracked books by title or author"
+    param_keyword: "Keyword to match against titles and authors"
+    not_found: "No tracked book matches **%{keyword}**. Add one with `/releases add url:` using its Goodreads or NetGalley link."
   view:
     description: "Show one tracked book"
     param_book: "Numeric id or handle of the tracked book"
@@ -73,13 +73,6 @@ releases:
       description: "Set the role to ping with announcements"
       param_role: "Role to ping"
       success: "Announcements will ping %{role}."
-    clear:
-      description: "Stop pinging a role with announcements"
-      success: "Announcements will no longer ping a role."
-    view:
-      description: "Show the role pinged with announcements"
-      none: "No announcement role is set."
-      current: "Announcement role: %{role}"
   force:
     group_description: "Force the bot to post an announcement now"
     no_channel: "No release channel is set. Use `/releases channel set` first."
