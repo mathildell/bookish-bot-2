@@ -180,6 +180,11 @@ def streak_deadline(last_log_date: date, tz_name: str) -> datetime:
     return datetime.combine(close_day, time(0, 0), ZoneInfo(tz_name))
 
 
+def day_end(day: date, tz_name: str) -> datetime:
+    """Local midnight at the end of ``day`` (the start of the next day)."""
+    return datetime.combine(day + timedelta(days=1), time(0, 0), ZoneInfo(tz_name))
+
+
 def rescue_kind_for_closed(
     end_date: date, tz_name: str, now_utc: datetime
 ) -> str | None:
@@ -639,13 +644,8 @@ class StreakService:
                 closes_at=None,
             )
         last_date = streak.last_log_date if streak is not None else None
-        closes_at = None
-        if (
-            streak is not None
-            and streak.status == STATUS_ONGOING
-            and streak.last_log_date is not None
-        ):
-            closes_at = streak_deadline(streak.last_log_date, goal.timezone)
+        closed = streak is not None and streak.status == STATUS_CLOSED
+        closes_at = None if closed else day_end(today, goal.timezone)
         return TodayStatus(
             goal=goal,
             logged=False,

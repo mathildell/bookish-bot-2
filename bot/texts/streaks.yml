@@ -68,7 +68,7 @@ streaks:
     amount_param: "How many (pages, minutes, chapters...)"
     unit_param: "Unit (pages, minutes, chapters...)"
     timezone_modal_title: "Your timezone"
-    timezone_param: "Your timezone, spelled out (e.g. Europe/Paris)"
+    timezone_param: "Your timezone (e.g. Europe/Paris)"
     reminders_title: "Pick your reminder option"
     reminders_description: "%{options}"
     confirmed_title: "Updated"
@@ -102,6 +102,7 @@ streaks:
     description: "Inspect a streak"
     param_user: "Whose streak (defaults to you)"
     title: "%{user}'s streak"
+    no_streak: "No streak yet — you haven't logged a single day. Run `/streaks log` once you've read your daily amount."
 
   info:
     closed_field: "Closed"

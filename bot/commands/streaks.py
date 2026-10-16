@@ -310,7 +310,7 @@ def _view_embed(
         user=discord.utils.escape_markdown(member.display_name),
     )
     if streak is None:
-        embed.description = t("streaks.errors.not_registered")
+        embed.description = t("streaks.view.no_streak")
         _add_goal_fields(embed, goal)
         set_transparent_image(embed, client)
         return embed

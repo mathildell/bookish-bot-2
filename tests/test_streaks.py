@@ -13,6 +13,7 @@ import unittest
 from datetime import date, datetime
 from types import SimpleNamespace
 
+from bot.commands import streaks as command_streaks
 from bot.services import streaks
 from bot.texts import MissingText, t, t_choice
 
@@ -124,6 +125,10 @@ class TimezoneTests(unittest.TestCase):
     def test_deadline_is_midnight_two_days_later(self) -> None:
         deadline = streaks.streak_deadline(date(2024, 1, 1), "UTC")
         self.assertEqual(deadline.replace(tzinfo=None), datetime(2024, 1, 3, 0, 0))
+
+    def test_day_end_is_next_midnight(self) -> None:
+        end = streaks.day_end(date(2024, 1, 1), "UTC")
+        self.assertEqual(end.replace(tzinfo=None), datetime(2024, 1, 2, 0, 0))
 
     def test_valid_timezone(self) -> None:
         self.assertEqual(
@@ -263,6 +268,21 @@ class TextChoiceTests(unittest.TestCase):
     def test_unknown_key_raises(self) -> None:
         with self.assertRaises(MissingText):
             t_choice("streaks.nope.missing")
+
+
+class ModalLimitTests(unittest.TestCase):
+    def test_modal_titles_and_labels_fit_discord_limits(self) -> None:
+        goal = SimpleNamespace(
+            amount=30, unit="pages", timezone="America/Toronto"
+        )
+        modals = [
+            command_streaks._AmountUnitModal(goal),
+            command_streaks._TimezoneModal(goal),
+        ]
+        for modal in modals:
+            self.assertLessEqual(len(modal.title), 45, modal.title)
+            for item in modal.children:
+                self.assertLessEqual(len(item.label), 45, item.label)
 
 
 if __name__ == "__main__":
