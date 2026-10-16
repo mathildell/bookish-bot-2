@@ -143,6 +143,7 @@ def build_book_embed(
     client: discord.Client,
     *,
     prefix: str | None = None,
+    include_blurb: bool = True,
 ) -> discord.Embed:
     """Build the embed shown for a single release (command or announcement)."""
     embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
@@ -181,7 +182,7 @@ def build_book_embed(
     )
 
     blurb = getattr(book, "blurb", None)
-    if blurb and blurb.strip():
+    if include_blurb and blurb and blurb.strip():
         embed.add_field(
             name=t("releases.embed.description_field"),
             value=_truncate(blurb, BLURB_LIMIT),
@@ -627,6 +628,43 @@ class ReleaseService:
         await self._maybe_post_monthly(guild, channel, client, today)
         return posted
 
+    async def force_post_daily(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+    ) -> int:
+        """Post today's releases, even ones already announced."""
+        async with self._post_lock:
+            books = await self._today_releases(date.today())
+            return await self._post_daily(guild, channel, client, books)
+
+    async def force_post_monthly(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+    ) -> int:
+        """Post the current month's overview, ignoring the monthly marker."""
+        async with self._post_lock:
+            return await self._post_monthly(
+                guild, channel, client, date.today()
+            )
+
+    async def _today_releases(self, today: date) -> list[BookRelease]:
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BookRelease)
+                    .where(
+                        BookRelease.guild_id == self.guild_id,
+                        BookRelease.release_date == today,
+                    )
+                    .order_by(BookRelease.title)
+                )
+            ).scalars()
+        return list(rows)
+
     async def _due_releases(self, today: date) -> list[BookRelease]:
         async with session_scope() as session:
             rows = (
@@ -716,7 +754,16 @@ class ReleaseService:
         period = today.strftime("%Y-%m")
         if self._last_monthly_post == period:
             return
+        await self._post_monthly(guild, channel, client, today)
 
+    async def _post_monthly(
+        self,
+        guild: discord.Guild,
+        channel: discord.abc.Messageable,
+        client: discord.Client,
+        today: date,
+    ) -> int:
+        period = today.strftime("%Y-%m")
         books = await self.month_releases(today.year, today.month)
         if books:
             month_name = t(f"releases.months.{today.month}")
@@ -750,3 +797,4 @@ class ReleaseService:
                 first = False
 
         await self.mark_monthly_posted(period)
+        return len(books)

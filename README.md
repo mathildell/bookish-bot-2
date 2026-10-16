@@ -239,12 +239,6 @@ Remove a tracked book.
 Set the channel where release announcements are posted.
 
 ```
-/releases channel view
-```
-**Permissions:** Everyone
-Show the current release announcements channel.
-
-```
 /releases role set role:
 ```
 **Permissions:** 🔒 Admin
@@ -261,6 +255,18 @@ Stop pinging a role with announcements.
 ```
 **Permissions:** Everyone
 Show the role pinged with announcements.
+
+```
+/releases force daily
+```
+**Permissions:** 🔒 Admin
+Post today's release announcement right now, even for books already announced.
+
+```
+/releases force monthly
+```
+**Permissions:** 🔒 Admin
+Post this month's release overview right now, even if it was already posted.
 
 ## Introductions
 

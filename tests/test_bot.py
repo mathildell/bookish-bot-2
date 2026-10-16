@@ -876,6 +876,15 @@ class HtmlToMarkdownTests(unittest.TestCase):
         result = reviews_service.html_to_markdown("a<br /><br /><br />b")
         self.assertEqual(result, "a\n\nb")
 
+    def test_whitespace_inside_emphasis_is_moved_outside(self) -> None:
+        result = reviews_service.html_to_markdown("hello<i> italic </i>world")
+        self.assertEqual(result, "hello *italic* world")
+
+    def test_empty_emphasis_is_dropped(self) -> None:
+        result = reviews_service.html_to_markdown("<i>\n<b>Bold</b>\n</i><br/><br/>Rest")
+        self.assertEqual(result, "***Bold***\n\nRest")
+        self.assertEqual(reviews_service.html_to_markdown("<i>   </i>none"), "none")
+
 
 class FormatRatingTests(unittest.TestCase):
     def test_whole_and_decimal(self) -> None:
@@ -1865,6 +1874,16 @@ class ReleaseEmbedTests(unittest.TestCase):
         embed = discord.Embed(title="No url")
         release_service.disambiguate_embed_urls([embed])
         self.assertIsNone(embed.url)
+
+    def test_blurb_can_be_omitted(self) -> None:
+        book = self._Book(blurb="A thrilling tale.")
+        field = t("releases.embed.description_field")
+        with_blurb = release_service.build_book_embed(book, None, FakeClient())
+        without_blurb = release_service.build_book_embed(
+            book, None, FakeClient(), include_blurb=False
+        )
+        self.assertIn(field, [f.name for f in with_blurb.fields])
+        self.assertNotIn(field, [f.name for f in without_blurb.fields])
 
 
 class BookReferenceTests(unittest.TestCase):

@@ -32,11 +32,13 @@ class _HtmlToMarkdown(HTMLParser):
         self.parts: list[str] = []
         self._anchors: list[str | None] = []
         self._spans: list[bool] = []
+        self._inlines: list[tuple[str, int]] = []
 
     def handle_starttag(self, tag: str, attrs: list) -> None:
         attributes = dict(attrs)
         if tag in self._INLINE:
             self.parts.append(self._INLINE[tag])
+            self._inlines.append((tag, len(self.parts) - 1))
         elif tag == "br":
             self.parts.append("\n")
         elif tag in ("p", "div"):
@@ -60,7 +62,7 @@ class _HtmlToMarkdown(HTMLParser):
 
     def handle_endtag(self, tag: str) -> None:
         if tag in self._INLINE:
-            self.parts.append(self._INLINE[tag])
+            self._close_inline(tag)
         elif tag in ("p", "div"):
             self.parts.append("\n")
         elif tag == "blockquote":
@@ -75,6 +77,24 @@ class _HtmlToMarkdown(HTMLParser):
 
     def handle_data(self, data: str) -> None:
         self.parts.append(data)
+
+    def _close_inline(self, tag: str) -> None:
+        marker = self._INLINE[tag]
+        if not (self._inlines and self._inlines[-1][0] == tag):
+            self.parts.append(marker)
+            return
+        _, index = self._inlines.pop()
+        inner = "".join(self.parts[index + 1 :])
+        if not inner.strip():
+            del self.parts[index:]
+            return
+        # Keep the surrounding whitespace outside the markers; a marker next to
+        # whitespace is rendered literally by Discord instead of as emphasis.
+        leading = inner[: len(inner) - len(inner.lstrip())]
+        trailing = inner[len(inner.rstrip()) :]
+        self.parts[index] = leading + self.parts[index]
+        self.parts[index + 1 :] = [inner.strip()]
+        self.parts.append(marker + trailing)
 
 
 def html_to_markdown(value: str) -> str:

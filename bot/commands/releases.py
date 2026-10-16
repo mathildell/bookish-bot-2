@@ -34,7 +34,7 @@ from .listing import EMBEDS_PER_PAGE, Paginator, chunked, send_paginated
 
 logger = logging.getLogger("bh2.releases")
 
-RELEASE_EMBEDS_PER_PAGE = 4
+RELEASE_EMBEDS_PER_PAGE = 5
 
 releases_group = app_commands.Group(
     name="releases",
@@ -53,9 +53,27 @@ role_group = app_commands.Group(
     parent=releases_group,
 )
 
+force_group = app_commands.Group(
+    name="force",
+    description=t("releases.force.group_description"),
+    parent=releases_group,
+)
+
 
 def _service(interaction: discord.Interaction) -> ReleaseService:
     return interaction.client.releases
+
+
+def _announcement_channel(
+    interaction: discord.Interaction, service: ReleaseService
+) -> discord.abc.Messageable | None:
+    if not service.channel_id:
+        return None
+    if interaction.guild is not None:
+        channel = interaction.guild.get_channel(service.channel_id)
+        if channel is not None:
+            return channel
+    return interaction.client.get_channel(service.channel_id)
 
 
 async def _scrape(
@@ -122,7 +140,7 @@ class _ReleaseListSource:
             self._guild, [book.discord_user_id for book in books]
         )
         return [
-            build_book_embed(book, member, self._client)
+            build_book_embed(book, member, self._client, include_blurb=False)
             for book, member in zip(books, members)
         ]
 
@@ -433,25 +451,6 @@ async def set_channel(
     )
 
 
-@channel_group.command(
-    name="view", description=t("releases.channel.view.description")
-)
-async def view_channel(interaction: discord.Interaction) -> None:
-    service = _service(interaction)
-    if not service.channel_id:
-        await interaction.response.send_message(
-            t("releases.channel.view.none"), ephemeral=True
-        )
-        return
-    await interaction.response.send_message(
-        t(
-            "releases.channel.view.current",
-            channel=f"<#{service.channel_id}>",
-        ),
-        ephemeral=True,
-    )
-
-
 @role_group.command(name="set", description=t("releases.role.set.description"))
 @app_commands.describe(role=t("releases.role.set.param_role"))
 async def set_role(
@@ -487,6 +486,62 @@ async def view_role(interaction: discord.Interaction) -> None:
         t(
             "releases.role.view.current",
             role=f"<@&{service.ping_role_id}>",
+        ),
+        ephemeral=True,
+    )
+
+
+@force_group.command(
+    name="daily", description=t("releases.force.daily.description")
+)
+async def force_daily(interaction: discord.Interaction) -> None:
+    if not await require_admin(interaction):
+        return
+    await interaction.response.defer(ephemeral=True)
+    service = _service(interaction)
+    channel = _announcement_channel(interaction, service)
+    if channel is None:
+        await interaction.followup.send(
+            t("releases.force.no_channel"), ephemeral=True
+        )
+        return
+    count = await service.force_post_daily(
+        interaction.guild, channel, interaction.client
+    )
+    await interaction.followup.send(
+        t(
+            "releases.force.daily.success"
+            if count
+            else "releases.force.daily.none",
+            count=count,
+        ),
+        ephemeral=True,
+    )
+
+
+@force_group.command(
+    name="monthly", description=t("releases.force.monthly.description")
+)
+async def force_monthly(interaction: discord.Interaction) -> None:
+    if not await require_admin(interaction):
+        return
+    await interaction.response.defer(ephemeral=True)
+    service = _service(interaction)
+    channel = _announcement_channel(interaction, service)
+    if channel is None:
+        await interaction.followup.send(
+            t("releases.force.no_channel"), ephemeral=True
+        )
+        return
+    count = await service.force_post_monthly(
+        interaction.guild, channel, interaction.client
+    )
+    await interaction.followup.send(
+        t(
+            "releases.force.monthly.success"
+            if count
+            else "releases.force.monthly.none",
+            count=count,
         ),
         ephemeral=True,
     )

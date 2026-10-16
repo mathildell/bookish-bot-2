@@ -103,7 +103,7 @@ bot/
     level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
-    releases.py            /releases group + add/update/find/list/view/remove, channel, role
+    releases.py            /releases group + add/update/find/list/view/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)

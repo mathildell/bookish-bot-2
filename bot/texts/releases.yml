@@ -33,10 +33,10 @@ releases:
     instruction_title: "Confirmation"
     instruction_body: |
       **Please confirm this is the book you want to update in the calendar:**
-      - The first embed is the book we currently have in our database, with all the information we have for it.
-      - The second embed is the information we fetched from the URL, which will override the saved details.
+      - :one: The first container is the book we currently have in our calendar, with all the information available at the time.
+      - :two: The second container is the information we fetched from the URL provided, which will override the previously saved details.
 
-      If this doesn't look right, please feel free to ignore this message (click *"Dismiss message"* underneath).
+      If this doesn't look right, please feel free to ignore this message (click *"Dismiss message"* underneath) or Cancel.
     cancel: "Cancel"
     updated: "Updated **%{title}**."
     confirmed: "Update confirmed."
@@ -67,10 +67,6 @@ releases:
       description: "Set the release announcements channel"
       param_channel: "Channel for release announcements"
       success: "Release announcements will be posted in %{channel}."
-    view:
-      description: "Show the release announcements channel"
-      none: "No release channel is set yet."
-      current: "Release announcements channel: %{channel}"
   role:
     group_description: "Role pinged with release announcements"
     set:
@@ -84,6 +80,17 @@ releases:
       description: "Show the role pinged with announcements"
       none: "No announcement role is set."
       current: "Announcement role: %{role}"
+  force:
+    group_description: "Force the bot to post an announcement now"
+    no_channel: "No release channel is set. Use `/releases channel set` first."
+    daily:
+      description: "Post today's release announcement now"
+      success: "Posted today's announcement for %{count} book(s)."
+      none: "No books are releasing today."
+    monthly:
+      description: "Post this month's release overview now"
+      success: "Posted this month's overview for %{count} book(s)."
+      none: "No books are releasing this month."
   embed:
     untitled_book: "Untitled"
     title_suffix: " ‎ ↗️ ‎ (%{source})"
