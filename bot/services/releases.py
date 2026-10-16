@@ -213,7 +213,6 @@ def build_book_embed(
 def build_confirm_embed(client: discord.Client) -> discord.Embed:
     """The instructions embed shown above the update preview buttons."""
     embed = discord.Embed(
-        colour=getattr(client, "default_embed_color", None),
         title=t("releases.update.instruction_title"),
         description=t("releases.update.instruction_body"),
     )
@@ -227,8 +226,8 @@ def disambiguate_embed_urls(embeds: list[discord.Embed]) -> None:
     """Give each embed a unique top-level ``url``, in place.
 
     Discord shows only the first embed of a group that shares a ``url`` (the
-    rest are folded into its image gallery), which would hide the "AFTER"
-    preview since it points at the same page as "BEFORE".
+    rest are folded into its image gallery), which would hide the second
+    preview since it points at the same page as the first.
     """
     for index, embed in enumerate(embeds):
         if embed.url:

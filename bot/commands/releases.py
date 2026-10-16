@@ -177,7 +177,9 @@ class ReleaseConfirmView(discord.ui.View):
         return True
 
     @discord.ui.button(
-        label=t("releases.update.confirm"), style=discord.ButtonStyle.success
+        label=t("releases.update.confirm"),
+        emoji=t("releases.update.confirm_emoji"),
+        style=discord.ButtonStyle.success,
     )
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button

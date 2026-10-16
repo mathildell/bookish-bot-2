@@ -26,9 +26,10 @@ releases:
     description: "Refresh a tracked book from its URL"
     param_url: "Goodreads or NetGalley URL for the book"
     param_book_id: "Numeric id of the book to update, if its title changed"
-    old_prefix: "BEFORE"
-    new_prefix: "AFTER"
+    old_prefix: ":one:"
+    new_prefix: ":two:"
     confirm: "Confirm update"
+    confirm_emoji: "✅"
     instruction_title: "Confirmation"
     instruction_body: |
       **Please confirm this is the book you want to update in the calendar:**
