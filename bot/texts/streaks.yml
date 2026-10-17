@@ -25,7 +25,6 @@ streaks:
       last_chance: "A nudge an hour before midnight, if you've slacked."
       both: "A nudge at %{hour}, plus the pre-midnight guilt trip."
     reminder_options: |
-      ## Pick your reminder option:
       ### ❌  ‎ None
       > You will not be pinged for streak reminders
       ### 🕑  ‎ Custom time
@@ -49,6 +48,7 @@ streaks:
       ```
       /streaks edit
       ``` 
+      ## Pick your reminder option:
       %{options}
     custom_title: "Pick your hour"
     custom_description: "Pick any hour from 1AM to 10PM. **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."

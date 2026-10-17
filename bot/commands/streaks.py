@@ -87,15 +87,14 @@ def _slots(
     streak: Streak, logs: list[StreakLog], goal: StreakGoal, *, highlight: bool
 ) -> str:
     today = streak_service.local_date(streak_service.utcnow(), goal.timezone)
-    return "".join(
-        streak_service.window_slots(
-            logs,
-            days_logged=streak.days_logged,
-            highlight_today=highlight,
-            today=today,
-            icons=_icons(),
-        )
+    slots = streak_service.window_slots(
+        logs,
+        days_logged=streak.days_logged,
+        highlight_today=highlight,
+        today=today,
+        icons=_icons(),
     )
+    return "# " + " \u200e ".join(slots)
 
 
 def _window_successes(streak: Streak, logs: list[StreakLog]) -> int:
