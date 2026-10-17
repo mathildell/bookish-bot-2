@@ -358,7 +358,7 @@ def _view_embed(
         embed.add_field(
             name=t("streaks.info.closes_field"),
             value=t("streaks.info.closes_value", ts=int(closes.timestamp())),
-            inline=False,
+            inline=True,
         )
     elif streak.end_date is not None:
         embed.add_field(
