@@ -18,7 +18,8 @@ Usage (from the repository root, with config.yaml present):
     # Generate a random streak of N logged days with every derived field
     # (level, coupons, XP) computed exactly as the game would. The last log
     # defaults to yesterday; pass --last-log YYYY-MM-DD to move it, and --seed
-    # to make the random outcomes repeatable.
+    # to make the random outcomes repeatable. A last log older than yesterday
+    # seeds the streak closed, so the rescue flow can be tested too.
     .venv/bin/python scripts/streak_state.py 123456789 random --days 49
     .venv/bin/python scripts/streak_state.py 123456789 random --days 49 \
         --last-log 2026-10-01 --seed 7
@@ -554,12 +555,13 @@ async def _coupon_shown(ctx: Context) -> None:
 
 
 async def _random_state(ctx: Context) -> str:
-    """A random ongoing streak of ``--days`` logged days, fully derived.
+    """A random streak of ``--days`` logged days, fully derived.
 
     What you see: ``/streaks view`` -> ``--days`` random days ending on
     ``--last-log`` (yesterday by default), with the level, coupons, last XP and
     next-XP projection seeded exactly as the normal logging flow would have
-    produced them.
+    produced them. When ``--last-log`` is older than yesterday the streak is
+    seeded closed, so the repair flow is offered while the rescue window lasts.
     How: each day is randomly successful (60%), failed (30%) or zero (10%). The
     completed windows pay their successes' share of the level XP (doubled on a
     365-day anniversary), one normal rescue is granted per completed level, and
@@ -568,6 +570,8 @@ async def _random_state(ctx: Context) -> str:
     days = ctx.days or 0
     rng = ctx.rng or random.Random()
     last_log = ctx.last_log or (ctx.today - timedelta(days=1))
+    is_closed = last_log < ctx.today - timedelta(days=1)
+    closed_end = last_log + timedelta(days=1)
     outcomes = rng.choices(
         [SUCCESS, FAILED, ZERO], weights=[60, 30, 10], k=days
     )
@@ -605,6 +609,8 @@ async def _random_state(ctx: Context) -> str:
         end_day=last_log,
         days_logged=days,
         level=level,
+        status=CLOSED if is_closed else ONGOING,
+        end_date=closed_end if is_closed else None,
         rescues_available=level,
         golden_available=golden,
         last_xp_amount=last_award,
@@ -627,10 +633,17 @@ async def _random_state(ctx: Context) -> str:
         lines.append(
             f"Current window: {successes_so_far} of {remainder} days successful."
         )
-    if last_log < ctx.today - timedelta(days=1):
+    if is_closed:
+        rescue_kind = streak_service.rescue_kind_for_closed(
+            closed_end, ctx.timezone, streak_service.utcnow()
+        )
         lines.append(
-            "Note: a real streak whose last log is older than yesterday would "
-            "already be closed; this one is seeded as ongoing."
+            f"Streak seeded closed (end_date {closed_end.isoformat()}); "
+            + (
+                f"{rescue_kind} rescue available."
+                if rescue_kind
+                else "past the rescue window."
+            )
         )
     return "\n".join(lines)
 
