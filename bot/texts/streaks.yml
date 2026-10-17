@@ -5,10 +5,10 @@ streaks:
     upcoming: "⚫"
     success: "<:strsuccess:1561017658508316843>"
     success_today: "<a:strsuccesstoday:1561017657241772104>"
-    partial: "<:strfailure2:1561071578685644840>"
-    zero: "<:strzero2:1561071579855716422>"
+    partial: "<:strfailure:1561071578685644840>"
+    zero: "<:strzero:1561071579855716422>"
     rescue: "<:rescue:1561068364263198750>"
-    golden: "<a:golden:1561068328259297350>"
+    golden: "<a:golden:1561080719881801939>"
 
   shared:
     goal_field: "Daily goal"
@@ -65,7 +65,7 @@ streaks:
     amount_unit_button: "Amount & unit"
     timezone_button: "Timezone"
     reminders_button: "Reminders"
-    button_on_view: "Edit this streak"
+    button_on_view: "Edit your goal"
     amount_modal_title: "Daily amount & unit"
     amount_param: "How many (pages, minutes, chapters...)"
     unit_param: "Unit (pages, minutes, chapters...)"
