@@ -120,7 +120,7 @@ def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
             "streaks.shared.timezone_value",
             timezone=goal.timezone,
             current=_format_datetime(
-                day: streak_service.local_date(streak_service.utcnow(), goal.timezone)
+                streak_service.local_date(streak_service.utcnow(), goal.timezone)
             ),
         ),
         inline=True,
