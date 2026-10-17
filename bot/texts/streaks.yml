@@ -86,7 +86,7 @@ streaks:
     level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
     level_up_anniversary: " And a full year, no less. I've put a note in the channel."
     achievement_field: "Daily achievement"
-    achievement_success_value: "You reached %{percent}% of your goal of %{amount} %{unit} today!"
+    achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
     achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
     dry_run: "Dry run is on, so that **%{xp} XP** stays imaginary for now. It did not reach your pool."
 
