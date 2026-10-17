@@ -427,6 +427,11 @@ class Streak(Base):
     total_xp_awarded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     last_xp_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # XP already paid for the streak's current completed level window. Kept so
+    # that topping a just-completed 5th day up to 100% pays only the difference,
+    # and so a later lower re-log cannot claw XP back.
+    window_xp_paid: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     last_log_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # Reminder idempotency across restarts (local date last pinged on)
     last_custom_reminder_on: Mapped[date | None] = mapped_column(Date, nullable=True)

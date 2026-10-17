@@ -263,10 +263,17 @@ def window_slots(
     """Render the current level's five slots, oldest day first.
 
     ``logs`` must be ordered oldest-first. Only the trailing partial group of
-    the current level matters, so purged history does not interfere.
+    the current level matters, so purged history does not interfere. A just
+    completed window (``days_logged`` is a multiple of five) keeps showing its
+    five days until the local day rolls over, rather than resetting to blanks.
     """
     remainder = days_logged % LEVEL_THRESHOLD
-    window = logs[-remainder:] if remainder else []
+    if remainder:
+        window = logs[-remainder:]
+    elif logs and logs[-1].log_date == today:
+        window = logs[-LEVEL_THRESHOLD:]
+    else:
+        window = []
     return [
         slot_emoji(
             window[index] if index < len(window) else None,
@@ -347,6 +354,7 @@ class LevelProgress:
     golden_granted: int
     anniversary: bool
     dry_run: bool = False
+    top_up: bool = False
     xp_old_level: int | None = None
     xp_new_level: int | None = None
 
@@ -459,7 +467,12 @@ async def _apply_level_progress(
     now: datetime,
     dry_run: bool = False,
 ) -> LevelProgress:
-    """Pay and reward any levels completed by the latest log."""
+    """Pay and reward any levels completed by the latest log.
+
+    Also tops up a just-completed window when the member raises their final day
+    to reach the goal: the window is repaid up to its full value, but never
+    clawed back (so a later lower re-log keeps the XP already earned).
+    """
     previous_level = streak.level
     progress = LevelProgress(
         previous_level=previous_level,
@@ -472,47 +485,77 @@ async def _apply_level_progress(
         dry_run=dry_run,
     )
     target_level = streak.days_logged // LEVEL_THRESHOLD
-    if target_level <= previous_level:
+
+    if target_level > previous_level:
+        new_levels = target_level - previous_level
+        recent = await _recent_logs(
+            session, streak_id=streak.id, limit=new_levels * LEVEL_THRESHOLD
+        )
+        total_award = 0
+        last_award = 0
+        for step in range(new_levels):
+            level = previous_level + 1 + step
+            window = recent[step * LEVEL_THRESHOLD : (step + 1) * LEVEL_THRESHOLD]
+            successes = sum(1 for entry in window if entry.outcome == OUTCOME_SUCCESS)
+            award = window_xp(level, successes)
+            anniversary = (level * LEVEL_THRESHOLD) % 365 == 0
+            if anniversary:
+                award *= 2
+            total_award += award
+            last_award = award
+            streak.rescues_available += 1
+            progress.rescues_granted += 1
+            if anniversary or level % 50 == 0:
+                streak.golden_available += 1
+                progress.golden_granted += 1
+            progress.level = level
+            progress.anniversary = progress.anniversary or anniversary
+
+        streak.level = target_level
+        streak.window_xp_paid = last_award
+        progress.leveled = True
+        progress.xp_awarded = total_award
+
+        if total_award > 0:
+            streak.last_xp_amount = last_award
+            streak.total_xp_awarded += total_award
+            streak.last_xp_at = now
+            if not dry_run:
+                change = await level_service.add_xp(
+                    session, guild_id=guild_id, user_id=user_id, amount=total_award
+                )
+                progress.xp_old_level = change.old_level
+                progress.xp_new_level = change.new_level
         return progress
 
-    new_levels = target_level - previous_level
-    recent = await _recent_logs(
-        session, streak_id=streak.id, limit=new_levels * LEVEL_THRESHOLD
-    )
-    total_award = 0
-    last_award = 0
-    for step in range(new_levels):
-        level = previous_level + 1 + step
-        window = recent[step * LEVEL_THRESHOLD : (step + 1) * LEVEL_THRESHOLD]
+    # No new level was crossed: the window may have just been completed earlier
+    # today and is only now being topped up to reach the goal.
+    if (
+        streak.level > 0
+        and streak.days_logged % LEVEL_THRESHOLD == 0
+        and streak.level == streak.days_logged // LEVEL_THRESHOLD
+    ):
+        window = await _recent_logs(
+            session, streak_id=streak.id, limit=LEVEL_THRESHOLD
+        )
         successes = sum(1 for entry in window if entry.outcome == OUTCOME_SUCCESS)
-        award = window_xp(level, successes)
-        anniversary = (level * LEVEL_THRESHOLD) % 365 == 0
-        if anniversary:
+        award = window_xp(streak.level, successes)
+        if (streak.level * LEVEL_THRESHOLD) % 365 == 0:
             award *= 2
-        total_award += award
-        last_award = award
-        streak.rescues_available += 1
-        progress.rescues_granted += 1
-        if anniversary or level % 50 == 0:
-            streak.golden_available += 1
-            progress.golden_granted += 1
-        progress.level = level
-        progress.anniversary = progress.anniversary or anniversary
-
-    streak.level = target_level
-    progress.leveled = True
-    progress.xp_awarded = total_award
-
-    if total_award > 0:
-        streak.last_xp_amount = last_award
-        streak.total_xp_awarded += total_award
-        streak.last_xp_at = now
-        if not dry_run:
-            change = await level_service.add_xp(
-                session, guild_id=guild_id, user_id=user_id, amount=total_award
-            )
-            progress.xp_old_level = change.old_level
-            progress.xp_new_level = change.new_level
+        difference = award - streak.window_xp_paid
+        if difference > 0:
+            streak.window_xp_paid = award
+            streak.last_xp_amount = award
+            streak.total_xp_awarded += difference
+            streak.last_xp_at = now
+            progress.top_up = True
+            progress.xp_awarded = difference
+            if not dry_run:
+                change = await level_service.add_xp(
+                    session, guild_id=guild_id, user_id=user_id, amount=difference
+                )
+                progress.xp_old_level = change.old_level
+                progress.xp_new_level = change.new_level
     return progress
 
 
@@ -821,12 +864,12 @@ class StreakService:
                 patched += 1
                 cursor += timedelta(days=1)
 
-            if moved:
-                streak.days_logged += 1
-                streak.last_log_date = target
-            elif patched:
-                streak.days_logged += patched
-                streak.last_log_date = target - timedelta(days=1)
+            added = patched + (1 if moved else 0)
+            if added:
+                streak.days_logged += added
+                streak.last_log_date = (
+                    target if moved else target - timedelta(days=1)
+                )
 
             if kind == RESCUE_NORMAL:
                 streak.rescues_available -= 1

@@ -19,6 +19,8 @@ from ..services.level_rewards import sync_member_roles
 from ..services.members import resolve_members
 from ..services.streaks import (
     LEVEL_THRESHOLD,
+    RESCUE_GOLDEN,
+    STATUS_CLOSED,
     Streak,
     StreakGoal,
     StreakLog,
@@ -26,7 +28,7 @@ from ..services.streaks import (
     search_timezones,
     valid_timezone,
 )
-from ..texts import t
+from ..texts import t, t_choice
 from .checks import require_admin
 from .listing import new_embed, set_author, set_transparent_image
 
@@ -159,6 +161,17 @@ async def _handle_progress(
     """Apply XP reward roles and celebrate an anniversary, if any."""
     if not progress.leveled:
         return
+    if progress.anniversary:
+        embed = new_embed(interaction.client)
+        embed.title = t("streaks.anniversary.title")
+        embed.description = t(
+            "streaks.anniversary.content",
+            user_id=member.id,
+            days=progress.level * LEVEL_THRESHOLD,
+        )
+        embed.set_footer(text=t("streaks.anniversary.footer"))
+        embed.set_image(url=t_choice("streaks.anniversary.images"))
+        await interaction.followup.send(embed=embed)
     if (
         progress.xp_new_level is not None
         and progress.xp_new_level != progress.xp_old_level
@@ -173,17 +186,6 @@ async def _handle_progress(
         await announce_level_up(
             interaction.channel, member, progress.xp_new_level
         )
-    if progress.anniversary:
-        embed = new_embed(interaction.client)
-        embed.title = t("streaks.anniversary.title")
-        embed.description = t(
-            "streaks.anniversary.content",
-            user_id=member.id,
-            days=progress.level * LEVEL_THRESHOLD,
-        )
-        embed.set_footer(text=t("streaks.anniversary.footer"))
-        set_transparent_image(embed, interaction.client)
-        await interaction.followup.send(embed=embed)
 
 
 # ------------------------------------------------------------------ embeds
@@ -308,13 +310,22 @@ def _log_embed(
         embed.add_field(
             name=t("streaks.log.level_up_title"), value=content, inline=False
         )
+    if result.progress.top_up and result.progress.xp_awarded > 0:
+        embed.add_field(
+            name=t("streaks.log.top_up_title"),
+            value=t("streaks.log.top_up_content", xp=result.progress.xp_awarded),
+            inline=False,
+        )
     if result.progress.dry_run and result.progress.xp_awarded > 0:
         embed.add_field(
             name=t("streaks.info.dry_run_field"),
             value=t("streaks.log.dry_run", xp=result.progress.xp_awarded),
             inline=False,
         )
-    set_transparent_image(embed, client)
+    if result.progress.anniversary:
+        embed.set_image(url=t_choice("streaks.anniversary.images"))
+    else:
+        set_transparent_image(embed, client)
     return embed
 
 
@@ -324,6 +335,8 @@ def _view_embed(
     goal: StreakGoal,
     streak: Streak | None,
     logs: list[StreakLog],
+    *,
+    rescuable: bool = False,
 ) -> discord.Embed:
     embed = new_embed(client)
     set_author(embed, member, member.display_name)
@@ -334,6 +347,63 @@ def _view_embed(
     if streak is None:
         embed.description = t("streaks.view.no_streak")
         _add_goal_fields(embed, goal)
+        set_transparent_image(embed, client)
+        return embed
+
+    if streak.status == STATUS_CLOSED:
+        if not rescuable:
+            # The streak is beyond saving: show the goal but hide the streak.
+            embed.description = t("streaks.view.streak_gone")
+            _add_goal_fields(embed, goal)
+            set_transparent_image(embed, client)
+            return embed
+        # A rescuable closed streak: no progress, just the facts.
+        _add_goal_fields(embed, goal)
+        embed.add_field(
+            name=t("streaks.info.started_field"),
+            value=t(
+                "streaks.info.started_value",
+                date=_format_date_short(streak.start_date),
+                days=streak.days_logged,
+            ),
+            inline=True,
+        )
+        embed.add_field(
+            name=t("streaks.info.rescues_field"),
+            value=t(
+                "streaks.info.rescues_value",
+                normal=streak.rescues_available,
+                golden=streak.golden_available,
+                normal_used=streak.rescues_used,
+                golden_used=streak.golden_used,
+                rescue_emoji=t("streaks.icons.rescue"),
+                golden_emoji=t("streaks.icons.golden"),
+            ),
+            inline=True,
+        )
+        if streak.end_date is not None:
+            embed.add_field(
+                name=t("streaks.info.closed_field"),
+                value=t(
+                    "streaks.info.closed_rescuable_value",
+                    date=_format_date(streak.end_date),
+                ),
+                inline=True,
+            )
+        last_log = streak.last_log_date or streak.start_date
+        embed.add_field(
+            name=t("streaks.info.logged_field"),
+            value=_format_date_short(last_log),
+            inline=True,
+        )
+        embed.add_field(
+            name=t("streaks.shared.level_field"),
+            value=t(
+                "streaks.shared.level_value",
+                level=str(display_level(streak.days_logged)),
+            ),
+            inline=True,
+        )
         set_transparent_image(embed, client)
         return embed
 
@@ -362,17 +432,11 @@ def _view_embed(
         ),
         inline=True,
     )
-    if streak.status == streak_service.STATUS_ONGOING and streak.last_log_date:
+    if streak.last_log_date:
         closes = streak_service.streak_deadline(streak.last_log_date, tz)
         embed.add_field(
             name=t("streaks.info.closes_field"),
             value=t("streaks.info.closes_value", ts=int(closes.timestamp())),
-            inline=True,
-        )
-    elif streak.end_date is not None:
-        embed.add_field(
-            name=t("streaks.info.closed_field"),
-            value=t("streaks.info.closed_value", date=_format_date(streak.end_date)),
             inline=True,
         )
     today = streak_service.local_date(streak_service.utcnow(), tz)
@@ -446,13 +510,6 @@ def _view_embed(
             value=t("streaks.info.on_track_value", xp=f"{marker}{projected}"),
             inline=True,
         )
-    # service = getattr(client, "streaks", None)
-    # if service is not None and service.dry_run:
-    #     embed.add_field(
-    #         name=t("streaks.info.dry_run_field"),
-    #         value=t("streaks.info.dry_run_value"),
-    #         inline=False,
-    #     )
     set_transparent_image(embed, client)
     return embed
 
@@ -804,16 +861,24 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         result.goal,
         result.streak,
         result.logs,
+        rescuable=False,
     )
-    await interaction.response.edit_message(embed=embed, view=None)
+    await interaction.response.edit_message(
+        embed=embed, view=_ViewActions(rescue=False, edit=True)
+    )
     await _handle_progress(interaction, result.progress, interaction.user)
 
 
 class _RescueButton(discord.ui.Button):
-    def __init__(self) -> None:
+    def __init__(self, kind: str = streak_service.RESCUE_NORMAL) -> None:
+        icon = (
+            t("streaks.icons.golden")
+            if kind == RESCUE_GOLDEN
+            else t("streaks.icons.rescue")
+        )
         super().__init__(
             label=t("streaks.shared.rescue_button"),
-            emoji=t("streaks.shared.rescue_emoji"),
+            emoji=icon,
             style=discord.ButtonStyle.secondary,
             custom_id=RESCUE_CUSTOM_ID,
         )
@@ -825,9 +890,9 @@ class _RescueButton(discord.ui.Button):
 class StreakRescueView(discord.ui.View):
     """Persistent "repair streak" button; works after restarts."""
 
-    def __init__(self) -> None:
+    def __init__(self, kind: str = streak_service.RESCUE_NORMAL) -> None:
         super().__init__(timeout=None)
-        self.add_item(_RescueButton())
+        self.add_item(_RescueButton(kind))
 
 
 class _EditButton(discord.ui.Button):
@@ -847,10 +912,16 @@ class _EditButton(discord.ui.Button):
 
 
 class _ViewActions(discord.ui.View):
-    def __init__(self, *, rescue: bool, edit: bool) -> None:
+    def __init__(
+        self,
+        *,
+        rescue: bool,
+        edit: bool,
+        rescue_kind: str = streak_service.RESCUE_NORMAL,
+    ) -> None:
         super().__init__(timeout=300)
         if rescue:
-            self.add_item(_RescueButton())
+            self.add_item(_RescueButton(rescue_kind))
         if edit:
             self.add_item(_EditButton())
 
@@ -999,7 +1070,14 @@ async def log(interaction: discord.Interaction, amount: str) -> None:
         )
         return
 
-    view = StreakRescueView() if result.rescuable else None
+    view = None
+    if result.rescuable is not None:
+        kind = streak_service.rescue_kind_for_closed(
+            result.rescuable.end_date,
+            result.goal.timezone,
+            streak_service.utcnow(),
+        )
+        view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
     await interaction.response.send_message(
         embed=_log_embed(interaction.client, interaction.user, result),
         view=view,
@@ -1071,16 +1149,29 @@ async def view(
         )
         return
     is_self = target.id == interaction.user.id
-    resc = (
-        streak is not None
-        and is_self
-        and streak_service.is_rescuable(
-            streak, goal.timezone, streak_service.utcnow()
-        )
+    now = streak_service.utcnow()
+    can_rescue = streak is not None and streak_service.is_rescuable(
+        streak, goal.timezone, now
     )
-    actions = _ViewActions(rescue=resc, edit=is_self) if (resc or is_self) else None
+    kind = (
+        streak_service.rescue_kind_for_closed(streak.end_date, goal.timezone, now)
+        if can_rescue
+        else None
+    )
+    show_rescue = can_rescue and is_self
+    actions = (
+        _ViewActions(
+            rescue=show_rescue,
+            edit=is_self,
+            rescue_kind=kind or streak_service.RESCUE_NORMAL,
+        )
+        if (show_rescue or is_self)
+        else None
+    )
     await interaction.response.send_message(
-        embed=_view_embed(interaction.client, target, goal, streak, logs),
+        embed=_view_embed(
+            interaction.client, target, goal, streak, logs, rescuable=can_rescue
+        ),
         view=actions,
     )
 

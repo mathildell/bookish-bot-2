@@ -123,6 +123,7 @@ async def _add_streak(
     last_xp_amount: int = 0,
     total_xp_awarded: int = 0,
     last_xp_at: datetime | None = None,
+    window_xp_paid: int = 0,
     repair_offset: int | None = None,
     rescue_type: str = RESCUE_NORMAL,
 ) -> Streak:
@@ -152,6 +153,7 @@ async def _add_streak(
         last_xp_amount=last_xp_amount,
         total_xp_awarded=total_xp_awarded,
         last_xp_at=last_xp_at,
+        window_xp_paid=window_xp_paid,
         last_log_date=end_day,
     )
     ctx.session.add(streak)
@@ -230,20 +232,14 @@ async def _ongoing_mixed(ctx: Context) -> None:
 
 
 async def _window_complete(ctx: Context) -> None:
-    """A just-completed five-day window (days_logged = 5, level 1).
+    """A window completed earlier today (days_logged = 5, level 1).
 
-    What you see: ``/streaks view`` -> five *empty* upcoming slots, because the
-    window remainder is 0 (the visual resets once a level is banked).
-    ``/streaks log 30`` -> opens day 6 with one slot filled.
-    How: a 5-day streak of successes ending yesterday.
+    What you see: ``/streaks view`` -> the five completed days stay on screen
+    until midnight (the just-finished window is not reset to blanks).
+    How: a 5-day streak of successes whose last log is today.
     """
     goal = _add_goal(ctx)
-    await _add_streak(
-        ctx,
-        goal,
-        outcomes=[SUCCESS] * 5,
-        end_day=ctx.today - timedelta(days=1),
-    )
+    await _add_streak(ctx, goal, outcomes=[SUCCESS] * 5, end_day=ctx.today)
 
 
 async def _xp_five_success(ctx: Context) -> None:
@@ -292,6 +288,30 @@ async def _xp_partial(ctx: Context) -> None:
         goal,
         outcomes=[SUCCESS, FAILED, SUCCESS, FAILED],
         end_day=ctx.today - timedelta(days=1),
+    )
+
+
+async def _xp_top_up(ctx: Context) -> None:
+    """A completed window whose fifth day is still below goal, ready to top up.
+
+    What you see: ``/streaks view`` -> five slots, four successes and today's
+    failure; level 1 is already banked for a partial **200 XP**.
+    ``/streaks log 30`` -> tops the day up to 100% and pays the missing
+    **50 XP** (250 total) with a "Goal reached" field. A later re-log below the
+    goal keeps the XP (it is locked once full).
+    How: 5 days ending today, the last one below goal, ``level=1`` and
+    ``window_xp_paid=200``.
+    """
+    goal = _add_goal(ctx)
+    await _add_streak(
+        ctx,
+        goal,
+        outcomes=[SUCCESS, SUCCESS, SUCCESS, SUCCESS, FAILED],
+        end_day=ctx.today,
+        window_xp_paid=200,
+        last_xp_amount=200,
+        total_xp_awarded=200,
+        last_xp_at=streak_service.utcnow(),
     )
 
 
@@ -550,6 +570,7 @@ def _registry() -> dict[str, State]:
         state(_xp_five_success, log_amount="30"),
         state(_xp_five_failure, log_amount="5"),
         state(_xp_partial, log_amount="30"),
+        state(_xp_top_up, log_amount="30"),
         state(_xp_cap, log_amount="30"),
         state(_level_golden_50, log_amount="30"),
         state(_anniversary_365, log_amount="30"),

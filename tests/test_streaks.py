@@ -10,7 +10,7 @@ No network, database or Discord connection is required.
 from __future__ import annotations
 
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 from bot.commands import streaks as command_streaks
@@ -273,6 +273,42 @@ class SlotTests(unittest.TestCase):
             icons=ICONS,
         )
         self.assertEqual(slots, ["U", "U", "U", "U", "U"])
+
+    def test_completed_window_persists_when_ending_today(self) -> None:
+        logs = [
+            log(self.today - timedelta(days=4 - index), streaks.OUTCOME_SUCCESS)
+            for index in range(5)
+        ]
+        slots = streaks.window_slots(
+            logs,
+            days_logged=5,
+            highlight_today=False,
+            today=self.today,
+            icons=ICONS,
+        )
+        self.assertEqual(slots, ["S", "S", "S", "S", "S"])
+
+    def test_completed_window_resets_after_midnight(self) -> None:
+        logs = [
+            log(self.today - timedelta(days=5 - index), streaks.OUTCOME_SUCCESS)
+            for index in range(5)
+        ]
+        slots = streaks.window_slots(
+            logs,
+            days_logged=5,
+            highlight_today=False,
+            today=self.today,
+            icons=ICONS,
+        )
+        self.assertEqual(slots, ["U", "U", "U", "U", "U"])
+
+
+class RescueButtonTests(unittest.TestCase):
+    def test_uses_the_matching_rescue_icon(self) -> None:
+        normal = command_streaks._RescueButton(streaks.RESCUE_NORMAL)
+        golden = command_streaks._RescueButton(streaks.RESCUE_GOLDEN)
+        self.assertEqual(normal.emoji.name, "rescue")
+        self.assertEqual(golden.emoji.name, "golden")
 
 
 class TextChoiceTests(unittest.TestCase):

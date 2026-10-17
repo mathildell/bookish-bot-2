@@ -20,7 +20,6 @@ streaks:
     per_day: "%{amount} %{unit} a day"
     date_field: "Date"
     rescue_button: "Repair streak"
-    rescue_emoji: "🛟"
     reminder:
       none: "No reminder"
       custom: "Reminder at %{hour}"
@@ -89,6 +88,8 @@ streaks:
     achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
     achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
     dry_run: "Dry run is on, so that **%{xp} XP** stays imaginary for now. It did not reach your pool."
+    top_up_title: "Goal reached"
+    top_up_content: "You topped today back up to 100% — that's **%{xp} XP** more for this level."
 
   today:
     description: "Have you logged today?"
@@ -105,6 +106,7 @@ streaks:
     param_user: "Whose streak (defaults to you)"
     title: "%{user}'s streak"
     no_streak: "No streak yet — you haven't logged a single day. Run `/streaks log` once you've read your daily amount."
+    streak_gone: "This streak is over and can no longer be saved. Whenever you're ready, log a day to start again."
 
   info:
     closed_field: "Closed"
@@ -116,7 +118,7 @@ streaks:
       %{golden_emoji} ‎ %{golden} golden (%{golden_used})
     closes_field: "Streak closes"
     closes_value: "<t:%{ts}:R>"
-    closed_value: "%{date}"
+    closed_rescuable_value: "⚠️ ‎ %{date}"
     logged_field: "Latest log"
     logged_yes: "%{date}\n-# ✅ ‎ Logged today"
     logged_no: "%{date}\n-# ❌ ‎ Not logged yet"
@@ -200,3 +202,14 @@ streaks:
     title: "A whole year"
     content: "<@%{user_id}> has kept a reading streak alive for a full year! **%{days} days total**. WOW!"
     footer: "Three hundred and sixty-five days. Some people plant trees for this."
+    images:
+      - "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWNxc2ZnNWkyNHNveXY0cnUxamdsOWFpaDdoaTd4b2QxbTQ5MTA0ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/OXY6TyrhUNdlu/giphy.gif"
+      - "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTNtaWY5NzJ2ajB2eXJwYXZzNnR0OGZid2d0OWxsaDZyYnRraWRvMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/s2qXK8wAvkHTO/giphy.gif"
+      - "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExajI3dzl1YTYwYXBrYTJwNG40OXRmZWZjanNyOTlqemZhdGxmYWJrOSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/lTZvj21tbQSTC/giphy.gif"
+      - "https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExdDU0cTUzdXlvdGtpdnp0eGwzMWhlY2FsaGw0NjF5NmJmdmlucXAwMCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/DXhmNiA8F1i4fLnMdb/giphy.gif"
+      - "https://media4.giphy.com/media/v1.Y2lkPTc5MGI3NjExODQyZnJncTY3OWptenJvN29iN243bzcxcncwamVmbmN2MHZzeHY4cSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cNTixPR4FC4zNe4fkC/giphy.gif"
+      - "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDJheXd3NHFnazExYXk0eXB6eWV4ZXpuM2cxZW4xMXppcXY2YXhqbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/g5R9dok94mrIvplmZd/giphy.gif"
+      - "https://c.tenor.com/sFlF1uVyxDUAAAAd/tenor.gif"
+      - "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzNlMzIwcXM0cW03MjBudGtqNzdqZWNqZzUwd3VqbTVjZzg4NnRqMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/WRL7YgP42OKns22wRD/giphy.gif"
+      - "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdGxpYndvYzAzdXJ0OWE3ZWFweXg3emhiMmtiZnc1b2UxaGFmYjNjbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/rrmf3fICPZWg1MMXOW/giphy.gif"
+      - "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmp5ZHhiNjVzdjA3c3RiY252MTNuc2ljNDR4dGl6Z2plaDRwZG94NSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xThuWkj1FAYH4wmGfC/giphy.gif"
