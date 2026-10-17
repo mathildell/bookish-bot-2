@@ -42,10 +42,9 @@ streaks:
     param_timezone: "Your timezone (start typing to search)"
     step_title: "Let's register that goal!"
     step_description: |
-      You've taken your first step to register your daily goal! We will mark you down for **%{amount} %{unit}**, in **%{timezone}**. To finish the registration, please complete the following process.
+      You've taken the first step to register your daily goal! I will mark you down for **%{amount} %{unit}**, in the **%{timezone}** timezone. To finish the registration, please complete the following process.
           
-      Once your goal has been saved, you can edit it at any time without losing your progress.           
-      To adjust notifications or revisit this menu later, you can run the following command:
+      Once your goal has been saved, you can edit it at any time without losing your progress. To adjust notifications or revisit this menu later, you can run the following command:
       ```
       /streaks edit
       ``` 
@@ -73,7 +72,7 @@ streaks:
     reminders_title: "Pick your reminder option"
     reminders_description: "%{options}"
     confirmed_title: "Updated"
-    confirmed_description: "Consider it changed. Your streak and progress are untouched."
+    confirmed_description: "All done! Your streak and progress are unchanged."
 
   log:
     description: "Log how much you read today"
@@ -83,18 +82,17 @@ streaks:
     amount_value: "%{amount} %{unit}"
     level_up_title: "Level cleared"
     level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
-    level_up_anniversary: " And a full year, no less. I've put a note in the channel."
+    level_up_anniversary: " This is your **streanniversary!** 🎉🎂 I've added a little extra XP for your dedication."
     achievement_field: "Daily achievement"
     achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
     achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
-    dry_run: "Dry run is on, so that **%{xp} XP** stays imaginary for now. It did not reach your pool."
+    dry_run: "We're in dry run mode, so that **%{xp} XP** wasn't added to your actual XP total just yet."
     top_up_title: "Goal reached"
     top_up_content: "You topped today back up to 100% — that's **%{xp} XP** more for this level."
-
+  
   today:
     description: "Have you logged today?"
     "yes": "✅ ‎ All good! Logged **%{amount} %{unit}** on %{date}."
-    # "no": "❌ ‎ Woops, no. Last log was on %{date}."
     no_first: "❌ ‎ Oops, no. Looks like you haven't logged anything yet."
     this: "this"
     these: "these"
@@ -105,8 +103,8 @@ streaks:
     description: "Inspect a streak"
     param_user: "Whose streak (defaults to you)"
     title: "%{user}'s streak"
-    no_streak: "No streak yet — you haven't logged a single day. Run `/streaks log` once you've read your daily amount."
-    streak_gone: "This streak is over and can no longer be saved. Whenever you're ready, log a day to start again."
+    no_streak: "No streak yet: you haven't logged a single day. Run `/streaks log` to log your daily amount and get started!"
+    streak_gone: "This streak is over and can no longer be saved. It will be missed... Whenever you're ready, log a day to start over."
 
   info:
     closed_field: "Closed"
