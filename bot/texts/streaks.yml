@@ -92,10 +92,12 @@ streaks:
 
   today:
     description: "Have you logged today?"
-    "yes": "✅ ‎ Yep, all good. Logged %{amount} %{unit} on %{date}"
-    "no": "❌ ‎ Woops, no. Last log was on %{date}."
-    no_first: "❌ ‎ Woops, no. You haven't logged anything yet."
-    hurry: "Better get this/these %{amount} %{unit} quickly, your streak closes %{closes}."
+    "yes": "✅ ‎ All good! Logged **%{amount} %{unit}** on %{date}."
+    # "no": "❌ ‎ Woops, no. Last log was on %{date}."
+    no_first: "❌ ‎ Oops, no. Looks like you haven't logged anything yet."
+    this: "this"
+    these: "these"
+    hurry: "Better get %{this} %{amount} %{unit} quickly, your streak closes %{closes}."
     not_registered: "I can't find a goal for you. You should run `/streaks register` first!"
 
   view:

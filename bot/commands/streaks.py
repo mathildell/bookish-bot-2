@@ -86,7 +86,7 @@ def _format_date_short(day: _date) -> str:
 
 
 def _format_datetime(day: _date) -> str:
-    return day.strftime("%B %d, %Y %l:%M%p")
+    return day.strftime("%b %d, %Y %l:%M%p")
 
 
 def _dry_marker(client: discord.Client) -> str:
@@ -1027,11 +1027,11 @@ async def today(interaction: discord.Interaction) -> None:
             unit=goal.unit,
             date=_format_date(status.last_date),
         )
-    elif status.ever_logged and status.last_date is not None:
-        message = t(
-            "streaks.today.no",
-            date=_format_date(status.last_date),
-        )
+    # elif status.ever_logged and status.last_date is not None:
+    #     message = t(
+    #         "streaks.today.no",
+    #         date=_format_date(status.last_date),
+    #     )
     else:
         message = t("streaks.today.no_first")
 
@@ -1039,8 +1039,14 @@ async def today(interaction: discord.Interaction) -> None:
         streak_service.utcnow(), goal.timezone
     ) >= 17
     if not status.logged and after_five and status.closes_at is not None:
+        if goal.amount > 1:
+            this=t("streaks.today.these")
+        else:
+            this=t("streaks.today.this")
+
         message += "\n" + t(
             "streaks.today.hurry",
+            this=this,
             amount=goal.amount,
             unit=goal.unit,
             closes=f"<t:{int(status.closes_at.timestamp())}:R>",
