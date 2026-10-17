@@ -96,7 +96,7 @@ def _format_datetime(day: _date) -> str:
 def _dry_marker(client: discord.Client) -> str:
     service = getattr(client, "streaks", None)
     if service is not None and service.dry_run:
-        return t("streaks.info.dry_icon") + " "
+        return t("streaks.info.dry_icon") + " ‎ "
     return ""
 
 
