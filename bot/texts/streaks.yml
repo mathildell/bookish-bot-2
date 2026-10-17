@@ -82,12 +82,12 @@ streaks:
     title: "Logged"
     amount_field: "Logged"
     amount_value: "%{amount} %{unit}"
-    goal_field: "Goal"
-    percent_field: "Against goal"
-    percent_success: "%{percent}% — goal reached. Look at you."
     level_up_title: "Level cleared"
     level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
     level_up_anniversary: " And a full year, no less. I've put a note in the channel."
+    achievement_field: "Daily achievement"
+    achievement_success_value: "You reached %{percent}% of your goal of %{amount} %{unit} today!"
+    achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
     dry_run: "Dry run is on, so that **%{xp} XP** stays imaginary for now. It did not reach your pool."
 
   today:

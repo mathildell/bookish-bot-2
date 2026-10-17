@@ -280,21 +280,27 @@ def _log_embed(
         inline=True,
     )
     embed.add_field(
-        name=t("streaks.log.goal_field"),
-        value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
-        inline=True,
-    )
-    if log.outcome == streak_service.OUTCOME_SUCCESS:
-        embed.add_field(
-            name=t("streaks.log.percent_field"),
-            value=t("streaks.log.percent_success", percent=log.percent),
-            inline=False,
-        )
-    embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t("streaks.shared.level_value", level=str(display_level(result.streak.days_logged))),
         inline=True,
     )
+
+    if log.outcome == streak_service.OUTCOME_SUCCESS:
+        achievement_value = t(
+            "streaks.log.achievement_success_value",
+            percent=log.percent,
+            amount=goal.amount,
+            unit=goal.unit
+        )
+    else:
+        achievement_value = t("streaks.log.achievement_failure_value")
+    
+    embed.add_field(
+        name=t("streaks.log.achievement_field"),
+        value=achievement_value,
+        inline=False,
+    )
+
     if result.progress.leveled:
         content = t(
             "streaks.log.level_up_content",
