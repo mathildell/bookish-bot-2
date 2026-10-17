@@ -7,7 +7,7 @@ Admins can point the feature at a channel and backfill missed days.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import date as _date
+from datetime import date as _date, timedelta
 from typing import Literal
 
 import discord
@@ -382,7 +382,22 @@ def _view_embed(
         (entry for entry in logs if entry.log_date == today - timedelta(days=1)),
         None,
     )
-    
+    if yesterday_log is not None:
+        value = t(
+            "streaks.info.yesterday_value",
+            amount=yesterday_log.amount,
+            unit=goal.unit,
+        )
+        if yesterday_log.outcome == streak_service.OUTCOME_SUCCESS:
+            value += "\n" + t(
+                "streaks.info.yesterday_percent", percent=yesterday_log.percent
+            )
+        embed.add_field(
+            name=t("streaks.info.yesterday_field"),
+            value=value,
+            inline=True,
+        )
+
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t("streaks.shared.level_value", level=str(display_level(streak.days_logged))),
