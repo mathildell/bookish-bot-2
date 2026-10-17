@@ -85,12 +85,8 @@ def _format_date_short(day: _date) -> str:
     return day.strftime("%b %d, %Y")
 
 
-# def _format_day(day: _date) -> str:
-#     return day.strftime("%b %d")
-
-
 def _format_datetime(day: _date) -> str:
-    return day.strftime("%B %d, %Y %H:%M%p")
+    return day.strftime("%B %d, %Y %l:%M%p")
 
 
 def _dry_marker(client: discord.Client) -> str:
@@ -121,14 +117,14 @@ def _window_successes(streak: Streak, logs: list[StreakLog]) -> int:
 
 
 def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
+    today = streak_service.local_date(streak_service.utcnow(), goal.timezone)
+
     embed.add_field(
         name=t("streaks.shared.timezone_field"),
         value=t(
             "streaks.shared.timezone_value",
             timezone=goal.timezone,
-            current=_format_datetime(
-                streak_service.local_date(streak_service.utcnow(), goal.timezone)
-            ),
+            current=_format_datetime(today),
         ),
         inline=True,
     )
