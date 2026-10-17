@@ -353,9 +353,14 @@ def _added_at(book) -> datetime:
     return getattr(book, "created_at", None) or datetime.min
 
 
-def _release_order():
-    """Latest release date first; within a date, the oldest entry first."""
-    return (BookRelease.release_date.desc(), BookRelease.created_at.asc())
+def _release_order(*, ascending: bool = False):
+    """Oldest or latest release date first; within a date, oldest entry first."""
+    date_column = (
+        BookRelease.release_date.asc()
+        if ascending
+        else BookRelease.release_date.desc()
+    )
+    return (date_column, BookRelease.created_at.asc())
 
 
 def group_by_date(books: list) -> list[tuple[date, list]]:
@@ -663,7 +668,7 @@ class ReleaseService:
                         BookRelease.guild_id == self.guild_id,
                         BookRelease.release_date >= date.today(),
                     )
-                    .order_by(*_release_order())
+                    .order_by(*_release_order(ascending=True))
                     .offset(offset)
                     .limit(limit)
                 )
@@ -671,26 +676,18 @@ class ReleaseService:
         return list(rows)
 
     async def page_index_for_date(self, target: date, per_page: int) -> int:
-        """Page holding the target month's releases.
-
-        The list runs latest-first, so every release after the target month
-        sits ahead of it.
-        """
-        next_first = (
-            date(target.year + 1, 1, 1)
-            if target.month == 12
-            else date(target.year, target.month + 1, 1)
-        )
+        """Page index (0-based) holding the first release on/after ``target``."""
         async with session_scope() as session:
-            after = await session.scalar(
+            before = await session.scalar(
                 select(func.count())
                 .select_from(BookRelease)
                 .where(
                     BookRelease.guild_id == self.guild_id,
-                    BookRelease.release_date >= next_first,
+                    BookRelease.release_date >= date.today(),
+                    BookRelease.release_date < target,
                 )
             )
-        return (after or 0) // per_page
+        return (before or 0) // per_page
 
     async def month_releases(self, year: int, month: int) -> list[BookRelease]:
         first = date(year, month, 1)

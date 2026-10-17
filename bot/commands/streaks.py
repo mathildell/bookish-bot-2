@@ -24,6 +24,7 @@ from ..services.streaks import (
     Streak,
     StreakGoal,
     StreakLog,
+    display_level,
     search_timezones,
     valid_timezone,
 )
@@ -261,18 +262,15 @@ def _log_embed(
         value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
         inline=True,
     )
-    if log.outcome == "success":
-        percent = t("streaks.log.percent_success", percent=log.percent)
-    elif log.outcome == "zero":
-        percent = t("streaks.log.percent_zero")
-    else:
-        percent = t("streaks.log.percent_failed", percent=log.percent)
-    embed.add_field(
-        name=t("streaks.log.percent_field"), value=percent, inline=False
-    )
+    if log.outcome == streak_service.OUTCOME_SUCCESS:
+        embed.add_field(
+            name=t("streaks.log.percent_field"),
+            value=t("streaks.log.percent_success", percent=log.percent),
+            inline=False,
+        )
     embed.add_field(
         name=t("streaks.shared.level_field"),
-        value=str(result.streak.level),
+        value=str(display_level(result.streak.days_logged)),
         inline=True,
     )
     if result.progress.leveled:
@@ -329,7 +327,7 @@ def _view_embed(
     )
     embed.add_field(
         name=t("streaks.shared.level_field"),
-        value=str(streak.level),
+        value=str(display_level(streak.days_logged)),
         inline=True,
     )
     today = streak_service.local_date(streak_service.utcnow(), tz)
@@ -442,7 +440,7 @@ def _leaderboard_embed(
             + t(
                 "streaks.leaderboard.days_details",
                 days=streak.days_logged,
-                level=streak.level,
+                level=display_level(streak.days_logged),
                 date=f"<t:{int(datetime.combine(latest, time(0, 0), ZoneInfo('UTC')).timestamp())}:D>",
             )
         )

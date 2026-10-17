@@ -108,8 +108,8 @@ releases:
   post:
     daily_title_singular: "## 📣 New book just released!"
     daily_title_plural: "## 📣 New books just released!"
-    daily_thanks_singular: "Thank you %{mentions} for adding it to our calendar 📚"
-    daily_thanks_plural: "Thank you %{mentions} for adding them to our calendar 📚"
+    daily_thanks_singular: "Thank you %{mentions} for adding it to our calendar 📚\n ‎ "
+    daily_thanks_plural: "Thank you %{mentions} for adding them to our calendar 📚\n ‎ "
     monthly_title: "## ✨📖 New releases coming in %{month}!"
     monthly_thanks: "Here are the releases to look forward to this month! We'll send a reminder pinging the following role as well as each books' finder, on the day of :yellow_heart: "
   errors:

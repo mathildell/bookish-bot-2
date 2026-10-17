@@ -3,12 +3,12 @@ streaks:
   group_description: "Challenge yourself to read everyday 🔥"
   icons:
     upcoming: "⚫"
-    success: "🟢"
-    success_today: "🔵"
-    partial: "🟠"
-    zero: "⚪"
-    rescue: "🔴"
-    golden: "🟤"
+    success: "<:strsuccess:1561017658508316843>"
+    success_today: "<a:strsuccesstoday:1561017657241772104>"
+    partial: "<:strfailure:1561020279231221870>"
+    zero: "<:strzero:1561020280451764305>"
+    rescue: "<:bandage:1561028415908352111>"
+    golden: "<a:bandaid2:1561028041528967189>"
 
   shared:
     goal_field: "Daily goal"
@@ -83,8 +83,6 @@ streaks:
     goal_field: "Goal"
     percent_field: "Against goal"
     percent_success: "%{percent}% — goal reached. Look at you."
-    percent_failed: "%{percent}% — not quite there. It still counts as a day, just not a good one."
-    percent_zero: "Nothing logged. A zero. We both know."
     level_up_title: "Level cleared"
     level_up_content: "Five more days banked — that's level **%{level}**, worth **%{xp} XP**."
     level_up_anniversary: " And a full year, no less. I've put a note in the channel."

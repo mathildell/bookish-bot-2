@@ -113,6 +113,16 @@ def level_xp(level: int) -> int:
     return min(XP_CAP, round(XP_BASE * level**XP_EXPONENT))
 
 
+def display_level(days_logged: int) -> int:
+    """The level shown to members: 1 as soon as a day is logged, else 0.
+
+    A level spans five logged days; level 0 is only ever the empty streak.
+    """
+    if days_logged <= 0:
+        return 0
+    return (days_logged - 1) // LEVEL_THRESHOLD + 1
+
+
 def window_xp(level: int, successes: int) -> int:
     """XP for a level window with ``successes`` goal-reaching days.
 

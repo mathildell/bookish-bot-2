@@ -62,6 +62,20 @@ class LevelXpTests(unittest.TestCase):
         self.assertEqual(streaks.level_xp(200), 3000)
 
 
+class DisplayLevelTests(unittest.TestCase):
+    def test_empty_streak_is_level_zero(self) -> None:
+        self.assertEqual(streaks.display_level(0), 0)
+
+    def test_first_log_starts_level_one(self) -> None:
+        self.assertEqual(streaks.display_level(1), 1)
+        self.assertEqual(streaks.display_level(5), 1)
+
+    def test_level_advances_every_five_days(self) -> None:
+        self.assertEqual(streaks.display_level(6), 2)
+        self.assertEqual(streaks.display_level(10), 2)
+        self.assertEqual(streaks.display_level(11), 3)
+
+
 class WindowXpTests(unittest.TestCase):
     def test_full_window_pays_level_xp(self) -> None:
         self.assertEqual(streaks.window_xp(1, 5), 250)
