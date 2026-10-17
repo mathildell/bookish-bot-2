@@ -264,7 +264,7 @@ def window_slots(
     remainder = days_logged % LEVEL_THRESHOLD
     window = logs[-remainder:] if remainder else []
     return [
-        slot_emoji(
+        "# " + slot_emoji(
             window[index] if index < len(window) else None,
             highlight_today=highlight_today,
             today=today,
