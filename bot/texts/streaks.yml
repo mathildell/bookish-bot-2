@@ -108,7 +108,7 @@ streaks:
     started_value: "<t:%{ts}:D>\n-# %{days} days logged"
     rescues_field: "Rescues"
     rescues_value: |
-      %{normal} regular, %{golden} golden available
+      %{rescue_emoji} %{normal} regular, %{golden_emoji} %{golden} golden available
       -# %{normal_used} regular and %{golden_used} golden used
     closes_field: "Closes"
     closes_value: "<t:%{ts}:R>"

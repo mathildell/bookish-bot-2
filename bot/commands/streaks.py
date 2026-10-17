@@ -347,6 +347,8 @@ def _view_embed(
             golden=streak.golden_available,
             normal_used=streak.rescues_used,
             golden_used=streak.golden_used,
+            rescue_emoji=t("streaks.icons.rescue"),
+            golden_emoji=t("streaks.icons.golden"),
         ),
         inline=False,
     )
