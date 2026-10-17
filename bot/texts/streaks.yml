@@ -16,6 +16,7 @@ streaks:
     timezone_value: "%{timezone}\n-# %{current}"
     notification_field: "Reminders"
     level_field: "Streak level"
+    level_value: "💫 ‎ %{level}"
     per_day: "%{amount} %{unit} a day"
     date_field: "Date"
     rescue_button: "Repair streak"
@@ -24,15 +25,15 @@ streaks:
       none: "No reminder."
       custom: "Reminder at %{hour}."
       last_chance: "Last chance reminder (11PM)"
-      both: "Reminder at %{hour}, plus last chance (11PM) if forgotten."
+      both: "%{hour}, plus last chance (11PM)."
     reminder_options: |
-      ### ❌  ‎ None
+      ### ❌ ‎ None
       > You will not be pinged for streak reminders
-      ### 🕑  ‎ Custom time
+      ### 🕑 ‎ Custom time
       > Choose at which hour to receive your notification on (will ping you at the same time everyday)
-      ### 🌙  ‎ Last Chance Reminder
+      ### 🌙 ‎ Last Chance Reminder
       > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
-      ### 2️⃣  ‎ Both
+      ### 2️⃣ ‎ Both
       > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
 
   register:
@@ -106,7 +107,7 @@ streaks:
   info:
     closed_field: "Closed"
     started_field: "Started"
-    started_value: "%{date}\n-# %{days} days logged"
+    started_value: "%{date}\n-# %{days} days"
     rescues_field: "Rescues"
     rescues_value: |
       %{rescue_emoji} ‎ %{normal} available (%{normal_used} used)
@@ -115,8 +116,8 @@ streaks:
     closes_value: "<t:%{ts}:R>"
     closed_value: "%{date}"
     logged_field: "Last log"
-    logged_yes: "✅  %{date}"
-    logged_no: "❌  %{date}"
+    logged_yes: "✅  ‎ %{date}"
+    logged_no: "❌  ‎ %{date}"
     coupon_field: "Last coupon"
     coupon_none: "No coupon yet"
     coupon_value: "**%{xp} XP** on %{date}"

@@ -285,7 +285,7 @@ def _log_embed(
         )
     embed.add_field(
         name=t("streaks.shared.level_field"),
-        value=str(display_level(result.streak.days_logged)),
+        value=t("streaks.shared.level_value", level=str(display_level(result.streak.days_logged))),
         inline=True,
     )
     if result.progress.leveled:
@@ -341,23 +341,6 @@ def _view_embed(
         inline=True,
     )
     embed.add_field(
-        name=t("streaks.shared.level_field"),
-        value=str(display_level(streak.days_logged)),
-        inline=True,
-    )
-    today = streak_service.local_date(streak_service.utcnow(), tz)
-    last_log = streak.last_log_date or streak.start_date
-    embed.add_field(
-        name=t("streaks.info.logged_field"),
-        value=t(
-            "streaks.info.logged_yes"
-            if streak.last_log_date == today
-            else "streaks.info.logged_no",
-            date=_format_day(last_log),
-        ),
-        inline=True,
-    )
-    embed.add_field(
         name=t("streaks.info.rescues_field"),
         value=t(
             "streaks.info.rescues_value",
@@ -383,6 +366,23 @@ def _view_embed(
             value=t("streaks.info.closed_value", date=_format_date(streak.end_date)),
             inline=True,
         )
+    today = streak_service.local_date(streak_service.utcnow(), tz)
+    last_log = streak.last_log_date or streak.start_date
+    embed.add_field(
+        name=t("streaks.info.logged_field"),
+        value=t(
+            "streaks.info.logged_yes"
+            if streak.last_log_date == today
+            else "streaks.info.logged_no",
+            date=_format_day(last_log),
+        ),
+        inline=True,
+    )
+    embed.add_field(
+        name=t("streaks.shared.level_field"),
+        value=t("streaks.shared.level_value", level=str(display_level(streak.days_logged))),
+        inline=True,
+    )
     if streak.last_xp_at is not None:
         embed.add_field(
             name=t("streaks.info.coupon_field"),
