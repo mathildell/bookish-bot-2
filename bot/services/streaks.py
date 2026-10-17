@@ -133,9 +133,13 @@ def window_xp(level: int, successes: int) -> int:
     return round(level_xp(level) * successes / LEVEL_THRESHOLD)
 
 
-def on_track_xp(current_level: int, successes_so_far: int) -> int:
-    """Projected XP for the level currently in progress."""
-    return window_xp(current_level + 1, successes_so_far)
+def on_track_xp(
+    current_level: int, days_logged: int, successes_so_far: int
+) -> int:
+    """Projected XP for the in-progress window if the remaining days succeed."""
+    remainder = days_logged % LEVEL_THRESHOLD
+    assumed = successes_so_far + (LEVEL_THRESHOLD - remainder)
+    return window_xp(current_level + 1, assumed)
 
 
 def percent_for(amount: int, goal_amount: int) -> int:

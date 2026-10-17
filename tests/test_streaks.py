@@ -88,8 +88,19 @@ class WindowXpTests(unittest.TestCase):
         self.assertEqual(streaks.window_xp(1, 9), 250)
 
     def test_on_track_targets_the_next_level(self) -> None:
+        self.assertEqual(streaks.on_track_xp(0, 2, 2), streaks.window_xp(1, 5))
         self.assertEqual(
-            streaks.on_track_xp(0, 2), streaks.window_xp(1, 2)
+            streaks.on_track_xp(0, 1, 1), streaks.window_xp(1, 5)
+        )
+
+    def test_on_track_fills_missing_days_with_successes(self) -> None:
+        self.assertEqual(
+            streaks.on_track_xp(0, 3, 1), streaks.window_xp(1, 3)
+        )
+
+    def test_on_track_new_window_after_completion(self) -> None:
+        self.assertEqual(
+            streaks.on_track_xp(1, 5, 0), streaks.window_xp(2, 5)
         )
 
 

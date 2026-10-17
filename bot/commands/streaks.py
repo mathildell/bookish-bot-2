@@ -93,6 +93,13 @@ def _format_datetime(day: _date) -> str:
     return day.strftime("%B %d, %Y %H:%M%p")
 
 
+def _dry_marker(client: discord.Client) -> str:
+    service = getattr(client, "streaks", None)
+    if service is not None and service.dry_run:
+        return t("streaks.info.dry_icon") + " "
+    return ""
+
+
 def _slots(
     streak: Streak, logs: list[StreakLog], goal: StreakGoal, *, highlight: bool
 ) -> str:
@@ -419,20 +426,22 @@ def _view_embed(
             value=t("streaks.info.coupon_none"),
             inline=True,
         )
+    marker = _dry_marker(client)
     embed.add_field(
         name=t("streaks.info.total_xp_field"),
-        value=t("streaks.info.total_xp_value", xp=streak.total_xp_awarded),
+        value=t(
+            "streaks.info.total_xp_value",
+            xp=f"{marker}{streak.last_xp_amount}",
+        ),
         inline=True,
     )
     if streak.status == streak_service.STATUS_ONGOING:
+        projected = streak_service.on_track_xp(
+            streak.level, streak.days_logged, _window_successes(streak, logs)
+        )
         embed.add_field(
             name=t("streaks.info.on_track_field"),
-            value=t(
-                "streaks.info.on_track_value",
-                xp=streak_service.on_track_xp(
-                    streak.level, _window_successes(streak, logs)
-                ),
-            ),
+            value=t("streaks.info.on_track_value", xp=f"{marker}{projected}"),
             inline=True,
         )
     # service = getattr(client, "streaks", None)

@@ -7,8 +7,8 @@ streaks:
     success_today: "<a:strsuccesstoday:1561017657241772104>"
     partial: "<:strfailure:1561020279231221870>"
     zero: "<:strzero:1561020280451764305>"
-    rescue: "<:bandage:1561028415908352111>"
-    golden: "<a:bandaid2:1561028041528967189>"
+    rescue: "<:rescue:1561068364263198750>"
+    golden: "<a:golden:1561068328259297350>"
 
   shared:
     goal_field: "Daily goal"
@@ -110,8 +110,8 @@ streaks:
     started_value: "%{date}\n-# %{days} days"
     rescues_field: "Rescues"
     rescues_value: |
-      %{rescue_emoji} ‎ %{normal} available (%{normal_used} used)
-      %{golden_emoji} ‎ %{golden} golden (%{golden_used} used)
+      %{rescue_emoji} ‎ %{normal} available (%{normal_used})
+      %{golden_emoji} ‎ %{golden} golden (%{golden_used})
     closes_field: "Closes"
     closes_value: "<t:%{ts}:R>"
     closed_value: "%{date}"
@@ -128,6 +128,7 @@ streaks:
     yesterday_field: "Yesterday"
     yesterday_value: "%{amount} %{unit}"
     yesterday_percent: "-# %{percent}% achieved"
+    dry_icon: "🫧"
     dry_run_field: "Dry run"
     dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
