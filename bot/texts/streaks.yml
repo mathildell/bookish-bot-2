@@ -13,6 +13,7 @@ streaks:
   shared:
     goal_field: "Daily goal"
     timezone_field: "Timezone"
+    timezone_value: "%{timezone}\n-# %{current}"
     notification_field: "Reminders"
     level_field: "Streak level"
     per_day: "%{amount} %{unit} a day"
@@ -20,10 +21,10 @@ streaks:
     rescue_button: "Repair streak"
     rescue_emoji: "🛟"
     reminder:
-      none: "None. A bold, quiet choice."
-      custom: "A nudge at %{hour}, your time."
-      last_chance: "A nudge an hour before midnight, if you've slacked."
-      both: "A nudge at %{hour}, plus the pre-midnight guilt trip."
+      none: "No reminder."
+      custom: "Reminder at %{hour}."
+      last_chance: "Last chance reminder (11PM)"
+      both: "Reminder at %{hour}, plus last chance (11PM) if forgotten."
     reminder_options: |
       ### ❌  ‎ None
       > You will not be pinged for streak reminders
@@ -105,20 +106,20 @@ streaks:
   info:
     closed_field: "Closed"
     started_field: "Started"
-    started_value: "<t:%{ts}:D>\n-# %{days} days logged"
+    started_value: "%{date}\n-# %{days} days logged"
     rescues_field: "Rescues"
     rescues_value: |
-      %{rescue_emoji} %{normal} available ‎ (%{normal_used} used)
-      %{golden_emoji} %{golden} golden ‎ (%{golden_used} used)
+      %{rescue_emoji} ‎ %{normal} available (%{normal_used} used)
+      %{golden_emoji} ‎ %{golden} golden (%{golden_used} used)
     closes_field: "Closes"
     closes_value: "<t:%{ts}:R>"
-    closed_value: "<t:%{ts}:D>"
-    logged_field: "Today"
-    logged_yes: "✅ Logged"
-    logged_no: "❌ Not yet today"
+    closed_value: "%{date}"
+    logged_field: "Last log"
+    logged_yes: "✅  %{date}"
+    logged_no: "❌  %{date}"
     coupon_field: "Last coupon"
     coupon_none: "No coupon yet"
-    coupon_value: "**%{xp} XP** on <t:%{ts}:D>"
+    coupon_value: "**%{xp} XP** on %{date}"
     total_xp_field: "XP from streaks"
     total_xp_value: "%{xp} XP"
     on_track_field: "On track for"

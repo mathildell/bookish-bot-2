@@ -8,9 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from datetime import date as _date
-from datetime import datetime, time
 from typing import Literal
-from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -79,8 +77,20 @@ def _reminder_text(goal: StreakGoal) -> str:
     return t(f"streaks.shared.reminder.{goal.reminder}", hour=hour)
 
 
-def _day_timestamp(day: _date, tz_name: str) -> int:
-    return int(datetime.combine(day, time(0, 0), ZoneInfo(tz_name)).timestamp())
+def _format_date(day: _date) -> str:
+    return day.strftime("%B %d, %Y")
+
+
+def _format_date_short(day: _date) -> str:
+    return day.strftime("%b %d, %Y")
+
+
+def _format_day(day: _date) -> str:
+    return day.strftime("%b %d")
+
+
+def _format_datetime(day: _date) -> str:
+    return day.strftime("%B %d, %Y %H:%M %p")
 
 
 def _slots(
@@ -105,18 +115,24 @@ def _window_successes(streak: Streak, logs: list[StreakLog]) -> int:
 
 def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
     embed.add_field(
-        name=t("streaks.shared.goal_field"),
-        value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
-        inline=True,
-    )
-    embed.add_field(
         name=t("streaks.shared.timezone_field"),
-        value=goal.timezone,
+        value=t(
+            "streaks.shared.timezone_value",
+            timezone=goal.timezone,
+            current=_format_datetime(
+                day: streak_service.local_date(streak_service.utcnow(), goal.timezone)
+            ),
+        ),
         inline=True,
     )
     embed.add_field(
         name=t("streaks.shared.notification_field"),
         value=_reminder_text(goal),
+        inline=True,
+    )
+    embed.add_field(
+        name=t("streaks.shared.goal_field"),
+        value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
         inline=True,
     )
 
@@ -248,7 +264,7 @@ def _log_embed(
     embed.description = _slots(result.streak, result.logs, goal, highlight=True)
     embed.add_field(
         name=t("streaks.shared.date_field"),
-        value=f"<t:{_day_timestamp(log.log_date, goal.timezone)}:D>",
+        value=_format_date(log.log_date),
         inline=True,
     )
     embed.add_field(
@@ -319,7 +335,7 @@ def _view_embed(
         name=t("streaks.info.started_field"),
         value=t(
             "streaks.info.started_value",
-            ts=_day_timestamp(streak.start_date, tz),
+            date=_format_date_short(streak.start_date),
             days=streak.days_logged,
         ),
         inline=True,
@@ -330,12 +346,14 @@ def _view_embed(
         inline=True,
     )
     today = streak_service.local_date(streak_service.utcnow(), tz)
+    last_log = streak.last_log_date or streak.start_date
     embed.add_field(
         name=t("streaks.info.logged_field"),
         value=t(
             "streaks.info.logged_yes"
             if streak.last_log_date == today
-            else "streaks.info.logged_no"
+            else "streaks.info.logged_no",
+            date=_format_day(last_log),
         ),
         inline=True,
     )
@@ -350,7 +368,7 @@ def _view_embed(
             rescue_emoji=t("streaks.icons.rescue"),
             golden_emoji=t("streaks.icons.golden"),
         ),
-        inline=False,
+        inline=True,
     )
     if streak.status == streak_service.STATUS_ONGOING and streak.last_log_date:
         closes = streak_service.streak_deadline(streak.last_log_date, tz)
@@ -362,7 +380,7 @@ def _view_embed(
     elif streak.end_date is not None:
         embed.add_field(
             name=t("streaks.info.closed_field"),
-            value=t("streaks.info.closed_value", ts=_day_timestamp(streak.end_date, tz)),
+            value=t("streaks.info.closed_value", date=_format_date(streak.end_date)),
             inline=True,
         )
     if streak.last_xp_at is not None:
@@ -371,7 +389,7 @@ def _view_embed(
             value=t(
                 "streaks.info.coupon_value",
                 xp=streak.last_xp_amount,
-                ts=int(streak.last_xp_at.replace(tzinfo=ZoneInfo("UTC")).timestamp()),
+                date=_format_date(streak_service.local_date(streak.last_xp_at, tz)),
             ),
             inline=True,
         )
@@ -397,13 +415,13 @@ def _view_embed(
             ),
             inline=True,
         )
-    service = getattr(client, "streaks", None)
-    if service is not None and service.dry_run:
-        embed.add_field(
-            name=t("streaks.info.dry_run_field"),
-            value=t("streaks.info.dry_run_value"),
-            inline=False,
-        )
+    # service = getattr(client, "streaks", None)
+    # if service is not None and service.dry_run:
+    #     embed.add_field(
+    #         name=t("streaks.info.dry_run_field"),
+    #         value=t("streaks.info.dry_run_value"),
+    #         inline=False,
+    #     )
     set_transparent_image(embed, client)
     return embed
 
@@ -442,7 +460,7 @@ def _leaderboard_embed(
                 "streaks.leaderboard.days_details",
                 days=streak.days_logged,
                 level=display_level(streak.days_logged),
-                date=f"<t:{int(datetime.combine(latest, time(0, 0), ZoneInfo('UTC')).timestamp())}:D>",
+                date=_format_date(latest),
             )
         )
     embed.description = "\n".join(lines)
@@ -976,12 +994,12 @@ async def today(interaction: discord.Interaction) -> None:
             "streaks.today.yes",
             amount=status.amount,
             unit=goal.unit,
-            date=f"<t:{_day_timestamp(status.last_date, goal.timezone)}:D>",
+            date=_format_date(status.last_date),
         )
     elif status.ever_logged and status.last_date is not None:
         message = t(
             "streaks.today.no",
-            date=f"<t:{_day_timestamp(status.last_date, goal.timezone)}:D>",
+            date=_format_date(status.last_date),
         )
     else:
         message = t("streaks.today.no_first")
