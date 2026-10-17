@@ -308,11 +308,17 @@ def _log_embed(
     if result.progress.leveled:
         content = t(
             "streaks.log.level_up_content",
+            days=result.streak.days_logged,
             level=result.progress.level,
+            rescue_emoji=t("streaks.icons.rescue"),
             xp=result.progress.xp_awarded,
         )
+
         if result.progress.anniversary:
             content += t("streaks.log.level_up_anniversary")
+        elif result.progress.golden_granted > 0:
+            content += t("streaks.log.level_up_50th", rescue_emoji=t("streaks.icons.golden"))
+
         embed.add_field(
             name=t("streaks.log.level_up_title"), value=content, inline=False
         )
