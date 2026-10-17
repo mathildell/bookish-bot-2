@@ -122,7 +122,7 @@ streaks:
     logged_no: "%{date}\n-# ❌ ‎ Not logged yet"
     coupon_field: "Last coupon"
     coupon_none: "No coupon yet"
-    coupon_value: "**%{xp} XP** on %{date}"
+    coupon_value: "%{date}"
     total_xp_field: "Last XP"
     total_xp_value: "%{xp} XP"
     on_track_field: "Next XP"

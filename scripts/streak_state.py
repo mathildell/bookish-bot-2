@@ -16,9 +16,12 @@ Usage (from the repository root, with config.yaml present):
     .venv/bin/python scripts/streak_state.py 123456789 xp-five-success --amount 20
 
     # Generate a random streak of N logged days with every derived field
-    # (level, coupons, XP) computed exactly as the game would:
+    # (level, coupons, XP) computed exactly as the game would. The last log
+    # defaults to yesterday; pass --last-log YYYY-MM-DD to move it, and --seed
+    # to make the random outcomes repeatable.
     .venv/bin/python scripts/streak_state.py 123456789 random --days 49
-    .venv/bin/python scripts/streak_state.py 123456789 random --days 49 --seed 7
+    .venv/bin/python scripts/streak_state.py 123456789 random --days 49 \
+        --last-log 2026-10-01 --seed 7
 
 Every state is documented below: what the seeded data makes ``/streaks view``
 or ``/streaks log`` show, and how that data is produced. The state builders all
@@ -73,6 +76,7 @@ class Context:
     unit: str
     days: int | None = None
     rng: random.Random | None = None
+    last_log: date | None = None
 
 
 @dataclass
@@ -552,9 +556,10 @@ async def _coupon_shown(ctx: Context) -> None:
 async def _random_state(ctx: Context) -> str:
     """A random ongoing streak of ``--days`` logged days, fully derived.
 
-    What you see: ``/streaks view`` -> ``--days`` random days ending today, with
-    the level, coupons, last XP and next-XP projection seeded exactly as the
-    normal logging flow would have produced them.
+    What you see: ``/streaks view`` -> ``--days`` random days ending on
+    ``--last-log`` (yesterday by default), with the level, coupons, last XP and
+    next-XP projection seeded exactly as the normal logging flow would have
+    produced them.
     How: each day is randomly successful (60%), failed (30%) or zero (10%). The
     completed windows pay their successes' share of the level XP (doubled on a
     365-day anniversary), one normal rescue is granted per completed level, and
@@ -562,6 +567,7 @@ async def _random_state(ctx: Context) -> str:
     """
     days = ctx.days or 0
     rng = ctx.rng or random.Random()
+    last_log = ctx.last_log or (ctx.today - timedelta(days=1))
     outcomes = rng.choices(
         [SUCCESS, FAILED, ZERO], weights=[60, 30, 10], k=days
     )
@@ -596,7 +602,7 @@ async def _random_state(ctx: Context) -> str:
         ctx,
         goal,
         outcomes=outcomes,
-        end_day=ctx.today,
+        end_day=last_log,
         days_logged=days,
         level=level,
         rescues_available=level,
@@ -609,8 +615,8 @@ async def _random_state(ctx: Context) -> str:
 
     successes = sum(1 for outcome in outcomes if outcome == SUCCESS)
     lines = [
-        f"Generated {days} logged days "
-        f"({successes} successful, {days - successes} not).",
+        f"Generated {days} logged days (last on {last_log.isoformat()}; "
+        f"{successes} successful, {days - successes} not).",
         f"Level: {streak_service.display_level(days)} "
         f"(completed levels: {level}).",
         f"Rescues: {level} normal, {golden} golden available.",
@@ -620,6 +626,11 @@ async def _random_state(ctx: Context) -> str:
     if remainder:
         lines.append(
             f"Current window: {successes_so_far} of {remainder} days successful."
+        )
+    if last_log < ctx.today - timedelta(days=1):
+        lines.append(
+            "Note: a real streak whose last log is older than yesterday would "
+            "already be closed; this one is seeded as ongoing."
         )
     return "\n".join(lines)
 
@@ -756,6 +767,7 @@ async def run(args: argparse.Namespace) -> None:
         ) or str(config.get("timezone") or "UTC")
         timezone = streak_service.valid_timezone(configured_tz) or "UTC"
         today = streak_service.local_date(now, timezone)
+        last_log = args.last_log or (today - timedelta(days=1))
         dry_run = await _guild_dry_run(session, guild_id=guild_id)
 
         await _wipe(session, guild_id=guild_id, user_id=args.user_id)
@@ -771,6 +783,7 @@ async def run(args: argparse.Namespace) -> None:
                 unit=args.unit,
                 days=args.days,
                 rng=random.Random(args.seed),
+                last_log=last_log,
             )
             generated = await entry.build(ctx)
         await session.commit()
@@ -835,6 +848,13 @@ def main() -> None:
         type=int,
         default=None,
         help="Seed the random outcomes for a repeatable run",
+    )
+    parser.add_argument(
+        "--last-log",
+        type=date.fromisoformat,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Date of the last daily log for the 'random' state (default: yesterday)",
     )
     args = parser.parse_args()
 

@@ -487,7 +487,6 @@ def _view_embed(
             name=t("streaks.info.coupon_field"),
             value=t(
                 "streaks.info.coupon_value",
-                xp=streak.last_xp_amount,
                 date=_format_date(streak_service.local_date(streak.last_xp_at, tz)),
             ),
             inline=True,
