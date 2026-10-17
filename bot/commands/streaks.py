@@ -85,8 +85,8 @@ def _format_date_short(day: _date) -> str:
     return day.strftime("%b %d, %Y")
 
 
-def _format_day(day: _date) -> str:
-    return day.strftime("%b %d")
+# def _format_day(day: _date) -> str:
+#     return day.strftime("%b %d")
 
 
 def _format_datetime(day: _date) -> str:
@@ -96,7 +96,7 @@ def _format_datetime(day: _date) -> str:
 def _dry_marker(client: discord.Client) -> str:
     service = getattr(client, "streaks", None)
     if service is not None and service.dry_run:
-        return t("streaks.info.dry_icon") + " ‎ "
+        return t("streaks.info.dry_icon") + " "
     return ""
 
 
@@ -381,7 +381,7 @@ def _view_embed(
             "streaks.info.logged_yes"
             if streak.last_log_date == today
             else "streaks.info.logged_no",
-            date=_format_day(last_log),
+            date=_format_date_short(last_log),
         ),
         inline=True,
     )
