@@ -15,6 +15,11 @@ Usage (from the repository root, with config.yaml present):
     # Add --guild-id / --config / --timezone / --amount / --unit as needed.
     .venv/bin/python scripts/streak_state.py 123456789 xp-five-success --amount 20
 
+    # Generate a random streak of N logged days with every derived field
+    # (level, coupons, XP) computed exactly as the game would:
+    .venv/bin/python scripts/streak_state.py 123456789 random --days 49
+    .venv/bin/python scripts/streak_state.py 123456789 random --days 49 --seed 7
+
 Every state is documented below: what the seeded data makes ``/streaks view``
 or ``/streaks log`` show, and how that data is produced. The state builders all
 work in the goal's timezone and are anchored on "today", so the outcome is
@@ -29,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import random
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -65,6 +71,8 @@ class Context:
     timezone: str
     amount: int
     unit: str
+    days: int | None = None
+    rng: random.Random | None = None
 
 
 @dataclass
@@ -541,6 +549,81 @@ async def _coupon_shown(ctx: Context) -> None:
     )
 
 
+async def _random_state(ctx: Context) -> str:
+    """A random ongoing streak of ``--days`` logged days, fully derived.
+
+    What you see: ``/streaks view`` -> ``--days`` random days ending today, with
+    the level, coupons, last XP and next-XP projection seeded exactly as the
+    normal logging flow would have produced them.
+    How: each day is randomly successful (60%), failed (30%) or zero (10%). The
+    completed windows pay their successes' share of the level XP (doubled on a
+    365-day anniversary), one normal rescue is granted per completed level, and
+    a golden one every 50 levels or 365 days. Use ``--seed`` to repeat a run.
+    """
+    days = ctx.days or 0
+    rng = ctx.rng or random.Random()
+    outcomes = rng.choices(
+        [SUCCESS, FAILED, ZERO], weights=[60, 30, 10], k=days
+    )
+
+    level = days // LEVEL_THRESHOLD
+    golden = sum(
+        1
+        for completed in range(1, level + 1)
+        if completed % 50 == 0
+        or (completed * LEVEL_THRESHOLD) % 365 == 0
+    )
+    total_xp = 0
+    last_award = 0
+    for completed in range(1, level + 1):
+        window = outcomes[
+            (completed - 1) * LEVEL_THRESHOLD : completed * LEVEL_THRESHOLD
+        ]
+        successes = sum(1 for outcome in window if outcome == SUCCESS)
+        award = streak_service.window_xp(completed, successes)
+        if (completed * LEVEL_THRESHOLD) % 365 == 0:
+            award *= 2
+        total_xp += award
+        last_award = award
+
+    remainder = days % LEVEL_THRESHOLD
+    current = outcomes[days - remainder :] if remainder else []
+    successes_so_far = sum(1 for outcome in current if outcome == SUCCESS)
+    projected = streak_service.on_track_xp(level, days, successes_so_far)
+
+    goal = _add_goal(ctx)
+    await _add_streak(
+        ctx,
+        goal,
+        outcomes=outcomes,
+        end_day=ctx.today,
+        days_logged=days,
+        level=level,
+        rescues_available=level,
+        golden_available=golden,
+        last_xp_amount=last_award,
+        total_xp_awarded=total_xp,
+        last_xp_at=streak_service.utcnow() if level > 0 else None,
+        window_xp_paid=last_award if level > 0 else 0,
+    )
+
+    successes = sum(1 for outcome in outcomes if outcome == SUCCESS)
+    lines = [
+        f"Generated {days} logged days "
+        f"({successes} successful, {days - successes} not).",
+        f"Level: {streak_service.display_level(days)} "
+        f"(completed levels: {level}).",
+        f"Rescues: {level} normal, {golden} golden available.",
+        f"XP earned so far: {total_xp} (last coupon: {last_award}).",
+        f"Projected next level: {projected} XP.",
+    ]
+    if remainder:
+        lines.append(
+            f"Current window: {successes_so_far} of {remainder} days successful."
+        )
+    return "\n".join(lines)
+
+
 # ------------------------------------------------------------------ registry
 
 
@@ -548,12 +631,13 @@ def _registry() -> dict[str, State]:
     def state(
         build,
         *,
+        name: str | None = None,
         build_goal: bool = True,
         log_amount: str | None = "30",
         expect: str = "",
     ) -> State:
         return State(
-            name=build.__name__.lstrip("_").replace("_", "-"),
+            name=name or build.__name__.lstrip("_").replace("_", "-"),
             comment=build.__doc__ or "",
             build=build,
             build_goal=build_goal,
@@ -583,6 +667,7 @@ def _registry() -> dict[str, State]:
         state(_reminder_custom, log_amount="30"),
         state(_reminder_both, log_amount="30"),
         state(_coupon_shown, log_amount="30"),
+        state(_random_state, name="random", log_amount="30"),
     ]
     return {entry.name: entry for entry in states}
 
@@ -674,6 +759,7 @@ async def run(args: argparse.Namespace) -> None:
         dry_run = await _guild_dry_run(session, guild_id=guild_id)
 
         await _wipe(session, guild_id=guild_id, user_id=args.user_id)
+        generated = None
         if entry.build_goal:
             ctx = Context(
                 session=session,
@@ -683,8 +769,10 @@ async def run(args: argparse.Namespace) -> None:
                 timezone=timezone,
                 amount=args.amount,
                 unit=args.unit,
+                days=args.days,
+                rng=random.Random(args.seed),
             )
-            await entry.build(ctx)
+            generated = await entry.build(ctx)
         await session.commit()
 
     await close_db()
@@ -703,6 +791,11 @@ async def run(args: argparse.Namespace) -> None:
     print()
     print("Expected:")
     print(f"  {' '.join((entry.comment or '').strip().split())}")
+    if generated:
+        print()
+        print("Generated:")
+        for line in str(generated).splitlines():
+            print(f"  {line}")
     if dry_run:
         print()
         print(
@@ -731,10 +824,27 @@ def main() -> None:
                         help="Override the goal timezone (default: existing/config)")
     parser.add_argument("--amount", type=int, default=30)
     parser.add_argument("--unit", default="pages")
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Number of logged days for the 'random' state",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seed the random outcomes for a repeatable run",
+    )
     args = parser.parse_args()
 
     if not args.list and (args.user_id is None or args.state is None):
         parser.error("user_id and state are required (or use --list)")
+    if args.state == "random":
+        if args.days is None:
+            parser.error("--days is required for the 'random' state")
+        if args.days < 1:
+            parser.error("--days must be at least 1")
 
     asyncio.run(run(args))
 

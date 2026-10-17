@@ -288,7 +288,7 @@ class SlotTests(unittest.TestCase):
         )
         self.assertEqual(slots, ["S", "S", "S", "S", "S"])
 
-    def test_completed_window_resets_after_midnight(self) -> None:
+    def test_completed_window_stays_until_next_day_is_logged(self) -> None:
         logs = [
             log(self.today - timedelta(days=5 - index), streaks.OUTCOME_SUCCESS)
             for index in range(5)
@@ -300,7 +300,43 @@ class SlotTests(unittest.TestCase):
             today=self.today,
             icons=ICONS,
         )
-        self.assertEqual(slots, ["U", "U", "U", "U", "U"])
+        self.assertEqual(slots, ["S", "S", "S", "S", "S"])
+
+    def test_next_level_window_starts_after_the_first_new_day(self) -> None:
+        logs = [
+            log(self.today - timedelta(days=2), streaks.OUTCOME_SUCCESS),
+            log(self.today - timedelta(days=1), streaks.OUTCOME_SUCCESS),
+            log(self.today, streaks.OUTCOME_FAILED),
+        ]
+        slots = streaks.window_slots(
+            logs,
+            days_logged=6,
+            highlight_today=False,
+            today=self.today,
+            icons=ICONS,
+        )
+        self.assertEqual(slots, ["P", "U", "U", "U", "U"])
+
+    def test_golden_repairs_fill_the_completed_window(self) -> None:
+        logs = [
+            log(self.today - timedelta(days=4), streaks.OUTCOME_SUCCESS),
+        ] + [
+            log(
+                self.today - timedelta(days=offset),
+                streaks.OUTCOME_ZERO,
+                repair=True,
+                rescue_type=streaks.RESCUE_GOLDEN,
+            )
+            for offset in range(3, -1, -1)
+        ]
+        slots = streaks.window_slots(
+            logs,
+            days_logged=5,
+            highlight_today=False,
+            today=self.today,
+            icons=ICONS,
+        )
+        self.assertEqual(slots, ["S", "G", "G", "G", "G"])
 
 
 class RescueButtonTests(unittest.TestCase):
@@ -309,6 +345,30 @@ class RescueButtonTests(unittest.TestCase):
         golden = command_streaks._RescueButton(streaks.RESCUE_GOLDEN)
         self.assertEqual(normal.emoji.name, "rescue")
         self.assertEqual(golden.emoji.name, "golden")
+
+
+class LocalDatetimeTests(unittest.TestCase):
+    def test_formats_afternoon_without_a_leading_zero(self) -> None:
+        self.assertEqual(
+            command_streaks._format_local_datetime(
+                datetime(2024, 1, 5, 13, 0)
+            ),
+            "Jan 05, 2024 1:00PM",
+        )
+
+    def test_formats_midnight_and_noon(self) -> None:
+        self.assertEqual(
+            command_streaks._format_local_datetime(
+                datetime(2024, 1, 5, 0, 5)
+            ),
+            "Jan 05, 2024 12:05AM",
+        )
+        self.assertEqual(
+            command_streaks._format_local_datetime(
+                datetime(2024, 1, 5, 12, 0)
+            ),
+            "Jan 05, 2024 12:00PM",
+        )
 
 
 class TextChoiceTests(unittest.TestCase):

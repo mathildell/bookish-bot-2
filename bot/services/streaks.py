@@ -262,18 +262,17 @@ def window_slots(
 ) -> list[str]:
     """Render the current level's five slots, oldest day first.
 
-    ``logs`` must be ordered oldest-first. Only the trailing partial group of
-    the current level matters, so purged history does not interfere. A just
-    completed window (``days_logged`` is a multiple of five) keeps showing its
-    five days until the local day rolls over, rather than resetting to blanks.
+    ``logs`` must be ordered oldest-first. The window is the group of five days
+    that contains the most recent logged day, so a completed level stays on
+    screen until the first day of the next level is logged. That also keeps
+    days patched by a rescue visible, even when the patch completes a level.
+    Purged history does not interfere: only the trailing ``count`` logs are used.
     """
-    remainder = days_logged % LEVEL_THRESHOLD
-    if remainder:
-        window = logs[-remainder:]
-    elif logs and logs[-1].log_date == today:
-        window = logs[-LEVEL_THRESHOLD:]
+    if days_logged <= 0:
+        count = 0
     else:
-        window = []
+        count = ((days_logged - 1) % LEVEL_THRESHOLD) + 1
+    window = logs[-count:] if count else []
     return [
         slot_emoji(
             window[index] if index < len(window) else None,

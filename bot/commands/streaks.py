@@ -7,7 +7,7 @@ Admins can point the feature at a channel and backfill missed days.
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from datetime import date as _date, timedelta
+from datetime import date as _date, datetime, timedelta
 from typing import Literal
 
 import discord
@@ -87,8 +87,16 @@ def _format_date_short(day: _date) -> str:
     return day.strftime("%b %d, %Y")
 
 
-def _format_datetime(day: _date) -> str:
-    return day.strftime("%b %d, %Y %l:%M%p")
+def _format_local_datetime(now: datetime) -> str:
+    hour = now.hour % 12 or 12
+    suffix = "AM" if now.hour < 12 else "PM"
+    return f"{now.strftime('%b %d, %Y')} {hour}:{now.minute:02d}{suffix}"
+
+
+def _format_local_now(timezone: str) -> str:
+    return _format_local_datetime(
+        streak_service.local_now(streak_service.utcnow(), timezone)
+    )
 
 
 def _dry_marker(client: discord.Client) -> str:
@@ -119,14 +127,12 @@ def _window_successes(streak: Streak, logs: list[StreakLog]) -> int:
 
 
 def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
-    today = streak_service.local_date(streak_service.utcnow(), goal.timezone)
-
     embed.add_field(
         name=t("streaks.shared.timezone_field"),
         value=t(
             "streaks.shared.timezone_value",
             timezone=goal.timezone,
-            current=_format_datetime(today),
+            current=_format_local_now(goal.timezone),
         ),
         inline=True,
     )
