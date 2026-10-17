@@ -90,7 +90,7 @@ def _format_day(day: _date) -> str:
 
 
 def _format_datetime(day: _date) -> str:
-    return day.strftime("%B %d, %Y %H:%M %p")
+    return day.strftime("%B %d, %Y %H:%M%p")
 
 
 def _slots(
@@ -378,6 +378,11 @@ def _view_embed(
         ),
         inline=True,
     )
+    yesterday_log = next(
+        (entry for entry in logs if entry.log_date == today - timedelta(days=1)),
+        None,
+    )
+    
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t("streaks.shared.level_value", level=str(display_level(streak.days_logged))),

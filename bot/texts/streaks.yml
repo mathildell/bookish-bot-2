@@ -16,16 +16,16 @@ streaks:
     timezone_value: "%{timezone}\n-# %{current}"
     notification_field: "Reminders"
     level_field: "Streak level"
-    level_value: "💫 ‎ %{level}"
+    level_value: "💫 ‎ Level %{level}"
     per_day: "%{amount} %{unit} a day"
     date_field: "Date"
     rescue_button: "Repair streak"
     rescue_emoji: "🛟"
     reminder:
-      none: "No reminder."
-      custom: "Reminder at %{hour}."
+      none: "No reminder"
+      custom: "Reminder at %{hour}"
       last_chance: "Last chance reminder (11PM)"
-      both: "%{hour}, plus last chance (11PM)."
+      both: "%{hour}, plus last chance (11PM)"
     reminder_options: |
       ### ❌ ‎ None
       > You will not be pinged for streak reminders
@@ -125,6 +125,9 @@ streaks:
     total_xp_value: "%{xp} XP"
     on_track_field: "On track for"
     on_track_value: "**%{xp} XP** this window"
+    yesterday_field: "Yesterday"
+    yesterday_value: "%{amount} %{unit}"
+    yesterday_percent: "-# %{percent}% achieved"
     dry_run_field: "Dry run"
     dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
