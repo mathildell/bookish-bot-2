@@ -92,6 +92,11 @@ streaks:
     dry_run: "We're in dry run mode, so that **%{xp} XP** wasn't added to your actual XP total just yet."
     top_up_title: "Goal reached"
     top_up_content: "You already received XP for finishing your level earlier, but you deserve a little more for completing today. Here's the **%{xp} XP** you are owed!"
+
+  rescue:
+    title: "Streak rescued"
+    content: "Your **%{emoji} ‎ Streak Rescue** saved **%{days} days**, completing **💫 ‎ Level %{level}** and earning you **%{xp} XP**."
+    content_one: "Your **%{emoji} ‎ Streak Rescue** saved **1 day**, completing **💫 ‎ Level %{level}** and earning you **%{xp} XP**."
   
   today:
     description: "Have you logged today?"

@@ -349,6 +349,7 @@ def _view_embed(
     logs: list[StreakLog],
     *,
     rescuable: bool = False,
+    rescued: streak_service.ReviveResult | None = None,
 ) -> discord.Embed:
     embed = new_embed(client)
     set_author(embed, member, member.display_name)
@@ -521,6 +522,34 @@ def _view_embed(
             value=t("streaks.info.on_track_value", xp=f"{marker}{projected}"),
             inline=True,
         )
+    if rescued is not None and rescued.progress.leveled:
+        emoji = (
+            t("streaks.icons.golden")
+            if rescued.rescue_type == RESCUE_GOLDEN
+            else t("streaks.icons.rescue")
+        )
+        key = (
+            "streaks.rescue.content_one"
+            if rescued.patched_days == 1
+            else "streaks.rescue.content"
+        )
+        embed.add_field(
+            name=t("streaks.rescue.title"),
+            value=t(
+                key,
+                emoji=emoji,
+                days=rescued.patched_days,
+                level=rescued.progress.level,
+                xp=rescued.progress.xp_awarded,
+            ),
+            inline=False,
+        )
+        if rescued.progress.dry_run and rescued.progress.xp_awarded > 0:
+            embed.add_field(
+                name=t("streaks.info.dry_run_field"),
+                value=t("streaks.log.dry_run", xp=rescued.progress.xp_awarded),
+                inline=False,
+            )
     set_transparent_image(embed, client)
     return embed
 
@@ -873,6 +902,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         result.streak,
         result.logs,
         rescuable=False,
+        rescued=result,
     )
     await interaction.response.edit_message(
         embed=embed, view=_ViewActions(rescue=False, edit=True)

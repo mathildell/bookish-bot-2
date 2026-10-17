@@ -406,5 +406,92 @@ class ModalLimitTests(unittest.TestCase):
                 self.assertLessEqual(len(item.label), 45, item.label)
 
 
+class RescueEmbedTests(unittest.TestCase):
+    def _embed(
+        self,
+        *,
+        patched_days: int = 3,
+        rescue_type: str = streaks.RESCUE_GOLDEN,
+        leveled: bool = True,
+    ):
+        goal = SimpleNamespace(
+            amount=30,
+            unit="pages",
+            timezone="UTC",
+            reminder="none",
+            custom_hour=None,
+        )
+        streak = SimpleNamespace(
+            status=streaks.STATUS_ONGOING,
+            start_date=date(2026, 1, 1),
+            days_logged=255,
+            level=51,
+            rescues_available=50,
+            rescues_used=0,
+            golden_available=0,
+            golden_used=1,
+            last_log_date=date(2026, 10, 16),
+            last_xp_at=datetime(2026, 10, 16),
+            last_xp_amount=150,
+            end_date=None,
+        )
+        progress = streaks.LevelProgress(
+            previous_level=50,
+            level=51,
+            leveled=leveled,
+            xp_awarded=150,
+            rescues_granted=1,
+            golden_granted=0,
+            anniversary=False,
+        )
+        result = streaks.ReviveResult(
+            goal=goal,
+            streak=streak,
+            logs=[],
+            rescue_type=rescue_type,
+            patched_days=patched_days,
+            moved=True,
+            progress=progress,
+        )
+        member = SimpleNamespace(
+            display_name="Alice",
+            display_avatar=SimpleNamespace(url="https://example.com/a.png"),
+        )
+        client = SimpleNamespace(
+            default_embed_color=None, transparent_embed_image=None
+        )
+        return command_streaks._view_embed(
+            client, member, goal, streak, [], rescued=result
+        )
+
+    def test_reports_the_level_completed_by_the_rescue(self) -> None:
+        embed = self._embed()
+        field = next(
+            entry
+            for entry in embed.fields
+            if entry.name == t("streaks.rescue.title")
+        )
+        self.assertFalse(field.inline)
+        self.assertIn("Level 51", field.value)
+        self.assertIn("150 XP", field.value)
+
+    def test_omitted_when_the_rescue_completes_no_level(self) -> None:
+        embed = self._embed(leveled=False)
+        names = [entry.name for entry in embed.fields]
+        self.assertNotIn(t("streaks.rescue.title"), names)
+
+    def test_singular_day(self) -> None:
+        embed = self._embed(
+            patched_days=1, rescue_type=streaks.RESCUE_NORMAL
+        )
+        field = next(
+            entry
+            for entry in embed.fields
+            if entry.name == t("streaks.rescue.title")
+        )
+        self.assertIn("1 day", field.value)
+        self.assertNotIn("1 days", field.value)
+
+
 if __name__ == "__main__":
     unittest.main()
