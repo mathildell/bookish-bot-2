@@ -2407,12 +2407,7 @@ class SettingsDisplayTests(unittest.TestCase):
         for key in settings_cmds.SETTING_KEYS:
             self.assertIn(settings_cmds.setting_label(key), description)
         self.assertIn("-# ", description)
-        self.assertIn(
-            "{} = `30` days".format(
-                settings_cmds.setting_label(settings_cmds.PURGE_BOOK_RELEASES)
-            ),
-            description,
-        )
+        self.assertIn("Value: `30` days", description)
 
     def test_expected_hints_resolve(self) -> None:
         for kind in set(settings_cmds._KINDS.values()):

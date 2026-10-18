@@ -170,21 +170,28 @@ def current_display(interaction: discord.Interaction, key: str) -> str:
     return f"{value} {unit}" if unit else value
 
 
-def current_entry(interaction: discord.Interaction, key: str) -> str:
-    """Render one setting as a ``### Name = `value` unit`` heading."""
+def current_value_line(interaction: discord.Interaction, key: str) -> str:
+    """Render one setting's value as a ``Value: `value` unit`` line."""
     value, unit = _current_value(interaction, key)
-    label = setting_label(key)
     if unit:
-        return t("settings.list.entry_unit", label=label, value=value, unit=unit)
-    return t("settings.list.entry", label=label, value=value)
+        return t("settings.list.value_unit", value=value, unit=unit)
+    return t("settings.list.value", value=value)
 
 
 def build_description(interaction: discord.Interaction) -> str:
-    """Build the list embed's description: one heading + note per setting."""
-    return "\n".join(
-        f"{current_entry(interaction, key)}\n{t(f'settings.list.info.{key}')}"
-        for key in SETTING_KEYS
-    )
+    """Build the list embed's description: heading + value + note per setting."""
+    blocks = []
+    for key in SETTING_KEYS:
+        blocks.append(
+            "\n".join(
+                (
+                    t("settings.list.heading", label=setting_label(key)),
+                    current_value_line(interaction, key),
+                    t(f"settings.list.info.{key}"),
+                )
+            )
+        )
+    return "\n".join(blocks)
 
 
 async def apply_value(
