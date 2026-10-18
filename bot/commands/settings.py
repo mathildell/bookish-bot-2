@@ -1,18 +1,23 @@
-"""Cleanup settings commands (``/settings ...``).
+"""Bot settings commands (``/settings ...``).
 
-Admins view and edit how long the scheduled cleanup jobs keep data before
-deleting it. The jobs themselves keep running daily; these values are their
-retention windows, expressed in days.
+Admins view and edit the values that used to live in ``config.yaml`` and
+``/releases``/``/reviews``: cleanup retention windows, the review repost
+cooldown, the daily release post hour, the updates channel, the transparent
+embed background and the default embed colour. The values are typed per key, so
+the same ``/settings edit`` command parses days, hours, channels, URLs and
+colours.
 """
 
 from __future__ import annotations
+
+import re
 
 import discord
 from discord import app_commands
 
 from ..texts import t
 from .checks import require_admin
-from .listing import new_embed
+from .listing import new_embed, parse_hex_colour
 
 settings_group = app_commands.Group(
     name="settings",
@@ -22,33 +27,38 @@ settings_group = app_commands.Group(
 
 PURGE_BOOK_RELEASES = "purge_book_releases"
 PURGE_STREAK_LOGS = "purge_streak_logs"
+REVIEW_REPOST_COOLDOWN = "review_repost_cooldown_days"
+RELEASES_POST_HOUR = "releases_post_hour"
+BOT_UPDATES_CHANNEL = "bot_updates_channel_id"
+TRANSPARENT_IMAGE = "transparent_embed_image"
+DEFAULT_COLOR = "default_embed_color"
 
-SETTING_KEYS = (PURGE_BOOK_RELEASES, PURGE_STREAK_LOGS)
+# Interpretation of each key's value.
+_KINDS = {
+    PURGE_BOOK_RELEASES: "days",
+    PURGE_STREAK_LOGS: "days",
+    REVIEW_REPOST_COOLDOWN: "days",
+    RELEASES_POST_HOUR: "hour",
+    BOT_UPDATES_CHANNEL: "channel",
+    TRANSPARENT_IMAGE: "url",
+    DEFAULT_COLOR: "color",
+}
+
+SETTING_KEYS = tuple(_KINDS)
 
 MIN_DAYS = 1
 MAX_DAYS = 3650
+MIN_HOUR = 1
+MAX_HOUR = 23
+# Literal accepted by the optional settings to unset them.
+CLEAR = "none"
+
+_CHANNEL_RE = re.compile(r"<#(\d+)>")
 
 
 def setting_label(key: str) -> str:
     """Human-readable name for a setting key."""
     return t(f"settings.keys.{key}")
-
-
-def current_value(interaction: discord.Interaction, key: str) -> int:
-    """Read the current number of days for a setting key."""
-    if key == PURGE_BOOK_RELEASES:
-        return interaction.client.releases.purge_days
-    return interaction.client.streaks.log_retention_days
-
-
-async def apply_value(
-    interaction: discord.Interaction, key: str, days: int
-) -> None:
-    """Persist a setting key to a new number of days."""
-    if key == PURGE_BOOK_RELEASES:
-        await interaction.client.releases.set_purge_days(days)
-    else:
-        await interaction.client.streaks.set_log_retention_days(days)
 
 
 def parse_days(raw: str) -> int:
@@ -62,6 +72,113 @@ def parse_days(raw: str) -> int:
     return days
 
 
+def parse_hour(raw: str) -> int:
+    """Parse a whole UTC hour within the allowed range."""
+    text = raw.strip()
+    if not text.isdigit():
+        raise ValueError(raw)
+    hour = int(text)
+    if not MIN_HOUR <= hour <= MAX_HOUR:
+        raise ValueError(raw)
+    return hour
+
+
+def parse_channel_id(raw: str) -> int | None:
+    """Parse a channel mention/id, or ``None`` for the clear literal."""
+    text = raw.strip()
+    if text.lower() == CLEAR:
+        return None
+    match = _CHANNEL_RE.fullmatch(text)
+    if match:
+        return int(match.group(1))
+    if text.isdigit():
+        return int(text)
+    raise ValueError(raw)
+
+
+def parse_url(raw: str) -> str | None:
+    """Parse an http(s) URL, or ``None`` for the clear literal."""
+    text = raw.strip()
+    if text.lower() == CLEAR:
+        return None
+    if not text.startswith(("http://", "https://")):
+        raise ValueError(raw)
+    return text
+
+
+def parse_color(raw: str) -> discord.Colour | None:
+    """Parse a hex colour, or ``None`` for the clear literal."""
+    text = raw.strip()
+    if text.lower() == CLEAR:
+        return None
+    return parse_hex_colour(text)
+
+
+def _current_days(interaction: discord.Interaction, key: str) -> int:
+    if key == PURGE_BOOK_RELEASES:
+        return interaction.client.releases.purge_days
+    if key == PURGE_STREAK_LOGS:
+        return interaction.client.streaks.log_retention_days
+    return interaction.client.reviews.repost_cooldown_days
+
+
+def current_display(interaction: discord.Interaction, key: str) -> str:
+    """Render the current value of a setting key for display."""
+    kind = _KINDS[key]
+    settings = interaction.client.bot_settings
+    if kind == "days":
+        return t("settings.list.value_days", days=_current_days(interaction, key))
+    if kind == "hour":
+        hour = interaction.client.releases.post_hour
+        return t("settings.list.value_hour", hour=f"{hour:02d}:00")
+    if kind == "channel":
+        channel_id = settings.updates_channel_id
+        return f"<#{channel_id}>" if channel_id else t("settings.list.value_none")
+    if kind == "url":
+        image = settings.transparent_embed_image
+        return image or t("settings.list.value_none")
+    color = settings.default_embed_color
+    if not color:
+        return t("settings.list.value_none")
+    return t("settings.list.value_color", color=color)
+
+
+async def apply_value(
+    interaction: discord.Interaction, key: str, raw: str
+) -> None:
+    """Parse and persist a setting key, updating the runtime value too."""
+    kind = _KINDS[key]
+    if kind == "days":
+        days = parse_days(raw)
+        if key == PURGE_BOOK_RELEASES:
+            await interaction.client.releases.set_purge_days(days)
+        elif key == PURGE_STREAK_LOGS:
+            await interaction.client.streaks.set_log_retention_days(days)
+        else:
+            await interaction.client.reviews.set_repost_cooldown_days(days)
+    elif kind == "hour":
+        await interaction.client.releases.set_post_hour(parse_hour(raw))
+    elif kind == "channel":
+        channel_id = parse_channel_id(raw)
+        if (
+            channel_id is not None
+            and interaction.guild is not None
+            and interaction.guild.get_channel(channel_id) is None
+        ):
+            raise ValueError(raw)
+        await interaction.client.bot_settings.set_updates_channel(channel_id)
+        interaction.client.bot_updates_channel_id = channel_id or 0
+    elif kind == "url":
+        image = parse_url(raw)
+        await interaction.client.bot_settings.set_transparent_embed_image(image)
+        interaction.client.transparent_embed_image = image
+    else:
+        color = parse_color(raw)
+        stored = f"#{color.value:06x}" if color is not None else None
+        await interaction.client.bot_settings.set_default_embed_color(stored)
+        interaction.client.default_embed_color = color
+
+
 @settings_group.command(name="list", description=t("settings.list.description"))
 async def list_settings(interaction: discord.Interaction) -> None:
     if not await require_admin(interaction):
@@ -72,7 +189,7 @@ async def list_settings(interaction: discord.Interaction) -> None:
     for key in SETTING_KEYS:
         embed.add_field(
             name=setting_label(key),
-            value=t("settings.list.value", days=current_value(interaction, key)),
+            value=current_display(interaction, key),
         )
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -94,19 +211,27 @@ async def edit(
     if not await require_admin(interaction):
         return
     try:
-        days = parse_days(value)
+        await apply_value(interaction, key, value)
     except ValueError:
         await interaction.response.send_message(
             t(
                 "settings.edit.invalid_value",
                 value=value,
-                min=MIN_DAYS,
-                max=MAX_DAYS,
+                expected=t(
+                    f"settings.edit.expected.{_KINDS[key]}",
+                    min=MIN_DAYS,
+                    max=MAX_DAYS,
+                    min_hour=MIN_HOUR,
+                    max_hour=MAX_HOUR,
+                ),
             ),
             ephemeral=True,
         )
         return
-    await apply_value(interaction, key, days)
     await interaction.response.send_message(
-        t("settings.edit.success", key=setting_label(key), days=days)
+        t(
+            "settings.edit.success",
+            key=setting_label(key),
+            value=current_display(interaction, key),
+        )
     )

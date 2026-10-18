@@ -1152,6 +1152,28 @@ class ShouldPostTests(unittest.TestCase):
             reviews_service.should_post(entry, row, self.NOW, datetime.datetime(2026, 1, 1))
         )
 
+    def test_custom_cooldown_is_respected(self) -> None:
+        entry = self._entry(self.NOW)
+        row = self.Row(self.OLD, datetime.datetime(2026, 10, 11))
+        self.assertFalse(
+            reviews_service.should_post(
+                entry,
+                row,
+                self.NOW,
+                datetime.datetime(2026, 1, 1),
+                datetime.timedelta(days=4),
+            )
+        )
+        self.assertTrue(
+            reviews_service.should_post(
+                entry,
+                row,
+                self.NOW,
+                datetime.datetime(2026, 1, 1),
+                datetime.timedelta(days=2),
+            )
+        )
+
 
 class BuildReviewEmbedTests(unittest.TestCase):
     def _entry(self) -> FeedEntry:
@@ -2200,6 +2222,134 @@ class ParseDaysTests(unittest.TestCase):
         for value in ("0", str(settings_cmds.MAX_DAYS + 1)):
             with self.assertRaises(ValueError):
                 settings_cmds.parse_days(value)
+
+
+class ParseHourTests(unittest.TestCase):
+    def test_accepts_a_plain_hour(self) -> None:
+        self.assertEqual(settings_cmds.parse_hour("13"), 13)
+
+    def test_accepts_the_bounds(self) -> None:
+        self.assertEqual(settings_cmds.parse_hour("1"), settings_cmds.MIN_HOUR)
+        self.assertEqual(settings_cmds.parse_hour("23"), settings_cmds.MAX_HOUR)
+
+    def test_rejects_non_numbers(self) -> None:
+        for value in ("", "abc", "13:00"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_hour(value)
+
+    def test_rejects_out_of_range(self) -> None:
+        for value in ("0", "24", "-1"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_hour(value)
+
+
+class ParseChannelIdTests(unittest.TestCase):
+    def test_accepts_a_mention(self) -> None:
+        self.assertEqual(
+            settings_cmds.parse_channel_id("<#123456789>"), 123456789
+        )
+
+    def test_accepts_a_bare_id(self) -> None:
+        self.assertEqual(settings_cmds.parse_channel_id("123456789"), 123456789)
+
+    def test_clear_returns_none(self) -> None:
+        self.assertIsNone(settings_cmds.parse_channel_id("none"))
+        self.assertIsNone(settings_cmds.parse_channel_id("NONE"))
+
+    def test_rejects_garbage(self) -> None:
+        for value in ("", "#chan", "<#>", "abc"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_channel_id(value)
+
+
+class ParseUrlTests(unittest.TestCase):
+    def test_accepts_http_and_https(self) -> None:
+        self.assertEqual(
+            settings_cmds.parse_url("http://example.com/a.png"),
+            "http://example.com/a.png",
+        )
+        self.assertEqual(
+            settings_cmds.parse_url("  https://example.com/a.png  "),
+            "https://example.com/a.png",
+        )
+
+    def test_clear_returns_none(self) -> None:
+        self.assertIsNone(settings_cmds.parse_url("none"))
+
+    def test_rejects_other_schemes(self) -> None:
+        for value in ("", "example.com", "ftp://example.com"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_url(value)
+
+
+class ParseColorTests(unittest.TestCase):
+    def test_accepts_hex(self) -> None:
+        self.assertEqual(
+            settings_cmds.parse_color("#97a97c"), discord.Colour(0x97A97C)
+        )
+        self.assertEqual(
+            settings_cmds.parse_color("97A97C"), discord.Colour(0x97A97C)
+        )
+
+    def test_clear_returns_none(self) -> None:
+        self.assertIsNone(settings_cmds.parse_color("none"))
+
+    def test_rejects_garbage(self) -> None:
+        for value in ("", "red", "#12345"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_color(value)
+
+
+class SettingsDisplayTests(unittest.TestCase):
+    class _Releases:
+        purge_days = 30
+        post_hour = 13
+
+    class _Streaks:
+        log_retention_days = 90
+
+    class _Reviews:
+        repost_cooldown_days = 1
+
+    class _BotSettings:
+        updates_channel_id = 42
+        transparent_embed_image = "https://example.com/bg.png"
+        default_embed_color = "#97a97c"
+
+    class _Client:
+        def __init__(self) -> None:
+            self.releases = SettingsDisplayTests._Releases()
+            self.streaks = SettingsDisplayTests._Streaks()
+            self.reviews = SettingsDisplayTests._Reviews()
+            self.bot_settings = SettingsDisplayTests._BotSettings()
+
+    class _Interaction:
+        def __init__(self) -> None:
+            self.client = SettingsDisplayTests._Client()
+
+    def test_every_key_renders(self) -> None:
+        interaction = self._Interaction()
+        for key in settings_cmds.SETTING_KEYS:
+            self.assertTrue(settings_cmds.current_display(interaction, key))
+
+    def test_hour_is_marked_utc(self) -> None:
+        interaction = self._Interaction()
+        rendered = settings_cmds.current_display(
+            interaction, settings_cmds.RELEASES_POST_HOUR
+        )
+        self.assertIn("UTC", rendered)
+
+    def test_expected_hints_resolve(self) -> None:
+        for kind in set(settings_cmds._KINDS.values()):
+            self.assertTrue(
+                t(
+                    f"settings.edit.expected.{kind}",
+                    min=settings_cmds.MIN_DAYS,
+                    max=settings_cmds.MAX_DAYS,
+                    min_hour=settings_cmds.MIN_HOUR,
+                    max_hour=settings_cmds.MAX_HOUR,
+                )
+            )
 
 
 class CondenseNewlinesTests(unittest.TestCase):

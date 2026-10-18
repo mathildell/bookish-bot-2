@@ -199,6 +199,7 @@ def should_post(
     row: ReviewEntry | None,
     now: datetime,
     feed_since: datetime | None,
+    cooldown: timedelta = FEED_COOLDOWN,
 ) -> bool:
     """Decide whether ``entry`` should be posted to the reviews channel."""
     if row is None:
@@ -208,7 +209,7 @@ def should_post(
         return False
     if row.last_posted_at is None:
         return True
-    return now - row.last_posted_at >= FEED_COOLDOWN
+    return now - row.last_posted_at >= cooldown
 
 
 def build_review_embed(
@@ -316,6 +317,7 @@ class ReviewService:
     def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
         self._channel_id: int | None = None
+        self._repost_cooldown_days = FEED_COOLDOWN.days
         self._logo_cache: dict[str, str] = {}
         # Serialises polls so a manual repost cannot race the scheduled loop.
         self._poll_lock = asyncio.Lock()
@@ -323,6 +325,10 @@ class ReviewService:
     @property
     def channel_id(self) -> int | None:
         return self._channel_id
+
+    @property
+    def repost_cooldown_days(self) -> int:
+        return self._repost_cooldown_days
 
     # ----------------------------------------------------------- settings
 
@@ -336,6 +342,11 @@ class ReviewService:
                 )
             ).scalar_one_or_none()
         self._channel_id = row.channel_id if row is not None else None
+        self._repost_cooldown_days = (
+            row.repost_cooldown_days
+            if row is not None and row.repost_cooldown_days
+            else FEED_COOLDOWN.days
+        )
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -354,6 +365,28 @@ class ReviewService:
                 row.channel_id = channel_id
             await session.commit()
         self._channel_id = channel_id
+
+    async def set_repost_cooldown_days(self, days: int) -> None:
+        async with session_scope() as session:
+            row = (
+                await session.execute(
+                    select(ReviewSetting).where(
+                        ReviewSetting.guild_id == self.guild_id
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                session.add(
+                    ReviewSetting(
+                        guild_id=self.guild_id,
+                        channel_id=self._channel_id or 0,
+                        repost_cooldown_days=days,
+                    )
+                )
+            else:
+                row.repost_cooldown_days = days
+            await session.commit()
+        self._repost_cooldown_days = days
 
     # -------------------------------------------------------------- feeds
 
@@ -578,7 +611,13 @@ class ReviewService:
                     if only is not None and entry.entry_id != only[1]:
                         continue
                     row = tracked.get(entry.entry_id)
-                    if should_post(entry, row, now, feed.feed_since):
+                    if should_post(
+                        entry,
+                        row,
+                        now,
+                        feed.feed_since,
+                        timedelta(days=self._repost_cooldown_days),
+                    ):
                         if member is None:
                             logger.warning(
                                 "Skipping review for unknown member %s",

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import logging
 from datetime import time as dt_time
-from datetime import timezone as dt_timezone
-from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -46,6 +44,7 @@ from .services.reference import post_reference
 from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
 from .services.reviews import ReviewService
+from .services.settings import BotSettingsService
 from .services.streaks import StreakService
 from .texts import t, t_choice
 
@@ -63,23 +62,6 @@ FIVE_MINUTE_TIMES = [
     for minute in range(0, 60, 5)
 ]
 DAILY_TIMES = [dt_time(hour=4)]
-
-
-def _release_post_time(config) -> dt_time:
-    """Scheduled time for the daily release post, from the config or 13:00 UTC."""
-    raw = str(config.get("releases_post_time") or "13:00")
-    try:
-        hour, minute = (int(part) for part in raw.split(":", 1))
-    except ValueError:
-        hour, minute = 13, 0
-    tz = dt_timezone.utc
-    tz_name = config.get("timezone")
-    if tz_name:
-        try:
-            tz = ZoneInfo(str(tz_name))
-        except Exception:
-            logger.warning("Unknown timezone %r; using UTC", tz_name)
-    return dt_time(hour=hour, minute=minute, tzinfo=tz)
 
 
 def _sticky_is_last(
@@ -155,6 +137,7 @@ async def run() -> None:
     intros = IntroService(int(config.guild_id))
     releases = ReleaseService(int(config.guild_id))
     streaks = StreakService(int(config.guild_id))
+    bot_settings = BotSettingsService(int(config.guild_id))
     release_scraper = ReleaseScraper()
 
     intents = discord.Intents.default()
@@ -169,6 +152,7 @@ async def run() -> None:
     bot.intros = intros
     bot.releases = releases
     bot.streaks = streaks
+    bot.bot_settings = bot_settings
     bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
@@ -176,19 +160,16 @@ async def run() -> None:
     bot.add_view(IntroRefreshView())
     # Persistent "repair streak" button offered on log/view messages.
     bot.add_view(StreakRescueView())
-    bot.bot_updates_channel_id = int(
-        config.get("bot_updates_channel_id", 0) or 0
-    )
-    bot.transparent_embed_image = config.get("transparent_embed_image") or None
+    # Bot-wide settings are loaded from the database in on_ready; start with
+    # the disabled/unset defaults so nothing fires before the first reload.
+    bot.bot_updates_channel_id = 0
+    bot.transparent_embed_image = None
     bot.reference_forum_channel_id = int(
         config.get("buddy_read_channel_id", 0) or 0
     )
     bot.reference_channel_id = int(config.get("buddy_read_message_channel_id", 0) or 0)
     bot.reference_message_id = int(config.get("buddy_read_message_id", 0) or 0)
-    default_color = config.get("default_embed_color")
-    bot.default_embed_color = (
-        parse_hex_colour(default_color) if default_color else None
-    )
+    bot.default_embed_color = None
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
@@ -316,22 +297,36 @@ async def run() -> None:
         if removed:
             logger.info("Removed %d released book(s)", removed)
 
-    @tasks.loop(time=_release_post_time(config))
+    @tasks.loop(time=HOURLY_TIMES)
     async def post_releases() -> None:
+        # Runs hourly so the post hour can be changed at runtime; only the
+        # configured UTC hour actually posts.
+        if discord.utils.utcnow().hour != releases.post_hour:
+            return
         await post_releases_now()
-        await purge_old_releases()
 
     @post_releases.before_loop
     async def _wait_ready_releases() -> None:
         await bot.wait_until_ready()
         # Catch up on anything missed while the bot was down; the work is
-        # idempotent thanks to the announcement/montly markers.
+        # idempotent thanks to the announcement/monthly markers.
         try:
             await post_releases_now()
-            await purge_old_releases()
             await releases.purge_expired_drafts()
         except Exception:
             logger.exception("Release catch-up failed")
+
+    @tasks.loop(time=DAILY_TIMES)
+    async def purge_releases() -> None:
+        await purge_old_releases()
+
+    @purge_releases.before_loop
+    async def _wait_ready_release_purge() -> None:
+        await bot.wait_until_ready()
+        try:
+            await purge_old_releases()
+        except Exception:
+            logger.exception("Release purge catch-up failed")
 
     # ---------------------- reading streak upkeep ----------------------
     async def send_streak_reminders(guild: discord.Guild) -> None:
@@ -432,6 +427,14 @@ async def run() -> None:
         await reviews.reload()
         logger.info("Review channel: %s", reviews.channel_id)
 
+        await bot_settings.reload()
+        bot.bot_updates_channel_id = bot_settings.updates_channel_id or 0
+        bot.transparent_embed_image = bot_settings.transparent_embed_image
+        default_color = bot_settings.default_embed_color
+        bot.default_embed_color = (
+            parse_hex_colour(default_color) if default_color else None
+        )
+
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)
         channel = await resolve_intro_channel(bot, intros.channel_id)
@@ -457,6 +460,8 @@ async def run() -> None:
             poll_reviews.start()
         if not post_releases.is_running():
             post_releases.start()
+        if not purge_releases.is_running():
+            purge_releases.start()
         if not streak_hourly.is_running():
             streak_hourly.start()
         if not purge_streak_logs.is_running():

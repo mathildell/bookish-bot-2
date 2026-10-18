@@ -11,10 +11,6 @@ guild_id: 123456789012345678
 # (members with Manage Server can manage anyone; 0 disables the role)
 booster_role_id: 0
 
-# Channel where the bot posts when a booster stops boosting and their custom
-# role is unlinked (0 disables the notice)
-bot_updates_channel_id: 0
-
 # Forum channel to watch: when a new thread/post is created, the bot reposts the
 # reference message below into it and pins it (0 disables this feature)
 buddy_read_channel_id: 0
@@ -32,18 +28,4 @@ mysql:
   database: "bookish_hideaway"
   username: "bookish"
   password: "bookish"
-
-# Default colour applied to every embed the bot sends (hex)
-default_embed_color: "#97A97C"
-
-# Transparent image used as an embed footer/background so all command embeds
-# share a consistent height (a publicly reachable image URL)
-transparent_embed_image: "https://i.imgur.com/example.png"
-
-# Time of day the bot posts book release announcements (24h "HH:MM").
-# The release channel itself is set in Discord with /releases channel set.
-releases_post_time: "13:00"
-
-# IANA timezone used for the daily post time and release-day checks.
-timezone: "America/Toronto"
 

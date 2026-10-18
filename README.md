@@ -395,26 +395,41 @@ break.
 `react` makes the bot add `emoji` (custom or default) as a reaction to the
 message at the given jump `link` (right-click a message → Copy Message Link).
 
-## Cleanup
+## Settings
 
-How long the scheduled cleanup jobs keep data before deleting it.
+View and edit the bot's runtime settings.
 
 ```
 /settings list
 /settings edit key: value:
 ```
 **Permissions:** 🔒 Admin
-The cleanup jobs run daily; these settings control their retention windows. The
-`value` is the number of days to keep. `list` shows the current values.
+`list` shows the current values. `edit` parses `value` according to the chosen
+`key` (days, an hour, a channel, a URL or a hex colour); pass `none` to clear the
+optional ones.
 
 ```
 /settings edit key: purge_book_releases value: 30
 /settings edit key: purge_streak_logs value: 90
+/settings edit key: review_repost_cooldown_days value: 1
+/settings edit key: releases_post_hour value: 13
+/settings edit key: bot_updates_channel_id value: <#123456789012345678>
+/settings edit key: transparent_embed_image value: https://example.com/bg.png
+/settings edit key: default_embed_color value: "#97A97C"
 ```
 - `purge_book_releases` — how many days a released book is kept before it is
   purged (default 30).
 - `purge_streak_logs` — how many days a streak's daily log is kept before it is
   purged (default 90; streak totals persist).
+- `review_repost_cooldown_days` — how many days must pass before an edited review
+  can be reposted (default 1).
+- `releases_post_hour` — the UTC hour (1–23) the daily release announcements are
+  posted (default 13).
+- `bot_updates_channel_id` — channel notified about upkeep events (streak
+  closures, unlinked boosters).
+- `transparent_embed_image` — publicly reachable image used as a transparent
+  embed background.
+- `default_embed_color` — default colour applied to every embed the bot sends.
 
 ## Utility
 

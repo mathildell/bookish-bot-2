@@ -188,6 +188,10 @@ class ReviewSetting(Base):
         BigInteger, unique=True, index=True, nullable=False
     )
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Days an entry must wait before its review can be reposted.
+    repost_cooldown_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=1, server_default="1"
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -338,6 +342,10 @@ class ReleaseSetting(Base):
     # Days a released book is kept before the cleanup job purges it.
     purge_days: Mapped[int] = mapped_column(
         Integer, nullable=False, default=30, server_default="30"
+    )
+    # UTC hour (1-23) the daily release announcements are posted.
+    post_hour: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=13, server_default="13"
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -503,6 +511,35 @@ class StreakSetting(Base):
     # Days a daily log is kept before the cleanup job purges it.
     log_retention_days: Mapped[int] = mapped_column(
         Integer, nullable=False, default=90, server_default="90"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class BotSetting(Base):
+    """Bot-wide, per-guild settings editable from ``/settings``."""
+
+    __tablename__ = "bot_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    # Channel notified about upkeep events (streak closures, unlinked boosters).
+    updates_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    # Publicly reachable image used as a transparent embed background.
+    transparent_embed_image: Mapped[str | None] = mapped_column(
+        String(512), nullable=True
+    )
+    # Default embed colour as "#rrggbb".
+    default_embed_color: Mapped[str | None] = mapped_column(
+        String(7), nullable=True
     )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

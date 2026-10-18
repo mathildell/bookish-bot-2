@@ -40,6 +40,8 @@ DRAFT_TTL = timedelta(hours=2)
 EMBEDS_PER_MESSAGE = 10
 # Default retention for released books before the cleanup job purges them.
 DEFAULT_PURGE_DAYS = 30
+# Default UTC hour the daily release announcements are posted.
+DEFAULT_POST_HOUR = 13
 # Discord rejects a message whose embeds total more than 6000 characters;
 # stay under it (the old bot used 5500 too).
 EMBED_MESSAGE_LIMIT = 5500
@@ -481,6 +483,7 @@ class ReleaseService:
         self._ping_role_id: int | None = None
         self._last_monthly_post: str | None = None
         self._purge_days = DEFAULT_PURGE_DAYS
+        self._post_hour = DEFAULT_POST_HOUR
         # Serialises posts so a manual run cannot race the scheduled loop.
         self._post_lock = asyncio.Lock()
 
@@ -495,6 +498,10 @@ class ReleaseService:
     @property
     def purge_days(self) -> int:
         return self._purge_days
+
+    @property
+    def post_hour(self) -> int:
+        return self._post_hour
 
     # ----------------------------------------------------------- settings
 
@@ -512,6 +519,9 @@ class ReleaseService:
         self._last_monthly_post = row.last_monthly_post if row else None
         self._purge_days = (
             row.purge_days if row and row.purge_days else DEFAULT_PURGE_DAYS
+        )
+        self._post_hour = (
+            row.post_hour if row and row.post_hour else DEFAULT_POST_HOUR
         )
 
     async def set_channel(self, channel_id: int) -> None:
@@ -562,6 +572,23 @@ class ReleaseService:
                 row.purge_days = days
             await session.commit()
         self._purge_days = days
+
+    async def set_post_hour(self, hour: int) -> None:
+        async with session_scope() as session:
+            row = await self._find_setting(session)
+            if row is None:
+                session.add(
+                    ReleaseSetting(
+                        guild_id=self.guild_id,
+                        channel_id=self._channel_id or 0,
+                        ping_role_id=self._ping_role_id,
+                        post_hour=hour,
+                    )
+                )
+            else:
+                row.post_hour = hour
+            await session.commit()
+        self._post_hour = hour
 
     async def _find_setting(self, session) -> ReleaseSetting | None:
         return (

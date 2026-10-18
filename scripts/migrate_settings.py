@@ -1,16 +1,22 @@
-"""Add the cleanup retention columns.
+"""Add the configurable bot-setting columns and table.
 
-The purge jobs gained configurable retention windows:
+Settings that used to live in ``config.yaml`` or be fixed constants became
+editable from ``/settings``:
 
 - ``release_settings.purge_days`` (default 30)
+- ``release_settings.post_hour`` (default 13, UTC)
 - ``streak_settings.log_retention_days`` (default 90)
+- ``review_settings.repost_cooldown_days`` (default 1)
+- ``bot_settings`` table (updates channel, transparent embed image, default
+  embed colour)
 
 ``create_all`` does not alter existing tables, so run this once against any
 database that already has these tables:
 
-    .venv/bin/python scripts/migrate_purge_settings.py
+    .venv/bin/python scripts/migrate_settings.py
 
-It is idempotent: each column is only added when missing.
+It is idempotent: each column is only added when missing, and ``create_tables``
+creates the new ``bot_settings`` table if absent.
 """
 
 from __future__ import annotations
@@ -31,7 +37,9 @@ from bot.db import close_db, create_tables, init_db, session_scope  # noqa: E402
 
 COLUMNS = (
     ("release_settings", "purge_days", "INT NOT NULL DEFAULT 30"),
+    ("release_settings", "post_hour", "INT NOT NULL DEFAULT 13"),
     ("streak_settings", "log_retention_days", "INT NOT NULL DEFAULT 90"),
+    ("review_settings", "repost_cooldown_days", "INT NOT NULL DEFAULT 1"),
 )
 
 
@@ -61,6 +69,8 @@ async def run(args: argparse.Namespace) -> None:
         added = await _ensure_column(table, column, definition)
         state = "added" if added else "already present"
         print(f"{table}.{column}: {state}")
+
+    print("bot_settings: ready")
 
     await close_db()
 

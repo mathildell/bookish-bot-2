@@ -41,9 +41,11 @@ Implemented features:
   configurable retention window (default 90 days) while streak totals persist.
   `/streak admin dryrun` toggles XP gain off while still showing what would
   have been earned.
-- **Cleanup settings** — `/settings list|edit` let admins view and set the
-  retention windows (in days) of the daily cleanup jobs (old releases, streak
-  logs).
+- **Settings** — `/settings list|edit` let admins view and set the bot's runtime
+  settings: the daily cleanup retention windows (old releases, streak logs), the
+  review repost cooldown, the UTC hour release announcements are posted, the
+  admins' updates channel, the transparent embed background and the default
+  embed colour. This is the home for values that used to live in `config.yaml`.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -113,7 +115,7 @@ bot/
                            LevelReward, ReviewFeed, ReviewEntry, ReviewSetting,
                            IntroQuestion, IntroSetting, IntroPost, BookRelease,
                            ReleaseSetting, ReleaseEditDraft, StreakGoal, Streak,
-                           StreakLog, StreakSetting)
+                           StreakLog, StreakSetting, BotSetting)
   notifications.py         level-up + streak-closed announcements
   commands/
     booster.py             /booster root group
@@ -128,7 +130,7 @@ bot/
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
     bot_react.py           /bot react (add an emoji reaction to a message)
-    settings.py            /settings group + list/edit (cleanup retention)
+    settings.py            /settings group + list/edit (typed bot settings)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
@@ -145,6 +147,7 @@ bot/
     releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
+    settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite
 scripts/                   one-off utilities (imports + schema migrations)

@@ -1,17 +1,31 @@
-# Texts for the /settings commands (cleanup retention, in days).
+# Texts for the /settings commands (bot-wide settings editable at runtime).
 settings:
-  group_description: "View and edit how long the bot keeps data before cleanup"
+  group_description: "View and edit the bot's settings"
   keys:
     purge_book_releases: "Released books"
     purge_streak_logs: "Streak logs"
+    review_repost_cooldown_days: "Review repost cooldown"
+    releases_post_hour: "Release post hour"
+    bot_updates_channel_id: "Updates channel"
+    transparent_embed_image: "Transparent embed image"
+    default_embed_color: "Default embed color"
   list:
-    description: "Show the cleanup retention settings"
-    title: "Cleanup settings"
-    hint: "Values are the number of days data is kept before the daily cleanup removes it."
-    value: "%{days} day(s)"
+    description: "Show the bot's settings"
+    title: "Settings"
+    hint: "Retention windows are in days, and the release post hour is in UTC."
+    value_days: "%{days} day(s)"
+    value_hour: "%{hour} UTC"
+    value_color: "%{color}"
+    value_none: "Not set"
   edit:
-    description: "Change how many days data is kept before cleanup"
+    description: "Change one of the bot's settings"
     param_key: "Which setting to change"
-    param_value: "Number of days to keep"
-    success: "%{key} will now be kept for %{days} day(s)."
-    invalid_value: "'%{value}' is not a valid number of days (pick a whole number between %{min} and %{max})."
+    param_value: "The new value"
+    success: "%{key} is now %{value}."
+    invalid_value: "'%{value}' is not valid: %{expected}."
+    expected:
+      days: "pick a whole number of days between %{min} and %{max}"
+      hour: "pick an hour between %{min_hour} and %{max_hour} (UTC)"
+      channel: "mention a channel or paste its id, or 'none' to clear it"
+      url: "paste an http(s) URL, or 'none' to clear it"
+      color: "paste a hex color like #97a97c, or 'none' to clear it"
