@@ -29,7 +29,7 @@ settings:
     description: "Change one of the bot's settings"
     param_key: "Which setting to change"
     param_value: "The new value"
-    success: "%{key} is now %{value}."
+    success: "%{label} is now %{value}."
     invalid_value: "'%{value}' is not valid: %{expected}."
     expected:
       days: "pick a whole number of days between %{min} and %{max}"

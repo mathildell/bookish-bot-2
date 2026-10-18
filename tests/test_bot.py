@@ -2365,6 +2365,11 @@ class SettingsDisplayTests(unittest.TestCase):
                 )
             )
 
+    def test_edit_success_text_resolves(self) -> None:
+        rendered = t("settings.edit.success", label="Streak logs", value="90 days")
+        self.assertIn("Streak logs", rendered)
+        self.assertIn("90 days", rendered)
+
 
 class CondenseNewlinesTests(unittest.TestCase):
     def test_collapses_blank_lines(self) -> None:

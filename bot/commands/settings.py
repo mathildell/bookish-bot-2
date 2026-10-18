@@ -249,7 +249,7 @@ async def edit(
     await interaction.response.send_message(
         t(
             "settings.edit.success",
-            key=setting_label(key),
+            label=setting_label(key),
             value=current_display(interaction, key),
         )
     )
