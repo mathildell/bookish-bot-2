@@ -52,6 +52,17 @@ logger = logging.getLogger("bh2")
 
 XP_COOLDOWN_SECONDS = 60
 
+# The periodic jobs fire on fixed clock times (UTC) instead of counting down
+# from whenever the bot happened to start, so their ticks never drift. Naive
+# times are interpreted as UTC by discord.py.
+HOURLY_TIMES = [dt_time(hour=hour) for hour in range(24)]
+FIVE_MINUTE_TIMES = [
+    dt_time(hour=hour, minute=minute)
+    for hour in range(24)
+    for minute in range(0, 60, 5)
+]
+DAILY_TIMES = [dt_time(hour=4)]
+
 
 def _release_post_time(config) -> dt_time:
     """Scheduled time for the daily release post, from the config or 13:00 UTC."""
@@ -241,8 +252,7 @@ async def run() -> None:
     # ------------------- booster role upkeep -------------------
     # No Members intent: poll daily to catch boosters who stopped boosting.
     # The single-member fetch used by reconcile() does not need the intent.
-    @tasks.loop(hours=24)
-    async def reconcile_boosters() -> None:
+    async def reconcile_boosters_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
             return
@@ -252,13 +262,20 @@ async def run() -> None:
         unlinked = await booster_roles.reconcile(guild, channel)
         logger.info("Booster role sync: unlinked %d", len(unlinked))
 
+    @tasks.loop(time=DAILY_TIMES)
+    async def reconcile_boosters() -> None:
+        await reconcile_boosters_now()
+
     @reconcile_boosters.before_loop
     async def _wait_ready() -> None:
         await bot.wait_until_ready()
+        try:
+            await reconcile_boosters_now()
+        except Exception:
+            logger.exception("Booster role catch-up failed")
 
     # ------------------- Goodreads review updates -------------------
-    @tasks.loop(minutes=5)
-    async def poll_reviews() -> None:
+    async def poll_reviews_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
             return
@@ -269,9 +286,17 @@ async def run() -> None:
         if posted:
             logger.info("Posted %d review update(s)", posted)
 
+    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    async def poll_reviews() -> None:
+        await poll_reviews_now()
+
     @poll_reviews.before_loop
     async def _wait_ready_reviews() -> None:
         await bot.wait_until_ready()
+        try:
+            await poll_reviews_now()
+        except Exception:
+            logger.exception("Review poll catch-up failed")
 
     # ------------------- book release announcements -------------------
     async def post_releases_now() -> None:
@@ -343,8 +368,7 @@ async def run() -> None:
                 logger.warning("Could not post streak reminder", exc_info=True)
         await streaks.mark_reminder(reminders)
 
-    @tasks.loop(hours=1)
-    async def streak_hourly() -> None:
+    async def streak_hourly_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
             return
@@ -362,19 +386,36 @@ async def run() -> None:
                 )
         await send_streak_reminders(guild)
 
+    @tasks.loop(time=HOURLY_TIMES)
+    async def streak_hourly() -> None:
+        await streak_hourly_now()
+
     @streak_hourly.before_loop
     async def _wait_ready_streaks() -> None:
         await bot.wait_until_ready()
+        # Catch up on streaks that came due while the bot was down instead of
+        # waiting for the next hour boundary.
+        try:
+            await streak_hourly_now()
+        except Exception:
+            logger.exception("Streak catch-up failed")
 
-    @tasks.loop(hours=24)
-    async def purge_streak_logs() -> None:
+    async def purge_streak_logs_now() -> None:
         removed = await streaks.purge_old_logs()
         if removed:
             logger.info("Purged %d stale streak log(s)", removed)
 
+    @tasks.loop(time=DAILY_TIMES)
+    async def purge_streak_logs() -> None:
+        await purge_streak_logs_now()
+
     @purge_streak_logs.before_loop
     async def _wait_ready_streak_purge() -> None:
         await bot.wait_until_ready()
+        try:
+            await purge_streak_logs_now()
+        except Exception:
+            logger.exception("Streak log purge catch-up failed")
 
     # ------------------------- startup -------------------------
     @bot.event
