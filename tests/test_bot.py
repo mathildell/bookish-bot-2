@@ -23,7 +23,8 @@ from bot import notifications
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
 from bot.commands import level as level_cmds
-from bot.commands import say as say_cmds
+from bot.commands import bot_say as say_cmds
+from bot.commands.bot import bot_group
 from bot.commands import intro as intro_cmds
 from bot.commands.listing import (
     Paginator,
@@ -1625,6 +1626,12 @@ class RenderMessageTests(unittest.TestCase):
 
     def test_single_escaped_newline_is_blank(self) -> None:
         self.assertFalse(say_cmds.is_valid_message(say_cmds.render_message("\\n")))
+
+
+class BotGroupTests(unittest.TestCase):
+    def test_group_hosts_say_and_react(self) -> None:
+        names = {command.name for command in bot_group.commands}
+        self.assertEqual(names, {"say", "react"})
 
 
 class PingTextTests(unittest.TestCase):

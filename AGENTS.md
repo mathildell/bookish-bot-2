@@ -26,8 +26,9 @@ Implemented features:
   introduction.
 - **Pinned forum reference** — when a new thread/post is created in the
   configured forum channel, repost a fixed reference message into it and pin it.
-- **Bot speaks** — `/say` lets admins post a message as the bot into any
-  channel or thread, optionally as a reply.
+- **Bot actions** — `/bot say` lets admins post a message as the bot into any
+  channel or thread, optionally as a reply; `/bot react` adds an emoji reaction
+  to a message.
 - **Streaks** — members register a daily reading goal (amount, unit, timezone,
   reminder schedule) with `/streak register` (first time only) and change it
   with `/streak edit`. They log each day; missing a day closes the streak; a
@@ -120,7 +121,9 @@ bot/
     releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
     streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
-    say.py                 /say admin command (post a message as the bot)
+    bot.py                 /bot root group (say/react)
+    bot_say.py             /bot say (post a message as the bot)
+    bot_react.py           /bot react (add an emoji reaction to a message)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers

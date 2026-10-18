@@ -1,4 +1,4 @@
-"""Fun admin tool: send a message as the bot (``/say``).
+"""Fun admin tool: send a message as the bot (``/bot say``).
 
 Admins may post arbitrary text (emojis included) into a channel or thread,
 optionally as a reply to another message.
@@ -44,12 +44,12 @@ def render_message(text: str) -> str:
     return text.replace("\\n", "\n")
 
 
-@app_commands.command(name="say", description=t("say.description"))
+@app_commands.command(name="say", description=t("bot.say.description"))
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.describe(
-    channel=t("say.param_channel"),
-    message=t("say.param_message"),
-    reply_to=t("say.param_reply_to"),
+    channel=t("bot.say.param_channel"),
+    message=t("bot.say.param_message"),
+    reply_to=t("bot.say.param_reply_to"),
 )
 async def say_command(
     interaction: discord.Interaction,
@@ -63,7 +63,7 @@ async def say_command(
     message = render_message(message)
     if not is_valid_message(message):
         await interaction.response.send_message(
-            t("say.invalid_message", limit=MESSAGE_LIMIT), ephemeral=True
+            t("bot.say.invalid_message", limit=MESSAGE_LIMIT), ephemeral=True
         )
         return
 
@@ -79,7 +79,7 @@ async def say_command(
                 reference = None
         if reference is None:
             await interaction.followup.send(
-                t("say.invalid_reply", channel=channel.mention), ephemeral=True
+                t("bot.say.invalid_reply", channel=channel.mention), ephemeral=True
             )
             return
 
@@ -92,10 +92,10 @@ async def say_command(
         sent = await channel.send(**kwargs)
     except discord.HTTPException:
         await interaction.followup.send(
-            t("say.send_failed", channel=channel.mention), ephemeral=True
+            t("bot.say.send_failed", channel=channel.mention), ephemeral=True
         )
         return
 
     await interaction.followup.send(
-        t("say.success", link=sent.jump_url), ephemeral=True
+        t("bot.say.success", link=sent.jump_url), ephemeral=True
     )

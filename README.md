@@ -383,12 +383,17 @@ have earned and note that it did not reach their pool.
 Fun tools for admins.
 
 ```
-/say channel: message: [reply_to:]
+/bot say channel: message: [reply_to:]
+/bot react channel: message: emoji:
 ```
 **Permissions:** 🔒 Admin
-Post a message as the bot in a channel or thread. Emojis (custom and default)
-are supported; `reply_to` takes a message id or jump link to reply to, pinging
-its author. Slash options are single-line, so type `\n` to add a line break.
+`say` posts a message as the bot in a channel or thread. Emojis (custom and
+default) are supported; `reply_to` takes a message id or jump link to reply to,
+pinging its author. Slash options are single-line, so type `\n` to add a line
+break.
+
+`react` makes the bot add `emoji` (custom or default) as a reaction to the
+`message` (id or jump link) in the given channel or thread.
 
 ## Utility
 

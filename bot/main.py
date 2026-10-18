@@ -19,6 +19,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
+from .commands.bot import bot_group
 from .commands.intro import (
     IntroduceView,
     IntroRefreshView,
@@ -31,7 +32,6 @@ from .commands.listing import parse_hex_colour
 from .commands.ping import ping_command
 from .commands.releases import releases_group
 from .commands.reviews import reviews_group
-from .commands.say import say_command
 from .commands.streaks import StreakRescueView, streaks_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
@@ -186,7 +186,7 @@ async def run() -> None:
     bot.tree.add_command(intro_group, guild=guild)
     bot.tree.add_command(releases_group, guild=guild)
     bot.tree.add_command(streaks_group, guild=guild)
-    bot.tree.add_command(say_command, guild=guild)
+    bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
 
     # ------------------------ message reactor ------------------------
