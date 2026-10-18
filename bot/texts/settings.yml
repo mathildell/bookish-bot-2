@@ -1,0 +1,17 @@
+# Texts for the /settings commands (cleanup retention, in days).
+settings:
+  group_description: "View and edit how long the bot keeps data before cleanup"
+  keys:
+    purge_book_releases: "Released books"
+    purge_streak_logs: "Streak logs"
+  list:
+    description: "Show the cleanup retention settings"
+    title: "Cleanup settings"
+    hint: "Values are the number of days data is kept before the daily cleanup removes it."
+    value: "%{days} day(s)"
+  edit:
+    description: "Change how many days data is kept before cleanup"
+    param_key: "Which setting to change"
+    param_value: "Number of days to keep"
+    success: "%{key} will now be kept for %{days} day(s)."
+    invalid_value: "'%{value}' is not a valid number of days (pick a whole number between %{min} and %{max})."

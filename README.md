@@ -395,6 +395,27 @@ break.
 `react` makes the bot add `emoji` (custom or default) as a reaction to the
 message at the given jump `link` (right-click a message → Copy Message Link).
 
+## Cleanup
+
+How long the scheduled cleanup jobs keep data before deleting it.
+
+```
+/settings list
+/settings edit key: value:
+```
+**Permissions:** 🔒 Admin
+The cleanup jobs run daily; these settings control their retention windows. The
+`value` is the number of days to keep. `list` shows the current values.
+
+```
+/settings edit key: purge_book_releases value: 30
+/settings edit key: purge_streak_logs value: 90
+```
+- `purge_book_releases` — how many days a released book is kept before it is
+  purged (default 30).
+- `purge_streak_logs` — how many days a streak's daily log is kept before it is
+  purged (default 90; streak totals persist).
+
 ## Utility
 
 ```

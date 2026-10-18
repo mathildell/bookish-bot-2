@@ -583,6 +583,7 @@ class StreakService:
         self.guild_id = guild_id
         self._channel_id: int | None = None
         self._dry_run = False
+        self._log_retention_days = LOG_RETENTION_DAYS
 
     @property
     def channel_id(self) -> int | None:
@@ -591,6 +592,10 @@ class StreakService:
     @property
     def dry_run(self) -> bool:
         return self._dry_run
+
+    @property
+    def log_retention_days(self) -> int:
+        return self._log_retention_days
 
     # ----------------------------------------------------------- settings
 
@@ -613,6 +618,11 @@ class StreakService:
             row = await self._settings(session)
         self._channel_id = (row.channel_id or None) if row else None
         self._dry_run = bool(row.dry_run) if row else False
+        self._log_retention_days = (
+            row.log_retention_days
+            if row and row.log_retention_days
+            else LOG_RETENTION_DAYS
+        )
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -627,6 +637,13 @@ class StreakService:
             row.dry_run = enabled
             await session.commit()
         self._dry_run = enabled
+
+    async def set_log_retention_days(self, days: int) -> None:
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.log_retention_days = days
+            await session.commit()
+        self._log_retention_days = days
 
     # -------------------------------------------------------------- goals
 
@@ -1098,7 +1115,7 @@ class StreakService:
     async def purge_old_logs(self, now: datetime | None = None) -> int:
         """Delete daily logs older than the retention window."""
         cutoff = local_date(now or utcnow(), "UTC") - timedelta(
-            days=LOG_RETENTION_DAYS
+            days=self._log_retention_days
         )
         async with session_scope() as session:
             result = await session.execute(

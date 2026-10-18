@@ -25,6 +25,7 @@ from bot.commands import booster_role as role_cmds
 from bot.commands import level as level_cmds
 from bot.commands import bot_say as say_cmds
 from bot.commands.bot import bot_group
+from bot.commands import settings as settings_cmds
 from bot.commands import intro as intro_cmds
 from bot.commands.listing import (
     Paginator,
@@ -1653,6 +1654,12 @@ class BotGroupTests(unittest.TestCase):
         self.assertEqual(names, {"say", "react"})
 
 
+class SettingsGroupTests(unittest.TestCase):
+    def test_group_hosts_list_and_edit(self) -> None:
+        names = {command.name for command in settings_cmds.settings_group.commands}
+        self.assertEqual(names, {"list", "edit"})
+
+
 class PingTextTests(unittest.TestCase):
     def test_response_includes_latency(self) -> None:
         self.assertIn("42", t("ping.response", latency=42))
@@ -2167,30 +2174,32 @@ class OrdinalTests(unittest.TestCase):
         self.assertEqual(release_service._ordinal(30), "30th")
 
 
-class OneMonthBeforeTests(unittest.TestCase):
-    def test_simple_month(self) -> None:
+class ParseDaysTests(unittest.TestCase):
+    def test_accepts_a_plain_number(self) -> None:
+        self.assertEqual(settings_cmds.parse_days("30"), 30)
+
+    def test_ignores_surrounding_whitespace(self) -> None:
+        self.assertEqual(settings_cmds.parse_days("  7  "), 7)
+
+    def test_accepts_the_bounds(self) -> None:
         self.assertEqual(
-            release_service._one_month_before(datetime.date(2026, 10, 15)),
-            datetime.date(2026, 9, 15),
+            settings_cmds.parse_days(str(settings_cmds.MIN_DAYS)),
+            settings_cmds.MIN_DAYS,
+        )
+        self.assertEqual(
+            settings_cmds.parse_days(str(settings_cmds.MAX_DAYS)),
+            settings_cmds.MAX_DAYS,
         )
 
-    def test_crosses_year_boundary(self) -> None:
-        self.assertEqual(
-            release_service._one_month_before(datetime.date(2026, 1, 15)),
-            datetime.date(2025, 12, 15),
-        )
+    def test_rejects_non_numbers(self) -> None:
+        for value in ("", "abc", "3.5", "-5", "10 days"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_days(value)
 
-    def test_clamps_to_shorter_month(self) -> None:
-        self.assertEqual(
-            release_service._one_month_before(datetime.date(2026, 3, 31)),
-            datetime.date(2026, 2, 28),
-        )
-
-    def test_clamps_in_leap_year(self) -> None:
-        self.assertEqual(
-            release_service._one_month_before(datetime.date(2024, 3, 31)),
-            datetime.date(2024, 2, 29),
-        )
+    def test_rejects_out_of_range(self) -> None:
+        for value in ("0", str(settings_cmds.MAX_DAYS + 1)):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_days(value)
 
 
 class CondenseNewlinesTests(unittest.TestCase):

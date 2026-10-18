@@ -15,7 +15,6 @@ embeds and the announcement worker.
 from __future__ import annotations
 
 import asyncio
-import calendar
 import logging
 import re
 import secrets
@@ -39,6 +38,8 @@ FIELD_VALUE_LIMIT = 1024
 BLURB_LIMIT = 350
 DRAFT_TTL = timedelta(hours=2)
 EMBEDS_PER_MESSAGE = 10
+# Default retention for released books before the cleanup job purges them.
+DEFAULT_PURGE_DAYS = 30
 # Discord rejects a message whose embeds total more than 6000 characters;
 # stay under it (the old bot used 5500 too).
 EMBED_MESSAGE_LIMIT = 5500
@@ -183,14 +184,6 @@ def unique_reference(title: str, taken: Container[str]) -> str:
         suffixed = f"{candidate}-{_random_suffix()}"
         if suffixed not in taken:
             return suffixed
-
-
-def _one_month_before(value: date) -> date:
-    """``value`` shifted back by one calendar month, clamping the day."""
-    month = value.month - 1 or 12
-    year = value.year if value.month > 1 else value.year - 1
-    day = min(value.day, calendar.monthrange(year, month)[1])
-    return date(year, month, day)
 
 
 def format_release_date(value: date) -> str:
@@ -487,6 +480,7 @@ class ReleaseService:
         self._channel_id: int | None = None
         self._ping_role_id: int | None = None
         self._last_monthly_post: str | None = None
+        self._purge_days = DEFAULT_PURGE_DAYS
         # Serialises posts so a manual run cannot race the scheduled loop.
         self._post_lock = asyncio.Lock()
 
@@ -497,6 +491,10 @@ class ReleaseService:
     @property
     def ping_role_id(self) -> int | None:
         return self._ping_role_id
+
+    @property
+    def purge_days(self) -> int:
+        return self._purge_days
 
     # ----------------------------------------------------------- settings
 
@@ -512,6 +510,9 @@ class ReleaseService:
         self._channel_id = (row.channel_id or None) if row else None
         self._ping_role_id = row.ping_role_id if row else None
         self._last_monthly_post = row.last_monthly_post if row else None
+        self._purge_days = (
+            row.purge_days if row and row.purge_days else DEFAULT_PURGE_DAYS
+        )
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -544,6 +545,23 @@ class ReleaseService:
                 row.ping_role_id = role_id
             await session.commit()
         self._ping_role_id = role_id
+
+    async def set_purge_days(self, days: int) -> None:
+        async with session_scope() as session:
+            row = await self._find_setting(session)
+            if row is None:
+                session.add(
+                    ReleaseSetting(
+                        guild_id=self.guild_id,
+                        channel_id=self._channel_id or 0,
+                        ping_role_id=self._ping_role_id,
+                        purge_days=days,
+                    )
+                )
+            else:
+                row.purge_days = days
+            await session.commit()
+        self._purge_days = days
 
     async def _find_setting(self, session) -> ReleaseSetting | None:
         return (
@@ -766,8 +784,8 @@ class ReleaseService:
         return result.rowcount > 0
 
     async def purge_old_releases(self, *, today: date | None = None) -> int:
-        """Delete releases whose release date was over a month ago."""
-        cutoff = _one_month_before(today or date.today())
+        """Delete releases older than the configured retention window."""
+        cutoff = (today or date.today()) - timedelta(days=self._purge_days)
         async with session_scope() as session:
             result = await session.execute(
                 delete(BookRelease).where(

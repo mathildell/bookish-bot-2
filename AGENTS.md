@@ -17,10 +17,10 @@ Implemented features:
   new reviews to the configured channel (each entry at most once per 24h).
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
   headless browser) and announce them: an overview on the 1st of each month and
-  the day's releases every day. Releases are pruned from the database a month
-  after their release date. Each release carries a guild-unique `reference`
-  handle (title's first two words, then three, then a random suffix); commands
-  accept either the numeric id or the handle.
+  the day's releases every day. Releases are pruned from the database after a
+  configurable retention window (default 30 days). Each release carries a
+  guild-unique `reference` handle (title's first two words, then three, then a
+  random suffix); commands accept either the numeric id or the handle.
 - **Introductions** — admins configure an intro channel and its questions; a
   sticky message's button lets members post (and later edit) a single
   introduction.
@@ -37,9 +37,13 @@ Implemented features:
   rescue; every 50 levels a golden rescue; every 365 days a celebration). An
   hourly task sends reminders (picked at random from a list of phrasings) and
   closes due streaks, notifying the admins' updates channel
-  (`bot_updates_channel_id`) about each closure; daily logs are purged after 90
-  days while streak totals persist. `/streak admin dryrun` toggles XP gain off
-  while still showing what would have been earned.
+  (`bot_updates_channel_id`) about each closure; daily logs are purged after a
+  configurable retention window (default 90 days) while streak totals persist.
+  `/streak admin dryrun` toggles XP gain off while still showing what would
+  have been earned.
+- **Cleanup settings** — `/settings list|edit` let admins view and set the
+  retention windows (in days) of the daily cleanup jobs (old releases, streak
+  logs).
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -124,6 +128,7 @@ bot/
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
     bot_react.py           /bot react (add an emoji reaction to a message)
+    settings.py            /settings group + list/edit (cleanup retention)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers

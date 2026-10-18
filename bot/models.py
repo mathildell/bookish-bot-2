@@ -335,6 +335,10 @@ class ReleaseSetting(Base):
     last_monthly_post: Mapped[str | None] = mapped_column(
         String(7), nullable=True
     )
+    # Days a released book is kept before the cleanup job purges it.
+    purge_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=30, server_default="30"
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
@@ -496,6 +500,10 @@ class StreakSetting(Base):
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     # When set, streak levels still progress but no XP reaches the members.
     dry_run: Mapped[bool] = mapped_column(default=False, nullable=False)
+    # Days a daily log is kept before the cleanup job purges it.
+    log_retention_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=90, server_default="90"
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
