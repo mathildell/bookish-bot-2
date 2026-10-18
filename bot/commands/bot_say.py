@@ -17,8 +17,16 @@ from .checks import require_admin
 MESSAGE_LIMIT = 2000
 
 _MESSAGE_LINK = re.compile(
-    r"https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/\d+/\d+/(\d+)"
+    r"https?://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/\d+/(\d+)/(\d+)"
 )
+
+
+def parse_message_link(value: str) -> tuple[int, int] | None:
+    """Return ``(channel_id, message_id)`` from a jump link, else ``None``."""
+    match = _MESSAGE_LINK.fullmatch(value.strip())
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
 
 
 def parse_message_id(value: str) -> int | None:
@@ -26,8 +34,8 @@ def parse_message_id(value: str) -> int | None:
     value = value.strip()
     if value.isascii() and value.isdigit():
         return int(value)
-    match = _MESSAGE_LINK.fullmatch(value)
-    return int(match.group(1)) if match else None
+    link = parse_message_link(value)
+    return link[1] if link else None
 
 
 def is_valid_message(text: str) -> bool:

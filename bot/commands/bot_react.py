@@ -1,7 +1,7 @@
 """Fun admin tool: react to a message as the bot (``/bot react``).
 
-Admins may add a single emoji reaction (custom or unicode) to a specific
-message in a channel or thread.
+Admins may add a single emoji reaction (custom or unicode) to a message,
+identified by its jump link.
 """
 
 from __future__ import annotations
@@ -11,21 +11,19 @@ from discord import app_commands
 
 from ..services.booster_react import parse_emoji
 from ..texts import t
-from .bot_say import parse_message_id
+from .bot_say import parse_message_link
 from .checks import require_admin
 
 
 @app_commands.command(name="react", description=t("bot.react.description"))
 @app_commands.default_permissions(manage_guild=True)
 @app_commands.describe(
-    channel=t("bot.react.param_channel"),
-    message=t("bot.react.param_message"),
+    link=t("bot.react.param_link"),
     emoji=t("bot.react.param_emoji"),
 )
 async def react_command(
     interaction: discord.Interaction,
-    channel: discord.TextChannel | discord.Thread,
-    message: str,
+    link: str,
     emoji: str,
 ) -> None:
     if not await require_admin(interaction):
@@ -41,16 +39,19 @@ async def react_command(
 
     await interaction.response.defer(ephemeral=True)
 
-    message_id = parse_message_id(message)
+    parsed = parse_message_link(link)
     target: discord.Message | None = None
-    if message_id is not None:
-        try:
-            target = await channel.fetch_message(message_id)
-        except discord.HTTPException:
-            target = None
+    if parsed is not None and interaction.guild is not None:
+        channel_id, message_id = parsed
+        channel = interaction.guild.get_channel_or_thread(channel_id)
+        if channel is not None:
+            try:
+                target = await channel.fetch_message(message_id)
+            except discord.HTTPException:
+                target = None
     if target is None:
         await interaction.followup.send(
-            t("bot.react.invalid_message", channel=channel.mention), ephemeral=True
+            t("bot.react.invalid_link"), ephemeral=True
         )
         return
 
@@ -58,7 +59,7 @@ async def react_command(
         await target.add_reaction(reaction)
     except discord.HTTPException:
         await interaction.followup.send(
-            t("bot.react.react_failed", channel=channel.mention), ephemeral=True
+            t("bot.react.react_failed"), ephemeral=True
         )
         return
 

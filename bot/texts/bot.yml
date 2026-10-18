@@ -12,10 +12,9 @@ bot:
     send_failed: "I couldn't post in %{channel}. Check my permissions."
   react:
     description: "React to a message with an emoji"
-    param_channel: "Channel or thread the message is in"
-    param_message: "Message id or link to react to"
+    param_link: "Link to the message to react to"
     param_emoji: "Emoji to react with"
     success: "Reacted with %{emoji} to %{link}"
     invalid_emoji: "%{emoji} is not a valid emoji."
-    invalid_message: "I couldn't find that message in %{channel}."
-    react_failed: "I couldn't react in %{channel}. Check my permissions."
+    invalid_link: "I couldn't find the linked message."
+    react_failed: "I couldn't react to that message. Check my permissions."

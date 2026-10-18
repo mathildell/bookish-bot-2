@@ -384,7 +384,7 @@ Fun tools for admins.
 
 ```
 /bot say channel: message: [reply_to:]
-/bot react channel: message: emoji:
+/bot react link: emoji:
 ```
 **Permissions:** 🔒 Admin
 `say` posts a message as the bot in a channel or thread. Emojis (custom and
@@ -393,7 +393,7 @@ pinging its author. Slash options are single-line, so type `\n` to add a line
 break.
 
 `react` makes the bot add `emoji` (custom or default) as a reaction to the
-`message` (id or jump link) in the given channel or thread.
+message at the given jump `link` (right-click a message → Copy Message Link).
 
 ## Utility
 

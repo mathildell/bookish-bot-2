@@ -1601,6 +1601,28 @@ class ParseMessageIdTests(unittest.TestCase):
             self.assertIsNone(say_cmds.parse_message_id(value))
 
 
+class ParseMessageLinkTests(unittest.TestCase):
+    def test_message_link(self) -> None:
+        self.assertEqual(
+            say_cmds.parse_message_link(
+                "https://discord.com/channels/"
+                "1405910078342565979/1406126242192953404/1411841682940493904"
+            ),
+            (1406126242192953404, 1411841682940493904),
+        )
+
+    def test_link_host_variants(self) -> None:
+        for host in ("discordapp.com", "ptb.discord.com", "canary.discord.com"):
+            self.assertEqual(
+                say_cmds.parse_message_link(f"http://{host}/channels/1/2/3"),
+                (2, 3),
+            )
+
+    def test_rejects_bare_id_and_non_links(self) -> None:
+        for value in ("123", "  123  ", "", "abc", "https://example.com/1/2/3"):
+            self.assertIsNone(say_cmds.parse_message_link(value))
+
+
 class ValidMessageTests(unittest.TestCase):
     def test_accepts_text_with_emojis(self) -> None:
         self.assertTrue(say_cmds.is_valid_message("hi <:Bunny:123> \U0001F600"))
