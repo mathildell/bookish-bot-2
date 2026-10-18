@@ -89,7 +89,7 @@ streaks:
     achievement_field: "Daily achievement"
     achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
     achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
-    dry_run: "We're in dry run mode, so that **%{xp} XP** wasn't added to your actual XP total just yet."
+    dry_run: "We're in test mode, so that **%{xp} XP** wasn't actually added to your XP total yet."
     top_up_title: "Goal reached"
     top_up_content: "You already received XP for finishing your level earlier, but you deserve a little more for completing today. Here's the **%{xp} XP** you are owed!"
 
@@ -143,7 +143,7 @@ streaks:
     dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
   closed:
-    title: "Streak closed"
+    title: "Streaks closed"
     entry: "- %{user} (`%{id}`): %{date}"
 
   leaderboard:
@@ -196,17 +196,17 @@ streaks:
   reminders:
     title: "A small reminder"
     content:
-      - "Oye, oye %{mentions} — your streak would like a word."
-      - "%{mentions} — the page isn't going to read itself, you know."
-      - "A gentle nudge for %{mentions}: your streak is watching. It always is."
-      - "%{mentions}, a small matter of the book you were going to read today."
+      - "Oye, oye %{mentions}, your streak would like a word with you!"
+      - "%{mentions} daily reminder to stay hydrated... and log your daily achievement!"
+      - "Gentle nudge for %{mentions}; it's time to log your streak."
+      - "Hello %{mentions}! Have you made any progress on those books today?"
     last_chance_title: "Last chance"
     last_chance_content:
-      - "%{mentions} — an hour until midnight, and nothing logged."
-      - "%{mentions} — the clock is being dramatic, but so is your empty streak."
-      - "One hour, %{mentions}. That is all your streak has left."
-      - "%{mentions}, midnight is approaching and your streak would rather not end tonight."
-    footer: "Use /streak log to log your daily progress!"
+      - "Tick tock %{mentions}, there's only one hour left until midnight!"
+      - "%{mentions}, you still have a chance to log before you streak closes!"
+      - "Your streak is about to close %{mentions} <a:aBunnyPanic:1494097440503103508>"
+      - "%{mentions}, we're reaching threat level midnight!"
+    footer: "Use /streak log to log your daily progress"
 
   anniversary:
     title: "A whole year"
