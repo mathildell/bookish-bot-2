@@ -171,8 +171,10 @@ def current_display(interaction: discord.Interaction, key: str) -> str:
 
 
 def current_value_line(interaction: discord.Interaction, key: str) -> str:
-    """Render one setting's value as a ``Value: `value` unit`` line."""
+    """Render one setting's value as a ``Value: ...`` line."""
     value, unit = _current_value(interaction, key)
+    if _KINDS[key] == "channel":
+        return t("settings.list.value_plain", value=value)
     if unit:
         return t("settings.list.value_unit", value=value, unit=unit)
     return t("settings.list.value", value=value)

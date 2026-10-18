@@ -2408,6 +2408,8 @@ class SettingsDisplayTests(unittest.TestCase):
             self.assertIn(settings_cmds.setting_label(key), description)
         self.assertIn("-# ", description)
         self.assertIn("Value: `30` days", description)
+        self.assertIn("Value: <#42>", description)
+        self.assertNotIn("`<#42>`", description)
 
     def test_expected_hints_resolve(self) -> None:
         for kind in set(settings_cmds._KINDS.values()):

@@ -17,6 +17,7 @@ settings:
     heading: "### %{label}"
     value: "Value: `%{value}`"
     value_unit: "Value: `%{value}` %{unit}"
+    value_plain: "Value: %{value}"
     unit_days: "days"
     unit_hour: "UTC"
     value_none: "none"
@@ -29,7 +30,7 @@ settings:
       transparent_embed_image: "-# Publicly reachable image used as a transparent embed background."
       default_embed_color: "-# Default colour applied to every embed the bot sends."
       buddy_read_channel_id: "-# Forum channel where new threads get the reference message pinned."
-      buddy_read_message_link: "-# Message reposted into new forum threads (right-click it -> Copy Message Link)."
+      buddy_read_message_link: "-# Message reposted into new forum threads."
   edit:
     description: "Change one of the bot's settings"
     param_key: "Which setting to change"
