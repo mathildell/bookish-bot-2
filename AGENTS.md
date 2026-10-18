@@ -180,8 +180,11 @@ bookishhideaway/           archived old Ruby project — out of scope, ignore
 
 ## Database
 
-Tables are created automatically on startup (`create_tables`). Schema changes
-require a migration step; do not assume `create_all` alters existing tables.
+Tables are created automatically on startup (`create_tables`), which also
+additively adds any columns the models declare but existing tables lack, so a
+deploy that introduces a column no longer breaks the running schema. Destructive
+changes (drops, renames, type changes, data backfills) still require a migration
+script in `scripts/`.
 
 ## Deployment
 

@@ -14,8 +14,8 @@ settings:
   list:
     description: "Show the bot's settings"
     title: "Settings"
-    entry: "### %{label} = `%{value}`"
-    entry_unit: "### %{label} = `%{value}` %{unit}"
+    entry: "- **%{label} = `%{value}`**"
+    entry_unit: "- **%{label} = `%{value}` %{unit}**"
     unit_days: "days"
     unit_hour: "UTC"
     value_none: "none"

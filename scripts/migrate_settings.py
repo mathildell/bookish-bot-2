@@ -10,8 +10,9 @@ editable from ``/settings``:
 - ``bot_settings`` table (updates channel, transparent embed image, default
   embed colour, buddy read forum channel and reference message link)
 
-``create_all`` does not alter existing tables, so run this once against any
-database that already has these tables:
+``create_all`` does not alter existing tables. ``create_tables`` now additively
+adds missing columns on startup, so this script is no longer required for a
+normal deploy; it remains for manual/older setups:
 
     .venv/bin/python scripts/migrate_settings.py
 

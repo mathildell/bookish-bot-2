@@ -19,6 +19,7 @@ from pathlib import Path
 import discord
 
 from bot import main as bot_main
+from bot import db as db_module
 from bot import notifications
 from bot.commands import booster_react as react_cmds
 from bot.commands import booster_role as role_cmds
@@ -2321,6 +2322,42 @@ class ParseMessageLinkSettingTests(unittest.TestCase):
                 settings_cmds.parse_message_link_setting(value)
 
 
+class AddMissingColumnsTests(unittest.TestCase):
+    def test_adds_columns_the_models_declare(self) -> None:
+        from sqlalchemy import create_engine, inspect as sa_inspect, text
+
+        engine = create_engine("sqlite://")
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE TABLE bot_settings ("
+                    "id INTEGER PRIMARY KEY, guild_id INTEGER NOT NULL, "
+                    "updates_channel_id BIGINT, "
+                    "transparent_embed_image VARCHAR(512), "
+                    "default_embed_color VARCHAR(7))"
+                )
+            )
+        with engine.begin() as conn:
+            added = db_module._add_missing_columns(conn)
+            columns = {
+                col["name"]
+                for col in sa_inspect(conn).get_columns("bot_settings")
+            }
+        engine.dispose()
+        self.assertIn("bot_settings.reference_forum_channel_id", added)
+        self.assertIn("bot_settings.reference_message_link", added)
+        self.assertIn("reference_message_link", columns)
+
+    def test_leaves_existing_columns_alone(self) -> None:
+        from sqlalchemy import create_engine
+
+        engine = create_engine("sqlite://")
+        with engine.begin() as conn:
+            added = db_module._add_missing_columns(conn)
+        engine.dispose()
+        self.assertEqual(added, [])
+
+
 class SettingsDisplayTests(unittest.TestCase):
     class _Releases:
         purge_days = 30
@@ -2364,15 +2401,14 @@ class SettingsDisplayTests(unittest.TestCase):
         )
         self.assertIn("UTC", rendered)
 
-    def test_description_uses_headings_and_notes(self) -> None:
+    def test_description_lists_each_setting(self) -> None:
         interaction = self._Interaction()
         description = settings_cmds.build_description(interaction)
         for key in settings_cmds.SETTING_KEYS:
             self.assertIn(settings_cmds.setting_label(key), description)
-        self.assertIn("### ", description)
         self.assertIn("-# ", description)
         self.assertIn(
-            "### {} = `30` days".format(
+            "{} = `30` days".format(
                 settings_cmds.setting_label(settings_cmds.PURGE_BOOK_RELEASES)
             ),
             description,
