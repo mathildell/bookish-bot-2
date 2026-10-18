@@ -378,12 +378,11 @@ async def run() -> None:
             channel = await resolve_notify_channel(
                 guild, bot.bot_updates_channel_id
             )
-            for entry in closed:
-                await announce_streak_closed(
-                    channel,
-                    closed=entry,
-                    colour=getattr(bot, "default_embed_color", None),
-                )
+            await announce_streak_closed(
+                channel,
+                closed=closed,
+                colour=getattr(bot, "default_embed_color", None),
+            )
         await send_streak_reminders(guild)
 
     @tasks.loop(time=HOURLY_TIMES)

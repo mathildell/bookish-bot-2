@@ -1,17 +1,14 @@
-"""Level-up announcements posted where the change happened."""
+"""Level-up and admin notices posted outside the triggering interaction."""
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, time, timezone
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
 
 import discord
 
+from .services.streaks import ClosedStreak, format_date
 from .texts import t
-
-if TYPE_CHECKING:
-    from .services.streaks import ClosedStreak
 
 logger = logging.getLogger("bh2")
 
@@ -35,29 +32,25 @@ async def announce_level_up(
 async def announce_streak_closed(
     channel: discord.abc.Messageable | None,
     *,
-    closed: ClosedStreak,
+    closed: Sequence[ClosedStreak],
     colour: discord.Colour | None = None,
 ) -> None:
-    """Tell the admins' updates channel that a member's streak just closed."""
-    if channel is None:
+    """Tell the admins' updates channel which members' streaks just closed."""
+    if channel is None or not closed:
         return
-    started = int(
-        datetime.combine(closed.start_date, time.min, tzinfo=timezone.utc).timestamp()
-    )
+    lines = [
+        t(
+            "streaks.closed.entry",
+            user=f"<@{entry.user_id}>",
+            id=entry.user_id,
+            date=format_date(entry.start_date),
+        )
+        for entry in closed
+    ]
     embed = discord.Embed(
         title=t("streaks.closed.title"),
-        description=t("streaks.closed.description", user=f"<@{closed.user_id}>"),
+        description="\n".join(lines),
         colour=colour,
-    )
-    embed.add_field(
-        name=t("streaks.closed.user_id_field"),
-        value=f"`{closed.user_id}`",
-        inline=True,
-    )
-    embed.add_field(
-        name=t("streaks.closed.started_field"),
-        value=t("streaks.closed.started_value", ts=started),
-        inline=True,
     )
     try:
         await channel.send(embed=embed)

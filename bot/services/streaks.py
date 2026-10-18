@@ -123,6 +123,11 @@ def display_level(days_logged: int) -> int:
     return (days_logged - 1) // LEVEL_THRESHOLD + 1
 
 
+def format_date(day: date) -> str:
+    """Render a date as the plain "October 13, 2026" the feature shows."""
+    return day.strftime("%B %d, %Y")
+
+
 def window_xp(level: int, successes: int) -> int:
     """XP for a level window with ``successes`` goal-reaching days.
 

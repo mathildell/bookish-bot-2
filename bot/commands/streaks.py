@@ -81,7 +81,7 @@ def _reminder_text(goal: StreakGoal) -> str:
 
 
 def _format_date(day: _date) -> str:
-    return day.strftime("%B %d, %Y")
+    return streak_service.format_date(day)
 
 
 def _format_date_short(day: _date) -> str:
@@ -1147,7 +1147,7 @@ async def log(interaction: discord.Interaction, amount: str) -> None:
         )
         await announce_streak_closed(
             channel,
-            closed=result.closed,
+            closed=[result.closed],
             colour=getattr(interaction.client, "default_embed_color", None),
         )
 
