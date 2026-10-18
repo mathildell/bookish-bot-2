@@ -2339,6 +2339,20 @@ class SettingsDisplayTests(unittest.TestCase):
         )
         self.assertIn("UTC", rendered)
 
+    def test_description_uses_headings_and_notes(self) -> None:
+        interaction = self._Interaction()
+        description = settings_cmds.build_description(interaction)
+        for key in settings_cmds.SETTING_KEYS:
+            self.assertIn(settings_cmds.setting_label(key), description)
+        self.assertIn("### ", description)
+        self.assertIn("-# ", description)
+        self.assertIn(
+            "### {} = `30` days".format(
+                settings_cmds.setting_label(settings_cmds.PURGE_BOOK_RELEASES)
+            ),
+            description,
+        )
+
     def test_expected_hints_resolve(self) -> None:
         for kind in set(settings_cmds._KINDS.values()):
             self.assertTrue(

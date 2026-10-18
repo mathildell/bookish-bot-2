@@ -122,25 +122,48 @@ def _current_days(interaction: discord.Interaction, key: str) -> int:
     return interaction.client.reviews.repost_cooldown_days
 
 
-def current_display(interaction: discord.Interaction, key: str) -> str:
-    """Render the current value of a setting key for display."""
+def _current_value(
+    interaction: discord.Interaction, key: str
+) -> tuple[str, str]:
+    """Return the current value of a key and its unit (empty when unit-less)."""
     kind = _KINDS[key]
     settings = interaction.client.bot_settings
     if kind == "days":
-        return t("settings.list.value_days", days=_current_days(interaction, key))
+        return str(_current_days(interaction, key)), t("settings.list.unit_days")
     if kind == "hour":
         hour = interaction.client.releases.post_hour
-        return t("settings.list.value_hour", hour=f"{hour:02d}:00")
+        return f"{hour:02d}:00", t("settings.list.unit_hour")
     if kind == "channel":
         channel_id = settings.updates_channel_id
-        return f"<#{channel_id}>" if channel_id else t("settings.list.value_none")
+        if channel_id:
+            return f"<#{channel_id}>", ""
+        return t("settings.list.value_none"), ""
     if kind == "url":
-        image = settings.transparent_embed_image
-        return image or t("settings.list.value_none")
-    color = settings.default_embed_color
-    if not color:
-        return t("settings.list.value_none")
-    return t("settings.list.value_color", color=color)
+        return settings.transparent_embed_image or t("settings.list.value_none"), ""
+    return settings.default_embed_color or t("settings.list.value_none"), ""
+
+
+def current_display(interaction: discord.Interaction, key: str) -> str:
+    """Render the current value of a setting key for inline use."""
+    value, unit = _current_value(interaction, key)
+    return f"{value} {unit}" if unit else value
+
+
+def current_entry(interaction: discord.Interaction, key: str) -> str:
+    """Render one setting as a ``### Name = `value` unit`` heading."""
+    value, unit = _current_value(interaction, key)
+    label = setting_label(key)
+    if unit:
+        return t("settings.list.entry_unit", label=label, value=value, unit=unit)
+    return t("settings.list.entry", label=label, value=value)
+
+
+def build_description(interaction: discord.Interaction) -> str:
+    """Build the list embed's description: one heading + note per setting."""
+    return "\n".join(
+        f"{current_entry(interaction, key)}\n{t(f'settings.list.info.{key}')}"
+        for key in SETTING_KEYS
+    )
 
 
 async def apply_value(
@@ -185,12 +208,7 @@ async def list_settings(interaction: discord.Interaction) -> None:
         return
     embed = new_embed(interaction.client)
     embed.title = t("settings.list.title")
-    embed.description = t("settings.list.hint")
-    for key in SETTING_KEYS:
-        embed.add_field(
-            name=setting_label(key),
-            value=current_display(interaction, key),
-        )
+    embed.description = build_description(interaction)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
