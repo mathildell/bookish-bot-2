@@ -1,4 +1,4 @@
-"""Reading streak commands (``/streaks ...``).
+"""Reading streak commands (``/streak ...``).
 
 Members register a daily goal, log their reading, and keep a streak alive.
 Admins can point the feature at a channel and backfill missed days.
@@ -36,7 +36,7 @@ RESCUE_CUSTOM_ID = "streaks:rescue"
 PODIUM = ("🥇", "🥈", "🥉")
 
 streaks_group = app_commands.Group(
-    name="streaks",
+    name="streak",
     description=t("streaks.group_description"),
 )
 
@@ -904,9 +904,9 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         rescuable=False,
         rescued=result,
     )
-    await interaction.response.edit_message(
-        embed=embed, view=_ViewActions(rescue=False, edit=True)
-    )
+    view = _ViewActions(rescue=False, edit=True)
+    view.message = interaction.message
+    await interaction.response.edit_message(embed=embed, view=view)
     await _handle_progress(interaction, result.progress, interaction.user)
 
 
@@ -952,7 +952,22 @@ class _EditButton(discord.ui.Button):
         )
 
 
-class _ViewActions(discord.ui.View):
+class _ExpiringView(discord.ui.View):
+    """A timed view whose buttons grey out once it can no longer respond."""
+
+    message: discord.Message | None = None
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.disabled = True
+        if self.message is not None:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+
+class _ViewActions(_ExpiringView):
     def __init__(
         self,
         *,
@@ -967,7 +982,7 @@ class _ViewActions(discord.ui.View):
             self.add_item(_EditButton())
 
 
-class _LeaderboardView(discord.ui.View):
+class _LeaderboardView(_ExpiringView):
     def __init__(self, author_id: int, ongoing: bool = True) -> None:
         super().__init__(timeout=120)
         self.author_id = author_id
@@ -1215,6 +1230,8 @@ async def view(
         ),
         view=actions,
     )
+    if actions is not None:
+        actions.message = await interaction.original_response()
 
 
 @streaks_group.command(
@@ -1232,12 +1249,14 @@ async def leaderboard(interaction: discord.Interaction) -> None:
     members = await resolve_members(
         interaction.guild, [streak.user_id for streak, _ in rows]
     )
+    view = _LeaderboardView(interaction.user.id)
     await interaction.response.send_message(
         embed=_leaderboard_embed(
             interaction.client, rows, members, ongoing=True
         ),
-        view=_LeaderboardView(interaction.user.id),
+        view=view,
     )
+    view.message = await interaction.original_response()
 
 
 @channel_group.command(

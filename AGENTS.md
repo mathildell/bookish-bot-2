@@ -29,14 +29,14 @@ Implemented features:
 - **Bot speaks** — `/say` lets admins post a message as the bot into any
   channel or thread, optionally as a reply.
 - **Streaks** — members register a daily reading goal (amount, unit, timezone,
-  reminder schedule) with `/streaks register` (first time only) and change it
-  with `/streaks edit`. They log each day; missing a day closes the streak; a
+  reminder schedule) with `/streak register` (first time only) and change it
+  with `/streak edit`. They log each day; missing a day closes the streak; a
   normal rescue repairs it within 24h, a golden one within 5 days. Every 5
   logged days completes a level (XP into the normal level system, plus a
   rescue; every 50 levels a golden rescue; every 365 days a celebration). An
   hourly task sends reminders (picked at random from a list of phrasings) and
   closes due streaks; daily logs are purged after 90 days while streak totals
-  persist. `/streaks admin dryrun` toggles XP gain off while still showing what
+  persist. `/streak admin dryrun` toggles XP gain off while still showing what
   would have been earned.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
@@ -118,7 +118,7 @@ bot/
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
     releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
-    streaks.py             /streaks group + register buttons/hour select, log/today/view/leaderboard, admin log
+    streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
     say.py                 /say admin command (post a message as the bot)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks

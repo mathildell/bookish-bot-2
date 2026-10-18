@@ -406,14 +406,14 @@ class ModalLimitTests(unittest.TestCase):
                 self.assertLessEqual(len(item.label), 45, item.label)
 
 
-class RescueEmbedTests(unittest.TestCase):
-    def _embed(
+class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):
+    def _result(
         self,
         *,
         patched_days: int = 3,
         rescue_type: str = streaks.RESCUE_GOLDEN,
         leveled: bool = True,
-    ):
+    ) -> streaks.ReviveResult:
         goal = SimpleNamespace(
             amount=30,
             unit="pages",
@@ -444,7 +444,7 @@ class RescueEmbedTests(unittest.TestCase):
             golden_granted=0,
             anniversary=False,
         )
-        result = streaks.ReviveResult(
+        return streaks.ReviveResult(
             goal=goal,
             streak=streak,
             logs=[],
@@ -453,6 +453,9 @@ class RescueEmbedTests(unittest.TestCase):
             moved=True,
             progress=progress,
         )
+
+    def _embed(self, **kwargs):
+        result = self._result(**kwargs)
         member = SimpleNamespace(
             display_name="Alice",
             display_avatar=SimpleNamespace(url="https://example.com/a.png"),
@@ -461,7 +464,12 @@ class RescueEmbedTests(unittest.TestCase):
             default_embed_color=None, transparent_embed_image=None
         )
         return command_streaks._view_embed(
-            client, member, goal, streak, [], rescued=result
+            client,
+            member,
+            result.goal,
+            result.streak,
+            result.logs,
+            rescued=result,
         )
 
     def test_reports_the_level_completed_by_the_rescue(self) -> None:
@@ -491,6 +499,73 @@ class RescueEmbedTests(unittest.TestCase):
         )
         self.assertIn("1 day", field.value)
         self.assertNotIn("1 days", field.value)
+
+    async def test_button_edits_the_message_with_the_rescue_field(self) -> None:
+        result = self._result()
+
+        class Response:
+            def __init__(self) -> None:
+                self.embed = None
+
+            async def edit_message(self, *, embed, view) -> None:
+                self.embed = embed
+
+        class Service:
+            dry_run = False
+
+            async def rescuable_for_user(self, user_id):
+                return SimpleNamespace(id=1), result.goal
+
+            async def revive(self, *, streak_id, user_id):
+                return result
+
+        class Client:
+            default_embed_color = None
+            transparent_embed_image = None
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(
+                id=2,
+                display_name="Alice",
+                display_avatar=SimpleNamespace(url="https://example.com/a.png"),
+            ),
+            client=Client(),
+            response=Response(),
+            guild=None,
+            message=None,
+        )
+        interaction.client.streaks = Service()
+
+        await command_streaks._do_rescue(interaction)
+
+        names = [entry.name for entry in interaction.response.embed.fields]
+        self.assertIn(t("streaks.rescue.title"), names)
+
+
+class ExpiringViewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_disables_every_button(self) -> None:
+        view = command_streaks._ViewActions(rescue=True, edit=True)
+        self.assertTrue(all(not child.disabled for child in view.children))
+
+        class Message:
+            def __init__(self) -> None:
+                self.edits = 0
+
+            async def edit(self, *, view) -> None:
+                self.edits += 1
+
+        message = Message()
+        view.message = message
+        await view.on_timeout()
+
+        self.assertTrue(all(child.disabled for child in view.children))
+        self.assertEqual(message.edits, 1)
+
+    async def test_timeout_without_a_message_is_safe(self) -> None:
+        view = command_streaks._LeaderboardView(author_id=2)
+        view.message = None
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ streaks:
           
       Once your goal has been saved, you can edit it at any time without losing your progress. To adjust notifications or revisit this menu later, you can run the following command:
       ```
-      /streaks edit
+      /streak edit
       ``` 
       ## Pick your reminder option:
       %{options}
@@ -54,7 +54,7 @@ streaks:
     custom_description: "Pick any hour from 1AM to 10PM. **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
-    confirmed_description: "All set-up! You can edit this at any time using `/streaks edit`. I'll keep my eye on you... :eyes:"
+    confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I'll keep my eye on you... :eyes:"
 
   edit:
     description: "Change your daily goal or your reminders"
@@ -105,13 +105,13 @@ streaks:
     this: "this"
     these: "these"
     hurry: "Better get %{this} %{amount} %{unit} quickly, your streak closes %{closes}."
-    not_registered: "I can't find a goal for you. You should run `/streaks register` first!"
+    not_registered: "I can't find a goal for you. You should run `/streak register` first!"
 
   view:
     description: "Inspect a streak"
     param_user: "Whose streak (defaults to you)"
     title: "%{user}'s streak"
-    no_streak: "No streak yet: you haven't logged a single day. Run `/streaks log` to log your daily amount and get started!"
+    no_streak: "No streak yet: you haven't logged a single day. Run `/streak log` to log your daily amount and get started!"
     streak_gone: "This streak is over and can no longer be saved. It will be missed... Whenever you're ready, log a day to start over."
 
   info:
@@ -180,13 +180,13 @@ streaks:
 
   errors:
     generic: "Something went sideways. Don't look at me like that, I'm trying my best!"
-    not_registered: "No streak goal found. Run `/streaks register`!"
+    not_registered: "No streak goal found. Run `/streak register`!"
     invalid_amount: "`%{raw}` doesn't appear to be a number I can log. Try `30`, `+10` or `-5`."
     amount_positive: "That's some big brain strategy :brain: but your goal has to be more than zero."
     invalid_timezone: "`%{timezone}` isn't a timezone I recognise; please try looking up a metropolis near you instead."
     invalid_date: "`%{raw}` isn't a date I can work with, please use `YYYY-MM-DD`."
     wrong_channel: "Oops, this isn't the streak channel! Try there instead: %{channel}."
-    already_registered: "You already have a streak going. Use `/streaks edit` to change it instead."
+    already_registered: "You already have a streak going. Use `/streak edit` to change it instead."
     cant_rescue: "That streak can't be rescued anymore. It had a good run. We will remember it fondly."
 
   reminders:
@@ -202,7 +202,7 @@ streaks:
       - "%{mentions} — the clock is being dramatic, but so is your empty streak."
       - "One hour, %{mentions}. That is all your streak has left."
       - "%{mentions}, midnight is approaching and your streak would rather not end tonight."
-    footer: "Use /streaks log to log your daily progress!"
+    footer: "Use /streak log to log your daily progress!"
 
   anniversary:
     title: "A whole year"

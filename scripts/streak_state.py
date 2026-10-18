@@ -2,8 +2,8 @@
 
 This is a development helper, not a production tool. It wipes the target
 member's streak history (``streak_goals``, ``streaks`` and ``streak_daily_logs``
-for the guild) and seeds a fresh scenario so that ``/streaks view`` and
-``/streaks log`` render the desired outcome right now. Nothing outside the
+for the guild) and seeds a fresh scenario so that ``/streak view`` and
+``/streak log`` render the desired outcome right now. Nothing outside the
 streak tables is touched: the member's ``user_xp`` pool, reward roles, etc. are
 left exactly as they were.
 
@@ -24,8 +24,8 @@ Usage (from the repository root, with config.yaml present):
     .venv/bin/python scripts/streak_state.py 123456789 random --days 49 \
         --last-log 2026-10-01 --seed 7
 
-Every state is documented below: what the seeded data makes ``/streaks view``
-or ``/streaks log`` show, and how that data is produced. The state builders all
+Every state is documented below: what the seeded data makes ``/streak view``
+or ``/streak log`` show, and how that data is produced. The state builders all
 work in the goal's timezone and are anchored on "today", so the outcome is
 stable as long as you run the Discord command before the local day rolls over.
 
@@ -199,8 +199,8 @@ async def _add_streak(
 async def _unregistered(ctx: Context) -> None:
     """Needs no data at all: the goal is deleted and never recreated.
 
-    What you see: ``/streaks view`` and ``/streaks log`` both answer with
-    "No streak goal found. Run ``/streaks register``!".
+    What you see: ``/streak view`` and ``/streak log`` both answer with
+    "No streak goal found. Run ``/streak register``!".
     How: leave the streak tables empty for this member.
     """
 
@@ -208,8 +208,8 @@ async def _unregistered(ctx: Context) -> None:
 async def _no_streak(ctx: Context) -> None:
     """A goal but no streak yet.
 
-    What you see: ``/streaks view`` -> "No streak yet" plus the goal fields
-    (timezone, reminders, daily goal). ``/streaks log 30`` -> starts day 1.
+    What you see: ``/streak view`` -> "No streak yet" plus the goal fields
+    (timezone, reminders, daily goal). ``/streak log 30`` -> starts day 1.
     How: create the goal, add no ``streaks`` rows.
     """
     _add_goal(ctx)
@@ -218,8 +218,8 @@ async def _no_streak(ctx: Context) -> None:
 async def _ongoing_day1(ctx: Context) -> None:
     """One successful day, logged today.
 
-    What you see: ``/streaks view`` -> one highlighted success slot, "Logged
-    today", level 1, an "Next XP" projection. ``/streaks log 15`` -> edits
+    What you see: ``/streak view`` -> one highlighted success slot, "Logged
+    today", level 1, an "Next XP" projection. ``/streak log 15`` -> edits
     today's amount (no new day, days_logged stays 1).
     How: a 1-day streak whose only log is today (deadline is still tomorrow).
     """
@@ -230,7 +230,7 @@ async def _ongoing_day1(ctx: Context) -> None:
 async def _ongoing_mixed(ctx: Context) -> None:
     """Four consecutive days ending yesterday with mixed outcomes.
 
-    What you see: ``/streaks view`` -> four slots (success, failed, zero,
+    What you see: ``/streak view`` -> four slots (success, failed, zero,
     success) and one upcoming; "Last achievement" reflects yesterday; the
     "Next XP" projection is partial (2 successes + assumed days).
     How: a 4-day streak ending yesterday with outcomes [S, F, Z, S].
@@ -247,7 +247,7 @@ async def _ongoing_mixed(ctx: Context) -> None:
 async def _window_complete(ctx: Context) -> None:
     """A window completed earlier today (days_logged = 5, level 1).
 
-    What you see: ``/streaks view`` -> the five completed days stay on screen
+    What you see: ``/streak view`` -> the five completed days stay on screen
     until midnight (the just-finished window is not reset to blanks).
     How: a 5-day streak of successes whose last log is today.
     """
@@ -258,7 +258,7 @@ async def _window_complete(ctx: Context) -> None:
 async def _xp_five_success(ctx: Context) -> None:
     """Four successes, one away from clearing level 1.
 
-    What you see: ``/streaks log 30`` -> "Level cleared" worth **250 XP**
+    What you see: ``/streak log 30`` -> "Level cleared" worth **250 XP**
     (level 1 paid in full) and a rescue coupon granted.
     How: a 4-day all-success streak ending yesterday, internal level 0.
     """
@@ -274,7 +274,7 @@ async def _xp_five_success(ctx: Context) -> None:
 async def _xp_five_failure(ctx: Context) -> None:
     """Four failed days, one away from clearing level 1.
 
-    What you see: ``/streaks log 5`` -> "Level cleared" for level 1 but worth
+    What you see: ``/streak log 5`` -> "Level cleared" for level 1 but worth
     **0 XP** (a failed day pays nothing), plus a rescue coupon. Shows the
     level-up and the level-up-without-XP edge at once.
     How: a 4-day all-failed streak ending yesterday, internal level 0.
@@ -291,7 +291,7 @@ async def _xp_five_failure(ctx: Context) -> None:
 async def _xp_partial(ctx: Context) -> None:
     """Four days (two success, two failed), one away from level 1.
 
-    What you see: ``/streaks log 30`` -> level 1 cleared worth **150 XP**
+    What you see: ``/streak log 30`` -> level 1 cleared worth **150 XP**
     (3 of 5 successes x 250). Shows a partially-reached level window.
     How: a 4-day streak ending yesterday with outcomes [S, F, S, F].
     """
@@ -307,9 +307,9 @@ async def _xp_partial(ctx: Context) -> None:
 async def _xp_top_up(ctx: Context) -> None:
     """A completed window whose fifth day is still below goal, ready to top up.
 
-    What you see: ``/streaks view`` -> five slots, four successes and today's
+    What you see: ``/streak view`` -> five slots, four successes and today's
     failure; level 1 is already banked for a partial **200 XP**.
-    ``/streaks log 30`` -> tops the day up to 100% and pays the missing
+    ``/streak log 30`` -> tops the day up to 100% and pays the missing
     **50 XP** (250 total) with a "Goal reached" field. A later re-log below the
     goal keeps the XP (it is locked once full).
     How: 5 days ending today, the last one below goal, ``level=1`` and
@@ -331,7 +331,7 @@ async def _xp_top_up(ctx: Context) -> None:
 async def _xp_cap(ctx: Context) -> None:
     """High streak one day from level 31, where the XP payout caps.
 
-    What you see: ``/streaks log 30`` -> level 31 cleared worth **3000 XP**
+    What you see: ``/streak log 30`` -> level 31 cleared worth **3000 XP**
     (the cap; level XP stops growing from here).
     How: 154 days / internal level 30 (only the last 4 logs are seeded; older
     ones are treated as purged history).
@@ -351,7 +351,7 @@ async def _xp_cap(ctx: Context) -> None:
 async def _level_golden_50(ctx: Context) -> None:
     """High streak one day from level 50, a golden-rescue milestone.
 
-    What you see: ``/streaks log 30`` -> level 50 cleared and a **golden**
+    What you see: ``/streak log 30`` -> level 50 cleared and a **golden**
     rescue granted on top of the normal one (a golden is paid every 50 levels).
     How: 249 days / internal level 49 (last 4 logs seeded).
     """
@@ -370,7 +370,7 @@ async def _level_golden_50(ctx: Context) -> None:
 async def _anniversary_365(ctx: Context) -> None:
     """One day from a full year (365 days / level 73).
 
-    What you see: ``/streaks log 30`` -> level 73 cleared, the "*A whole year*"
+    What you see: ``/streak log 30`` -> level 73 cleared, the "*A whole year*"
     anniversary embed posted, the XP doubled, and a golden rescue granted
     (anniversaries pay a golden too).
     How: 364 days / internal level 72 (last 4 logs seeded). The anniversary
@@ -391,7 +391,7 @@ async def _anniversary_365(ctx: Context) -> None:
 async def _slots_repaired(ctx: Context) -> None:
     """An ongoing window containing a day saved by a normal rescue.
 
-    What you see: ``/streaks view`` -> the repair day renders as the rescue
+    What you see: ``/streak view`` -> the repair day renders as the rescue
     (🛟) icon among the five slots; the rescues field shows one used.
     How: a 4-day streak ending yesterday where the third day is a repaired
     zero (``repair=True``, ``rescue_type="normal"``).
@@ -413,7 +413,7 @@ async def _slots_repaired(ctx: Context) -> None:
 async def _slots_golden_repaired(ctx: Context) -> None:
     """An ongoing window containing a day saved by a golden rescue.
 
-    What you see: ``/streaks view`` -> the golden repair icon among the slots
+    What you see: ``/streak view`` -> the golden repair icon among the slots
     and one golden coupon used.
     How: like :func:`_slots_repaired` but ``rescue_type="golden"``.
     """
@@ -434,8 +434,8 @@ async def _slots_golden_repaired(ctx: Context) -> None:
 async def _rescue_normal(ctx: Context) -> None:
     """A streak that broke today, rescuable with a normal coupon.
 
-    What you see: ``/streaks view`` -> a "Repair streak" button, "Closed"
-    field, one normal rescue available. ``/streaks log 30`` -> also offers the
+    What you see: ``/streak view`` -> a "Repair streak" button, "Closed"
+    field, one normal rescue available. ``/streak log 30`` -> also offers the
     repair button on the fresh log.
     How: last log two days ago, closed at yesterday's date, ``end_date`` one
     day ago, so the close happened today at 00:00 (inside the 24h window).
@@ -455,9 +455,9 @@ async def _rescue_normal(ctx: Context) -> None:
 async def _rescue_golden(ctx: Context) -> None:
     """A streak that broke more than 24h ago but less than five days ago.
 
-    What you see: ``/streaks view`` -> a "Repair streak" button (identical
+    What you see: ``/streak view`` -> a "Repair streak" button (identical
     label) backed by a **golden** coupon; the rescues field shows it under the
-    golden line. ``/streaks log 30`` -> offers the same repair.
+    golden line. ``/streak log 30`` -> offers the same repair.
     How: last log three days ago, ``end_date`` two days ago, so the close was
     yesterday at 00:00 (past the 24h normal window, inside the 5-day golden
     one); one golden coupon available.
@@ -477,7 +477,7 @@ async def _rescue_golden(ctx: Context) -> None:
 async def _rescue_no_coupon(ctx: Context) -> None:
     """A streak that broke today with no coupon left to save it.
 
-    What you see: ``/streaks view`` -> "Closed" but **no** repair button (the
+    What you see: ``/streak view`` -> "Closed" but **no** repair button (the
     window is open, the inventory is empty).
     How: same timing as :func:`_rescue_normal` but zero normal and golden
     coupons.
@@ -496,7 +496,7 @@ async def _rescue_no_coupon(ctx: Context) -> None:
 async def _rescue_expired(ctx: Context) -> None:
     """A streak that broke more than five days ago: beyond saving.
 
-    What you see: ``/streaks view`` -> "Closed", no repair button, even though
+    What you see: ``/streak view`` -> "Closed", no repair button, even though
     a coupon is nominally available.
     How: last log seven days ago, ``end_date`` six days ago, so the close was
     five days ago (outside the golden window); one normal coupon still stored.
@@ -516,7 +516,7 @@ async def _rescue_expired(ctx: Context) -> None:
 async def _reminder_custom(ctx: Context) -> None:
     """A goal with a custom daily reminder hour.
 
-    What you see: ``/streaks view`` -> Reminders field reads
+    What you see: ``/streak view`` -> Reminders field reads
     "Reminder at 9:00 AM".
     How: goal with ``reminder="custom"`` and ``custom_hour=9``. Combine with an
     ongoing streak builder for a full picture; here no streak is seeded.
@@ -527,7 +527,7 @@ async def _reminder_custom(ctx: Context) -> None:
 async def _reminder_both(ctx: Context) -> None:
     """A goal with both a custom reminder and the 11PM last-chance one.
 
-    What you see: ``/streaks view`` -> Reminders field reads
+    What you see: ``/streak view`` -> Reminders field reads
     "9:00 AM, plus last chance (11PM)".
     How: goal with ``reminder="both"`` and ``custom_hour=9``.
     """
@@ -537,7 +537,7 @@ async def _reminder_both(ctx: Context) -> None:
 async def _coupon_shown(ctx: Context) -> None:
     """An ongoing streak that already earned XP, so the coupon fields render.
 
-    What you see: ``/streaks view`` -> "Last coupon" shows **250 XP** with a
+    What you see: ``/streak view`` -> "Last coupon" shows **250 XP** with a
     date, and "Last XP" shows 250 XP.
     How: a 3-day streak ending yesterday with ``last_xp_at`` set to now and
     ``last_xp_amount``/``total_xp_awarded`` at 250.
@@ -557,7 +557,7 @@ async def _coupon_shown(ctx: Context) -> None:
 async def _random_state(ctx: Context) -> str:
     """A random streak of ``--days`` logged days, fully derived.
 
-    What you see: ``/streaks view`` -> ``--days`` random days ending on
+    What you see: ``/streak view`` -> ``--days`` random days ending on
     ``--last-log`` (yesterday by default), with the level, coupons, last XP and
     next-XP projection seeded exactly as the normal logging flow would have
     produced them. When ``--last-log`` is older than yesterday the streak is
@@ -809,9 +809,9 @@ async def run(args: argparse.Namespace) -> None:
     print(f"Timezone: {timezone} (today is {today.isoformat()})")
     print()
     if entry.build_goal:
-        print(f"{'View:':<10}/streaks view")
+        print(f"{'View:':<10}/streak view")
         if entry.log_amount is not None:
-            print(f"{'Log:':<10}/streaks log {entry.log_amount}")
+            print(f"{'Log:':<10}/streak log {entry.log_amount}")
         else:
             print("Log:      (not applicable)")
     print()
@@ -826,7 +826,7 @@ async def run(args: argparse.Namespace) -> None:
         print()
         print(
             "WARNING: streak dry-run is enabled for this guild; levels progress "
-            "but no XP reaches the member. Run /streaks admin dryrun off."
+            "but no XP reaches the member. Run /streak admin dryrun off."
         )
     local_hour = streak_service.local_hour(now, timezone)
     if local_hour >= 22:
