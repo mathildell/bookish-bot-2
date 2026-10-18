@@ -18,6 +18,7 @@ from discord.ext import commands, tasks
 
 from .commands.booster import register_commands
 from .commands.bot import bot_group
+from .commands.bot_say import parse_message_link
 from .commands.intro import (
     IntroduceView,
     IntroRefreshView,
@@ -164,12 +165,10 @@ async def run() -> None:
     # the disabled/unset defaults so nothing fires before the first reload.
     bot.bot_updates_channel_id = 0
     bot.transparent_embed_image = None
-    bot.reference_forum_channel_id = int(
-        config.get("buddy_read_channel_id", 0) or 0
-    )
-    bot.reference_channel_id = int(config.get("buddy_read_message_channel_id", 0) or 0)
-    bot.reference_message_id = int(config.get("buddy_read_message_id", 0) or 0)
     bot.default_embed_color = None
+    bot.reference_forum_channel_id = 0
+    bot.reference_channel_id = 0
+    bot.reference_message_id = 0
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
@@ -434,6 +433,13 @@ async def run() -> None:
         bot.default_embed_color = (
             parse_hex_colour(default_color) if default_color else None
         )
+        bot.reference_forum_channel_id = (
+            bot_settings.reference_forum_channel_id or 0
+        )
+        reference_link = bot_settings.reference_message_link
+        reference = parse_message_link(reference_link) if reference_link else None
+        bot.reference_channel_id = reference[0] if reference else 0
+        bot.reference_message_id = reference[1] if reference else 0
 
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)

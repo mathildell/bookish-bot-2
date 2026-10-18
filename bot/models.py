@@ -541,6 +541,14 @@ class BotSetting(Base):
     default_embed_color: Mapped[str | None] = mapped_column(
         String(7), nullable=True
     )
+    # Forum channel where new threads receive a pinned reference message.
+    reference_forum_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    # Jump link to the message reposted into new forum threads.
+    reference_message_link: Mapped[str | None] = mapped_column(
+        String(512), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

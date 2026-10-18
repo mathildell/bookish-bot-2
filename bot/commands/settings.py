@@ -16,6 +16,7 @@ import discord
 from discord import app_commands
 
 from ..texts import t
+from .bot_say import parse_message_link
 from .checks import require_admin
 from .listing import new_embed, parse_hex_colour
 
@@ -32,6 +33,8 @@ RELEASES_POST_HOUR = "releases_post_hour"
 BOT_UPDATES_CHANNEL = "bot_updates_channel_id"
 TRANSPARENT_IMAGE = "transparent_embed_image"
 DEFAULT_COLOR = "default_embed_color"
+BUDDY_READ_CHANNEL = "buddy_read_channel_id"
+BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
 
 # Interpretation of each key's value.
 _KINDS = {
@@ -42,6 +45,8 @@ _KINDS = {
     BOT_UPDATES_CHANNEL: "channel",
     TRANSPARENT_IMAGE: "url",
     DEFAULT_COLOR: "color",
+    BUDDY_READ_CHANNEL: "channel",
+    BUDDY_READ_MESSAGE_LINK: "message_link",
 }
 
 SETTING_KEYS = tuple(_KINDS)
@@ -114,6 +119,16 @@ def parse_color(raw: str) -> discord.Colour | None:
     return parse_hex_colour(text)
 
 
+def parse_message_link_setting(raw: str) -> str | None:
+    """Parse a Discord message jump link, or ``None`` for the clear literal."""
+    text = raw.strip()
+    if text.lower() == CLEAR:
+        return None
+    if parse_message_link(text) is None:
+        raise ValueError(raw)
+    return text
+
+
 def _current_days(interaction: discord.Interaction, key: str) -> int:
     if key == PURGE_BOOK_RELEASES:
         return interaction.client.releases.purge_days
@@ -134,12 +149,18 @@ def _current_value(
         hour = interaction.client.releases.post_hour
         return f"{hour:02d}:00", t("settings.list.unit_hour")
     if kind == "channel":
-        channel_id = settings.updates_channel_id
+        if key == BUDDY_READ_CHANNEL:
+            channel_id = settings.reference_forum_channel_id
+        else:
+            channel_id = settings.updates_channel_id
         if channel_id:
             return f"<#{channel_id}>", ""
         return t("settings.list.value_none"), ""
     if kind == "url":
         return settings.transparent_embed_image or t("settings.list.value_none"), ""
+    if kind == "message_link":
+        link = settings.reference_message_link
+        return link or t("settings.list.value_none"), ""
     return settings.default_embed_color or t("settings.list.value_none"), ""
 
 
@@ -189,12 +210,24 @@ async def apply_value(
             and interaction.guild.get_channel(channel_id) is None
         ):
             raise ValueError(raw)
-        await interaction.client.bot_settings.set_updates_channel(channel_id)
-        interaction.client.bot_updates_channel_id = channel_id or 0
+        if key == BUDDY_READ_CHANNEL:
+            await interaction.client.bot_settings.set_reference_forum_channel(
+                channel_id
+            )
+            interaction.client.reference_forum_channel_id = channel_id or 0
+        else:
+            await interaction.client.bot_settings.set_updates_channel(channel_id)
+            interaction.client.bot_updates_channel_id = channel_id or 0
     elif kind == "url":
         image = parse_url(raw)
         await interaction.client.bot_settings.set_transparent_embed_image(image)
         interaction.client.transparent_embed_image = image
+    elif kind == "message_link":
+        link = parse_message_link_setting(raw)
+        await interaction.client.bot_settings.set_reference_message_link(link)
+        parsed = parse_message_link(link) if link else None
+        interaction.client.reference_channel_id = parsed[0] if parsed else 0
+        interaction.client.reference_message_id = parsed[1] if parsed else 0
     else:
         color = parse_color(raw)
         stored = f"#{color.value:06x}" if color is not None else None

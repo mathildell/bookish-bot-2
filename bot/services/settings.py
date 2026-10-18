@@ -21,6 +21,8 @@ class BotSettingsService:
         self._updates_channel_id: int | None = None
         self._transparent_embed_image: str | None = None
         self._default_embed_color: str | None = None
+        self._reference_forum_channel_id: int | None = None
+        self._reference_message_link: str | None = None
 
     @property
     def updates_channel_id(self) -> int | None:
@@ -34,6 +36,14 @@ class BotSettingsService:
     def default_embed_color(self) -> str | None:
         return self._default_embed_color
 
+    @property
+    def reference_forum_channel_id(self) -> int | None:
+        return self._reference_forum_channel_id
+
+    @property
+    def reference_message_link(self) -> str | None:
+        return self._reference_message_link
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._find(session)
@@ -42,6 +52,12 @@ class BotSettingsService:
             row.transparent_embed_image if row else None
         )
         self._default_embed_color = row.default_embed_color if row else None
+        self._reference_forum_channel_id = (
+            row.reference_forum_channel_id if row else None
+        )
+        self._reference_message_link = (
+            row.reference_message_link if row else None
+        )
 
     async def set_updates_channel(self, channel_id: int | None) -> None:
         await self._update(updates_channel_id=channel_id)
@@ -54,6 +70,14 @@ class BotSettingsService:
     async def set_default_embed_color(self, color: str | None) -> None:
         await self._update(default_embed_color=color)
         self._default_embed_color = color
+
+    async def set_reference_forum_channel(self, channel_id: int | None) -> None:
+        await self._update(reference_forum_channel_id=channel_id)
+        self._reference_forum_channel_id = channel_id
+
+    async def set_reference_message_link(self, link: str | None) -> None:
+        await self._update(reference_message_link=link)
+        self._reference_message_link = link
 
     async def _find(self, session) -> BotSetting | None:
         return (

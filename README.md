@@ -405,8 +405,8 @@ View and edit the bot's runtime settings.
 ```
 **Permissions:** 🔒 Admin
 `list` shows the current values. `edit` parses `value` according to the chosen
-`key` (days, an hour, a channel, a URL or a hex colour); pass `none` to clear the
-optional ones.
+`key` (days, an hour, a channel, a URL, a message link or a hex colour); pass
+`none` to clear the optional ones.
 
 ```
 /settings edit key: purge_book_releases value: 30
@@ -416,6 +416,8 @@ optional ones.
 /settings edit key: bot_updates_channel_id value: <#123456789012345678>
 /settings edit key: transparent_embed_image value: https://example.com/bg.png
 /settings edit key: default_embed_color value: "#97A97C"
+/settings edit key: buddy_read_channel_id value: <#123456789012345678>
+/settings edit key: buddy_read_message_link value: https://discord.com/channels/1/222/333
 ```
 - `purge_book_releases` — how many days a released book is kept before it is
   purged (default 30).
@@ -430,6 +432,10 @@ optional ones.
 - `transparent_embed_image` — publicly reachable image used as a transparent
   embed background.
 - `default_embed_color` — default colour applied to every embed the bot sends.
+- `buddy_read_channel_id` — forum channel where new threads get the reference
+  message reposted and pinned.
+- `buddy_read_message_link` — jump link to the message reposted into new forum
+  threads (right-click the message → Copy Message Link).
 
 ## Utility
 

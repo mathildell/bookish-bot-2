@@ -8,7 +8,7 @@ editable from ``/settings``:
 - ``streak_settings.log_retention_days`` (default 90)
 - ``review_settings.repost_cooldown_days`` (default 1)
 - ``bot_settings`` table (updates channel, transparent embed image, default
-  embed colour)
+  embed colour, buddy read forum channel and reference message link)
 
 ``create_all`` does not alter existing tables, so run this once against any
 database that already has these tables:
@@ -40,6 +40,8 @@ COLUMNS = (
     ("release_settings", "post_hour", "INT NOT NULL DEFAULT 13"),
     ("streak_settings", "log_retention_days", "INT NOT NULL DEFAULT 90"),
     ("review_settings", "repost_cooldown_days", "INT NOT NULL DEFAULT 1"),
+    ("bot_settings", "reference_forum_channel_id", "BIGINT NULL"),
+    ("bot_settings", "reference_message_link", "VARCHAR(512) NULL"),
 )
 
 

@@ -2300,6 +2300,27 @@ class ParseColorTests(unittest.TestCase):
                 settings_cmds.parse_color(value)
 
 
+class ParseMessageLinkSettingTests(unittest.TestCase):
+    LINK = "https://discord.com/channels/1/222/333"
+
+    def test_accepts_a_jump_link(self) -> None:
+        self.assertEqual(
+            settings_cmds.parse_message_link_setting(self.LINK), self.LINK
+        )
+        self.assertEqual(
+            settings_cmds.parse_message_link_setting(f"  {self.LINK}  "),
+            self.LINK,
+        )
+
+    def test_clear_returns_none(self) -> None:
+        self.assertIsNone(settings_cmds.parse_message_link_setting("none"))
+
+    def test_rejects_garbage(self) -> None:
+        for value in ("", "123", "https://example.com", "https://discord.com/channels/1"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_message_link_setting(value)
+
+
 class SettingsDisplayTests(unittest.TestCase):
     class _Releases:
         purge_days = 30
@@ -2315,6 +2336,10 @@ class SettingsDisplayTests(unittest.TestCase):
         updates_channel_id = 42
         transparent_embed_image = "https://example.com/bg.png"
         default_embed_color = "#97a97c"
+        reference_forum_channel_id = 77
+        reference_message_link = (
+            "https://discord.com/channels/1/222/333"
+        )
 
     class _Client:
         def __init__(self) -> None:

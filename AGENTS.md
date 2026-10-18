@@ -44,8 +44,9 @@ Implemented features:
 - **Settings** — `/settings list|edit` let admins view and set the bot's runtime
   settings: the daily cleanup retention windows (old releases, streak logs), the
   review repost cooldown, the UTC hour release announcements are posted, the
-  admins' updates channel, the transparent embed background and the default
-  embed colour. This is the home for values that used to live in `config.yaml`.
+  admins' updates channel, the transparent embed background, the default embed
+  colour and the buddy read forum channel + reference message link. This is the
+  home for values that used to live in `config.yaml`.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
