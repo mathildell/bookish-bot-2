@@ -378,6 +378,7 @@ class LogResult:
     reopened: bool
     progress: LevelProgress
     rescuable: Streak | None
+    closed: ClosedStreak | None = None
 
 
 @dataclass
@@ -389,6 +390,15 @@ class ReviveResult:
     patched_days: int
     moved: bool
     progress: LevelProgress
+
+
+@dataclass
+class ClosedStreak:
+    """A streak that just closed, kept for the admin bot-updates notice."""
+
+    user_id: int
+    start_date: date
+    end_date: date
 
 
 @dataclass
@@ -726,6 +736,7 @@ class StreakService:
 
             today = local_date(now, goal.timezone)
             streak = await _ongoing_streak(session, goal_id=goal.id)
+            closed_streak: ClosedStreak | None = None
             # The hourly job may not have run yet; close a streak that is
             # already past its deadline before logging, so a missed day is not
             # quietly papered over.
@@ -738,6 +749,11 @@ class StreakService:
                 streak.end_date = streak.last_log_date + timedelta(days=1)
                 streak.status = STATUS_CLOSED
                 await session.flush()
+                closed_streak = ClosedStreak(
+                    user_id=streak.user_id,
+                    start_date=streak.start_date,
+                    end_date=streak.end_date,
+                )
                 streak = None
 
             created = False
@@ -797,6 +813,7 @@ class StreakService:
                 reopened=False,
                 progress=progress,
                 rescuable=rescuable,
+                closed=closed_streak,
             )
 
     # -------------------------------------------------------------- rescue
@@ -989,10 +1006,10 @@ class StreakService:
 
     # -------------------------------------------------------- upkeep/polls
 
-    async def close_due(self, now: datetime | None = None) -> int:
+    async def close_due(self, now: datetime | None = None) -> list[ClosedStreak]:
         """Close every ongoing streak whose deadline has passed."""
         now = now or utcnow()
-        closed = 0
+        closed: list[ClosedStreak] = []
         async with session_scope() as session:
             rows = (
                 await session.execute(
@@ -1009,7 +1026,13 @@ class StreakService:
                 if local_now(now, goal.timezone) >= deadline:
                     streak.end_date = streak.last_log_date + timedelta(days=1)
                     streak.status = STATUS_CLOSED
-                    closed += 1
+                    closed.append(
+                        ClosedStreak(
+                            user_id=streak.user_id,
+                            start_date=streak.start_date,
+                            end_date=streak.end_date,
+                        )
+                    )
             await session.commit()
         return closed
 

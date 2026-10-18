@@ -35,7 +35,7 @@ from .commands.say import say_command
 from .commands.streaks import StreakRescueView, streaks_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
-from .notifications import announce_level_up
+from .notifications import announce_level_up, announce_streak_closed
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
@@ -350,7 +350,16 @@ async def run() -> None:
             return
         closed = await streaks.close_due()
         if closed:
-            logger.info("Closed %d streak(s)", closed)
+            logger.info("Closed %d streak(s)", len(closed))
+            channel = await resolve_notify_channel(
+                guild, bot.bot_updates_channel_id
+            )
+            for entry in closed:
+                await announce_streak_closed(
+                    channel,
+                    closed=entry,
+                    colour=getattr(bot, "default_embed_color", None),
+                )
         await send_streak_reminders(guild)
 
     @streak_hourly.before_loop

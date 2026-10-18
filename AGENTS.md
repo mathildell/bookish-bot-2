@@ -35,9 +35,10 @@ Implemented features:
   logged days completes a level (XP into the normal level system, plus a
   rescue; every 50 levels a golden rescue; every 365 days a celebration). An
   hourly task sends reminders (picked at random from a list of phrasings) and
-  closes due streaks; daily logs are purged after 90 days while streak totals
-  persist. `/streak admin dryrun` toggles XP gain off while still showing what
-  would have been earned.
+  closes due streaks, notifying the admins' updates channel
+  (`bot_updates_channel_id`) about each closure; daily logs are purged after 90
+  days while streak totals persist. `/streak admin dryrun` toggles XP gain off
+  while still showing what would have been earned.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -108,7 +109,7 @@ bot/
                            IntroQuestion, IntroSetting, IntroPost, BookRelease,
                            ReleaseSetting, ReleaseEditDraft, StreakGoal, Streak,
                            StreakLog, StreakSetting)
-  notifications.py         level-up announcements
+  notifications.py         level-up + streak-closed announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...

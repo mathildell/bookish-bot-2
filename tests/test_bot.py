@@ -48,6 +48,7 @@ from bot.services.release_sources import BookData
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
 from bot.services.reviews import FeedData, FeedEntry
+from bot.services.streaks import ClosedStreak
 from bot.texts import t
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -508,14 +509,18 @@ class FakeSendChannel:
 class FakeNotifyChannel:
     def __init__(self, *, fail: bool = False) -> None:
         self.sent: list[str] = []
+        self.embeds: list[discord.Embed] = []
         self._fail = fail
 
-    async def send(self, content: str) -> None:
+    async def send(self, content: str | None = None, *, embed=None) -> None:
         if self._fail:
             raise discord.HTTPException(
                 _FakeHTTPResponse(), {"message": "no", "code": 50013}
             )
-        self.sent.append(content)
+        if content is not None:
+            self.sent.append(content)
+        if embed is not None:
+            self.embeds.append(embed)
 
 
 class FakeNotifyUser:
@@ -538,6 +543,47 @@ class AnnounceLevelUpTests(unittest.IsolatedAsyncioTestCase):
         channel = FakeNotifyChannel(fail=True)
         await notifications.announce_level_up(channel, FakeNotifyUser(), 3)
         self.assertEqual(channel.sent, [])
+
+
+class AnnounceStreakClosedTests(unittest.IsolatedAsyncioTestCase):
+    def _closed(self) -> ClosedStreak:
+        return ClosedStreak(
+            user_id=42,
+            start_date=datetime.date(2026, 10, 1),
+            end_date=datetime.date(2026, 10, 15),
+        )
+
+    async def test_reports_the_user_id_and_start(self) -> None:
+        channel = FakeNotifyChannel()
+        await notifications.announce_streak_closed(
+            channel, closed=self._closed()
+        )
+        embed = channel.embeds[0]
+        self.assertEqual(
+            embed.description,
+            t("streaks.closed.description", user="<@42>"),
+        )
+        fields = {field.name: field.value for field in embed.fields}
+        self.assertEqual(fields[t("streaks.closed.user_id_field")], "`42`")
+        started = int(
+            datetime.datetime(
+                2026, 10, 1, tzinfo=datetime.timezone.utc
+            ).timestamp()
+        )
+        self.assertEqual(
+            fields[t("streaks.closed.started_field")],
+            t("streaks.closed.started_value", ts=started),
+        )
+
+    async def test_missing_channel_is_ignored(self) -> None:
+        await notifications.announce_streak_closed(None, closed=self._closed())
+
+    async def test_send_failure_is_swallowed(self) -> None:
+        channel = FakeNotifyChannel(fail=True)
+        await notifications.announce_streak_closed(
+            channel, closed=self._closed()
+        )
+        self.assertEqual(channel.embeds, [])
 
 
 class LevelProgressTests(unittest.TestCase):

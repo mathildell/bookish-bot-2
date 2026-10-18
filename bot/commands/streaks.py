@@ -13,8 +13,9 @@ from typing import Literal
 import discord
 from discord import app_commands
 
-from ..notifications import announce_level_up
+from ..notifications import announce_level_up, announce_streak_closed
 from ..services import streaks as streak_service
+from ..services.booster_role import resolve_notify_channel
 from ..services.level_rewards import sync_member_roles
 from ..services.members import resolve_members
 from ..services.streaks import (
@@ -1139,6 +1140,16 @@ async def log(interaction: discord.Interaction, amount: str) -> None:
         view=view,
     )
     await _handle_progress(interaction, result.progress, interaction.user)
+    if result.closed is not None:
+        channel = await resolve_notify_channel(
+            interaction.guild,
+            getattr(interaction.client, "bot_updates_channel_id", 0),
+        )
+        await announce_streak_closed(
+            channel,
+            closed=result.closed,
+            colour=getattr(interaction.client, "default_embed_color", None),
+        )
 
 
 @streaks_group.command(name="today", description=t("streaks.today.description"))

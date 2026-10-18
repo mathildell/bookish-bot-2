@@ -142,6 +142,13 @@ streaks:
     dry_run_field: "Dry run"
     dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
+  closed:
+    title: "Streak closed"
+    description: "%{user}'s reading streak has ended."
+    user_id_field: "User ID"
+    started_field: "Streak started"
+    started_value: "<t:%{ts}:D>"
+
   leaderboard:
     description: "Streaks Leaderboard"
     ongoing_button: "Ongoing"
