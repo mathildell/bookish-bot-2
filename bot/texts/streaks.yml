@@ -51,7 +51,7 @@ streaks:
       ## Pick your reminder option:
       %{options}
     custom_title: "Pick your hour"
-    custom_description: "Pick any hour from 1AM to 10PM. **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
+    custom_description: "Pick any hour from 1AM to 10PM\n-# **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
     confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I'll keep my eye on you... :eyes:"

@@ -1082,7 +1082,7 @@ async def register(
     await interaction.response.send_message(
         embed=_register_step_embed(interaction.client, amount, clean_unit, zone),
         view=view,
-        ephemeral=True,
+        ephemeral=False,
     )
 
 
