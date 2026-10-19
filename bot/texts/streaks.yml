@@ -224,6 +224,7 @@ streaks:
       - "Your streak is about to close %{mentions} <a:aBunnyPanic:1494097440503103508>"
       - "%{mentions}, we're reaching threat level midnight!"
     footer: "Use /streak log to log your daily progress"
+    unknown_member: "unknown member"
 
   anniversary:
     title: "A whole year"

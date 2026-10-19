@@ -75,25 +75,30 @@ def t(key: str, **variables) -> str:
     return _interpolate(text, variables) if variables else text
 
 
-def t_choice(key: str, **variables) -> str:
-    """Pick one entry at random from a list of texts, then interpolate it.
-
-    A key holding a single string is accepted and returned as-is.
-    """
+def t_choice_template(key: str) -> str:
+    """Pick one raw entry from a list of texts, without interpolating it."""
     try:
         value = _load_texts()[key]
     except KeyError as exc:
         raise MissingText(key) from exc
 
     if isinstance(value, str):
-        entries = [value]
-    elif isinstance(value, list) and value:
-        entries = value
-    else:
-        raise MissingText(f"{key} is not a non-empty list of strings")
+        return value
+    if isinstance(value, list) and value:
+        text = random.choice(value)
+        if isinstance(text, str):
+            return text
+    raise MissingText(f"{key} is not a non-empty list of strings")
 
-    text = random.choice(entries)
-    if not isinstance(text, str):
-        raise MissingText(f"{key} is not a list of strings")
 
+def t_choice(key: str, **variables) -> str:
+    """Pick one entry at random from a list of texts, then interpolate it.
+
+    A key holding a single string is accepted and returned as-is.
+    """
+    return interpolate(t_choice_template(key), **variables)
+
+
+def interpolate(text: str, **variables) -> str:
+    """Fill a previously selected text's ``%{variables}`` placeholders."""
     return _interpolate(text, variables) if variables else text

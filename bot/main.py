@@ -50,7 +50,7 @@ from .services.releases import ReleaseService
 from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
 from .services.streaks import Reminder, StreakService
-from .texts import t, t_choice
+from .texts import interpolate, t, t_choice, t_choice_template
 
 logger = logging.getLogger("bh2")
 
@@ -126,6 +126,7 @@ async def _post_streak_reminders(
     channel: discord.abc.Messageable,
     reminders: list[Reminder],
     *,
+    guild: discord.Guild | None = None,
     colour: discord.Colour | None,
 ) -> list[Reminder]:
     """Post the due reminders, returning only the ones actually delivered."""
@@ -139,32 +140,45 @@ async def _post_streak_reminders(
     )
     sent: list[Reminder] = []
     for kind, title_key, content_key in groups:
-        mentions = [
-            f"<@{reminder.goal.user_id}>"
-            for reminder in reminders
-            if reminder.kind == kind
+        due = [
+            reminder for reminder in reminders if reminder.kind == kind
         ]
-        if not mentions:
+        if not due:
             continue
+        members = await resolve_members(
+            guild, [reminder.goal.user_id for reminder in due]
+        )
+        mentions = ", ".join(
+            f"<@{reminder.goal.user_id}>" for reminder in due
+        )
+        names = ", ".join(
+            member.display_name
+            if member is not None
+            else t("streaks.reminders.unknown_member")
+            for member in members
+        )
+        template = t_choice_template(content_key)
         embed = discord.Embed(
             title=t(title_key),
-            description=t_choice(content_key, mentions=", ".join(mentions)),
+            description=interpolate(template, mentions=names),
             colour=colour,
         )
         embed.set_footer(text=t("streaks.reminders.footer"))
         set_transparent_image(embed, client)
         view = StreakLogView()
         try:
-            message = await channel.send(embed=embed, view=view)
+            message = await channel.send(
+                content=interpolate(template, mentions=mentions),
+                embed=embed,
+                view=view,
+            )
         except discord.HTTPException:
             logger.warning(
                 "Could not post %s streak reminder", kind, exc_info=True
             )
             continue
         view.message = message
-        sent.extend(
-            reminder for reminder in reminders if reminder.kind == kind
-        )
+        sent.extend(due)
     return sent
 
 
@@ -396,6 +410,7 @@ async def run() -> None:
             bot,
             channel,
             reminders,
+            guild=guild,
             colour=getattr(bot, "default_embed_color", None),
         )
         await streaks.mark_reminder(sent)

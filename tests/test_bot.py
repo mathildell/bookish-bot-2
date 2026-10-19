@@ -969,6 +969,21 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(view, bot_main.StreakLogView)
         self.assertEqual(view.children[0].label, t("streaks.log.button"))
 
+    async def test_mentions_are_in_the_body_and_names_in_the_embed(self) -> None:
+        channel = FakeNotifyChannel()
+        reminders = [self._reminder(1, "custom")]
+        guild = FakeMemberGuild(
+            [SimpleNamespace(id=1, display_name="Alice")]
+        )
+
+        await bot_main._post_streak_reminders(
+            FakeClient(), channel, reminders, guild=guild, colour=None
+        )
+
+        self.assertIn("<@1>", channel.sent[0])
+        self.assertIn("Alice", channel.embeds[0].description)
+        self.assertNotIn("<@1>", channel.embeds[0].description)
+
 
 class LevelProgressTests(unittest.TestCase):
     """The progress shown starts at 0 for every level."""
