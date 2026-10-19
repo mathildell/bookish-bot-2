@@ -38,17 +38,18 @@ TMPFILES_DIRECT_RE = re.compile(r'https://tmpfiles\.org/dl/[^"\'<>\s]+')
 IMGBB_EXPIRATION_SECONDS = 7 * 24 * 3600
 
 # Placement of each field on the 600x360 templates, tuned to the blank lines.
-NAME_CENTER = (300, 112)
-NAME_SIZE = 40
+# (Horizontal center, then placement from top)
+NAME_CENTER = (300, 118)
+NAME_SIZE = 65
 NAME_MAX_WIDTH = 350
-LEVEL_CENTER = (436, 173)
-LEVEL_SIZE = 28
+LEVEL_CENTER = (436, 167)
+LEVEL_SIZE = 35
 LEVEL_MAX_WIDTH = 65
-DATE_CENTER = (333, 206)
-DATE_SIZE = 28
+DATE_CENTER = (333, 200)
+DATE_SIZE = 30
 DATE_MAX_WIDTH = 170
-XP_CENTER = (311, 252)
-XP_SIZE = 28
+XP_CENTER = (311, 247)
+XP_SIZE = 40
 XP_MAX_WIDTH = 170
 
 
@@ -103,15 +104,6 @@ def _fit(
     return font, f"{truncated}…"
 
 
-def _text_colours(image: Image.Image) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
-    """Pick a legible text colour and its outline from the template's brightness."""
-    centre = image.crop((130, 60, 470, 300)).convert("L")
-    brightness = centre.resize((1, 1)).getpixel((0, 0))
-    if brightness > 150:
-        return (48, 40, 32), (245, 240, 230)
-    return (255, 255, 255), (44, 64, 46)
-
-
 def render_coupon(
     *, display_name: str, level: int, on_date: date, xp: int
 ) -> Path:
@@ -120,7 +112,6 @@ def render_coupon(
     with Image.open(template) as opened:
         image = opened.convert("RGBA")
     draw = ImageDraw.Draw(image)
-    fill, stroke = _text_colours(image)
 
     fields = (
         (display_name, FONT_REGULAR, NAME_SIZE, NAME_MAX_WIDTH, NAME_CENTER),
@@ -134,10 +125,8 @@ def render_coupon(
             (x, y),
             fitted,
             font=font,
-            fill=fill,
+            fill=(255, 255, 255),
             anchor="ms",
-            stroke_width=2,
-            stroke_fill=stroke,
         )
 
     handle, path = tempfile.mkstemp(prefix="coupon-", suffix=".png")
