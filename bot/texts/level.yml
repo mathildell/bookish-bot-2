@@ -40,7 +40,8 @@ level:
       weekly_details_levels: "> **`%{xp}` XP** (Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
       weekly_details_progress: "> **`%{xp}` XP** (`%{n1}` → `%{n2}`/`%{needed}` XP)"
       weekly_empty: "No XP was earned this week."
-      weekly_week_of: "-# Week of %{start} ・ resets %{reset} (Mon-Sun)."
+      weekly_week_of: |
+        -# Week of %{start} ・ resets %{reset} (Mon-Sun)
       button_all_time: "All time"
       button_weekly: "Weekly"
       button_all_time_emoji: "👑"

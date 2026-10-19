@@ -212,18 +212,17 @@ def weekly_leaderboard_embed(
     reset_at = datetime.combine(
         week_start + timedelta(days=7), time.min, tzinfo=timezone.utc
     )
-    note = f"{t(
-        "level.xp.leaderboard.weekly_week_of",
-        start=week_start.strftime("%b %d, %Y"),
-        reset=discord.utils.format_dt(reset_at, "R"),
-    )}"
     embed = _leaderboard_embed(
         client,
         rows,
         members,
         title=t("level.xp.leaderboard.weekly_title"),
         board_description=t('level.xp.leaderboard.weekly_board_description'),
-        note=t('level.xp.leaderboard.weekly_week_of'),
+        note=t(
+            "level.xp.leaderboard.weekly_week_of",
+            start=week_start.strftime("%b %d, %Y"),
+            reset=discord.utils.format_dt(reset_at, "R"),
+        ),
         details=_weekly_details,
     )
     return embed
