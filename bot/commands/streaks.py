@@ -165,22 +165,48 @@ async def _channel_guard(interaction: discord.Interaction) -> bool:
     return False
 
 
+def _coupon_awards(
+    progress: streak_service.LevelProgress,
+) -> list[streak_service.LevelAward]:
+    """Every cleared level needs a coupon, even if awards were not recorded."""
+    if progress.awards:
+        return progress.awards
+    if progress.leveled:
+        return [
+            streak_service.LevelAward(
+                level=progress.level, xp=progress.xp_awarded
+            )
+        ]
+    return []
+
+
+def _will_generate_coupons(
+    interaction: discord.Interaction,
+    progress: streak_service.LevelProgress,
+) -> bool:
+    return (
+        bool(_coupon_awards(progress))
+        and getattr(interaction.client, "coupons", None) is not None
+    )
+
+
 async def _generate_coupons(
     interaction: discord.Interaction,
     member: discord.Member | discord.User,
     goal: StreakGoal,
     progress: streak_service.LevelProgress,
 ) -> list[str]:
-    """Render and upload one coupon per award, in award order."""
+    """Render and upload one coupon per cleared level, in award order."""
     coupons = getattr(interaction.client, "coupons", None)
-    if progress.dry_run or not progress.awards or coupons is None:
+    awards = _coupon_awards(progress)
+    if not awards or coupons is None:
         return []
     on_date = streak_service.local_date(streak_service.utcnow(), goal.timezone)
     fallback = getattr(
         interaction.client, "coupon_fallback_image", DEFAULT_FALLBACK_IMAGE
     )
     urls = []
-    for award in progress.awards:
+    for award in awards:
         coupon = await coupons.generate(
             display_name=member.display_name,
             level=award.level,
@@ -422,7 +448,7 @@ async def _perform_log(
             streak_service.utcnow(),
         )
         view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
-    generating = bool(result.progress.awards) and not result.progress.dry_run
+    generating = _will_generate_coupons(interaction, result.progress)
     if generating:
         await interaction.response.defer(ephemeral=ephemeral)
     coupons = await _generate_coupons(
@@ -1076,7 +1102,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
     view = getattr(interaction, "view", None)
     if view is not None:
         view.stop()
-    generating = bool(result.progress.awards) and not result.progress.dry_run
+    generating = _will_generate_coupons(interaction, result.progress)
     if generating:
         await interaction.response.defer()
     coupons = await _generate_coupons(

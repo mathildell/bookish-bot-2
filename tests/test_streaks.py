@@ -112,6 +112,93 @@ class CouponDateTests(unittest.TestCase):
         self.assertEqual(coupons.coupon_date(date(2026, 1, 31)), "January 31")
 
 
+class TmpfilesDirectUrlTests(unittest.TestCase):
+    def test_extracts_the_direct_download_link(self) -> None:
+        page = (
+            '<a href="https://tmpfiles.org/dl/1792446954.token/id/'
+            'coupon.png">Download</a>'
+        )
+        self.assertEqual(
+            coupons._tmpfiles_direct_url(page),
+            "https://tmpfiles.org/dl/1792446954.token/id/coupon.png",
+        )
+
+    def test_returns_none_when_the_link_is_missing(self) -> None:
+        self.assertIsNone(coupons._tmpfiles_direct_url("<html></html>"))
+
+
+class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
+    class Coupons:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def generate(self, **kwargs):
+            self.calls.append(kwargs)
+            return SimpleNamespace(url=f"https://example.com/{kwargs['level']}.png")
+
+    def _interaction(self) -> SimpleNamespace:
+        self.service = self.Coupons()
+        return SimpleNamespace(
+            client=SimpleNamespace(
+                coupons=self.service,
+                coupon_fallback_image="https://example.com/fallback.png",
+            )
+        )
+
+    def _progress(self, **kwargs) -> streaks.LevelProgress:
+        values = dict(
+            previous_level=0,
+            level=2,
+            leveled=True,
+            xp_awarded=750,
+            rescues_granted=2,
+            golden_granted=0,
+            anniversary=False,
+            awards=[
+                streaks.LevelAward(level=1, xp=250),
+                streaks.LevelAward(level=2, xp=500),
+            ],
+        )
+        values.update(kwargs)
+        return streaks.LevelProgress(**values)
+
+    async def _generate(self, progress) -> list[str]:
+        return await command_streaks._generate_coupons(
+            self._interaction(),
+            SimpleNamespace(display_name="Alice"),
+            SimpleNamespace(timezone="UTC"),
+            progress,
+        )
+
+    async def test_generates_one_coupon_for_each_award(self) -> None:
+        urls = await self._generate(self._progress())
+
+        self.assertEqual(
+            urls,
+            ["https://example.com/1.png", "https://example.com/2.png"],
+        )
+        self.assertEqual([call["level"] for call in self.service.calls], [1, 2])
+        self.assertEqual([call["xp"] for call in self.service.calls], [250, 500])
+        self.assertEqual(self.service.calls[0]["display_name"], "Alice")
+        self.assertEqual(
+            self.service.calls[0]["fallback_image"],
+            "https://example.com/fallback.png",
+        )
+
+    async def test_generates_even_in_a_dry_run(self) -> None:
+        urls = await self._generate(self._progress(dry_run=True))
+        self.assertEqual(len(urls), 2)
+
+    async def test_generates_when_a_level_cleared_without_recorded_awards(self) -> None:
+        urls = await self._generate(
+            self._progress(level=1, xp_awarded=250, awards=[])
+        )
+
+        self.assertEqual(urls, ["https://example.com/1.png"])
+        self.assertEqual(self.service.calls[0]["level"], 1)
+        self.assertEqual(self.service.calls[0]["xp"], 250)
+
+
 class CouponRenderTests(unittest.TestCase):
     def test_renders_a_600x360_image_and_returns_a_temp_file(self) -> None:
         path = coupons.render_coupon(

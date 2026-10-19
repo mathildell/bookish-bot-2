@@ -13,6 +13,7 @@ import base64
 import logging
 import os
 import random
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import date
@@ -33,6 +34,7 @@ FONT_REGULAR = _ASSETS / "fonts" / "FlowerBee.ttf"
 
 IMGBB_URL = "https://api.imgbb.com/1/upload"
 TMPFILES_URL = "https://tmpfiles.org/api/v1/upload"
+TMPFILES_DIRECT_RE = re.compile(r'https://tmpfiles\.org/dl/[^"\'<>\s]+')
 IMGBB_EXPIRATION_SECONDS = 7 * 24 * 3600
 
 # Placement of each field on the 600x360 templates, tuned to the blank lines.
@@ -65,6 +67,12 @@ class Coupon:
 def coupon_date(on_date: date) -> str:
     """The coupon's date in the ``MMMM DD`` format it is rendered with."""
     return on_date.strftime("%B %d")
+
+
+def _tmpfiles_direct_url(page: str) -> str | None:
+    """The expiring direct-download link embedded in a tmpfiles page."""
+    match = TMPFILES_DIRECT_RE.search(page)
+    return match.group(0) if match else None
 
 
 def _templates() -> list[Path]:
@@ -212,4 +220,9 @@ class CouponService:
         url = (payload.get("data") or {}).get("url")
         if not url:
             raise CouponUploadError(f"tmpfiles: {payload}")
-        return url.replace("tmpfiles.org/", "tmpfiles.org/dl/", 1)
+        async with http.get(url) as response:
+            page = await response.text()
+        direct = _tmpfiles_direct_url(page)
+        if direct is None:
+            raise CouponUploadError("tmpfiles: direct download link not found")
+        return direct
