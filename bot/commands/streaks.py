@@ -31,10 +31,9 @@ from ..services.streaks import (
 )
 from ..texts import t, t_choice
 from .checks import require_admin
-from .listing import new_embed, set_author, set_transparent_image
+from .listing import PODIUM, new_embed, set_author, set_transparent_image
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
-PODIUM = ("🥇", "🥈", "🥉")
 
 streaks_group = app_commands.Group(
     name="streak",

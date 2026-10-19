@@ -15,6 +15,7 @@ import discord
 from ..texts import t
 
 EMBEDS_PER_PAGE = 6
+PODIUM = ("🥇", "🥈", "🥉")
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
 
 

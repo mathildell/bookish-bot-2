@@ -418,12 +418,57 @@ class LazyPaginatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(interaction.response.deferred)
 
 
-class LeaderboardSourceTests(unittest.TestCase):
-    def test_page_count_rounds_up(self) -> None:
-        self.assertEqual(level_cmds._LeaderboardSource(None, 1).page_count, 1)
-        self.assertEqual(level_cmds._LeaderboardSource(None, 6).page_count, 1)
-        self.assertEqual(level_cmds._LeaderboardSource(None, 7).page_count, 2)
-        self.assertEqual(level_cmds._LeaderboardSource(None, 13).page_count, 3)
+class LevelLeaderboardEmbedTests(unittest.TestCase):
+    class Row:
+        def __init__(
+            self,
+            user_id: int,
+            total_xp: int,
+            level: int,
+            *,
+            xp_frozen: bool = False,
+        ) -> None:
+            self.user_id = user_id
+            self.total_xp = total_xp
+            self.level = level
+            self.xp_frozen = xp_frozen
+
+    class Member:
+        def __init__(self, user_id: int) -> None:
+            self.mention = f"<@{user_id}>"
+
+    def _embed(self, *rows: Row) -> discord.Embed:
+        ranked = [(row, index + 1) for index, row in enumerate(rows)]
+        members = [self.Member(row.user_id) for row in rows]
+        return level_cmds._leaderboard_embed(FakeClient(), ranked, members)
+
+    def test_formats_entries_like_the_streak_leaderboard(self) -> None:
+        rows = [
+            self.Row(
+                index + 1,
+                level_service.total_xp_for_level(index) + index,
+                index,
+            )
+            for index in range(10)
+        ]
+
+        embed = self._embed(*rows)
+
+        self.assertEqual(embed.title, t("level.xp.leaderboard.title"))
+        self.assertIn("🥇 <@1>", embed.description)
+        self.assertIn("**Level 0** `-` 0/75 XP", embed.description)
+        self.assertIn("10. <@10>", embed.description)
+
+    def test_never_shows_total_xp(self) -> None:
+        embed = self._embed(self.Row(1, 500, 2))
+
+        self.assertNotIn("500", embed.description)
+        self.assertNotIn("Total XP", embed.description)
+
+    def test_shows_the_frozen_marker_with_the_level(self) -> None:
+        embed = self._embed(self.Row(1, 75, 1, xp_frozen=True))
+
+        self.assertIn(f"**Level 1{t('level.frozen')}**", embed.description)
 
 
 class LevelFormulaTests(unittest.TestCase):
@@ -595,10 +640,13 @@ class LevelProgressTests(unittest.TestCase):
             self.total_xp = total_xp
             self.xp_frozen = False
 
-    def _fields(self, level: int, total_xp: int) -> dict[str, str]:
+    def _fields(
+        self, level: int, total_xp: int, *, xp_frozen: bool = False
+    ) -> dict[str, str]:
         service = LevelRewardService(1)
         service._rewards = {1: 10}
         row = self.Row(level, total_xp)
+        row.xp_frozen = xp_frozen
         return dict(level_cmds._progress_fields(row, 1, service, None))
 
     def test_starts_at_zero(self) -> None:
@@ -609,6 +657,15 @@ class LevelProgressTests(unittest.TestCase):
     def test_partial_progress(self) -> None:
         self.assertEqual(self._fields(0, 30)["Level progress"], "30/75 XP")
         self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175 XP")
+
+    def test_never_shows_total_xp(self) -> None:
+        self.assertNotIn("Total XP", self._fields(1, 75 + 40))
+
+    def test_frozen_marker_is_shown_next_to_the_level(self) -> None:
+        fields = self._fields(1, 75, xp_frozen=True)
+        self.assertEqual(
+            fields[t("level.level")], f"1{t('level.frozen')}"
+        )
 
     def test_progress_bar_segments(self) -> None:
         segments = level_cmds.PROGRESS_BAR_SEGMENTS
