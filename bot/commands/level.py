@@ -146,7 +146,8 @@ def _leaderboard_embed(
     embed = new_embed(client)
     embed.title = title or t("level.xp.leaderboard.title")
     lines = [
-        board_description or t("level.xp.leaderboard.board_description")
+        board_description or t("level.xp.leaderboard.board_description"),
+        ""
     ]
     for index, ((user_xp, _rank), member) in enumerate(zip(rows, members)):
         place = PODIUM[index] if index < 3 else f"{index + 1}\."
