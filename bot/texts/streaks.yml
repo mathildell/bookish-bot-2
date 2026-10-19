@@ -157,8 +157,8 @@ streaks:
     all_time_title: "Streaks Leaderboard ( 🏆  All Time)"
     ongoing_desc: "Still alive, still counting. For now."
     all_time_desc: "The longest streaks this server has ever mustered."
-    entry: "%{place} %{mention}"
-    days_details: "**%{days}** days (level %{level}) `-` %{date}"
+    entry: "### %{place} %{mention}"
+    days_details: "-# **%{days}** days (level %{level}) `-` %{date}"
     empty: "No streaks to rank yet."
 
   channel:
