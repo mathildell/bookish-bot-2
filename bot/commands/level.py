@@ -147,8 +147,7 @@ def _leaderboard_embed(
     embed = new_embed(client)
     embed.title = title or t("level.xp.leaderboard.title")
     lines = [
-        board_description or t("level.xp.leaderboard.board_description"),
-        ""
+        board_description or t("level.xp.leaderboard.board_description")
     ]
     for index, ((user_xp, _rank), member) in enumerate(zip(rows, members)):
         place = PODIUM[index] if index < 3 else f"{index + 1}\."
@@ -172,7 +171,7 @@ def _leaderboard_embed(
     embed.description = "\n".join(lines)
     
     if note is not None:
-        embed.description += note
+        embed.description += f"\n{note}"
     
     if not rows:
         embed.description += f"\n{t('level.xp.leaderboard.weekly_empty')}"
