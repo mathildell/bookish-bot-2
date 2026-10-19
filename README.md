@@ -82,7 +82,9 @@ Paginated list of every linked booster role.
 Members earn XP from messages; each level grants the configured reward role.
 When a member levels up, the bot posts a congratulations message in the channel
 where it happened (or where the admin ran `/xp add`). Removing XP never posts a
-message.
+message. XP is also tracked weekly (Monday to Sunday): `/xp leaderboard` can
+switch between all-time and weekly, and the bot posts the weekly top-10 on
+Sundays before the totals roll over for the next week.
 
 ```
 /xp level [user:]
@@ -94,7 +96,15 @@ Show a member's level progress, rank, and reward role.
 /xp leaderboard
 ```
 **Permissions:** Everyone
-Paginated XP leaderboard.
+XP leaderboard with buttons to switch between all-time and the current week
+(Monday to Sunday).
+
+```
+/xp weekly channel:
+```
+**Permissions:** 🔒 Admin
+Set the channel where the weekly XP leaderboard is posted on Sundays at the
+hour configured with `/settings`.
 
 ```
 /xp add user: amount:
@@ -413,6 +423,7 @@ View and edit the bot's runtime settings.
 /settings edit key: purge_streak_logs value: 90
 /settings edit key: review_repost_cooldown_days value: 1
 /settings edit key: releases_post_hour value: 13
+/settings edit key: weekly_leaderboard_hour value: 12
 /settings edit key: bot_updates_channel_id value: <#123456789012345678>
 /settings edit key: transparent_embed_image value: https://example.com/bg.png
 /settings edit key: default_embed_color value: "#97A97C"
@@ -428,6 +439,8 @@ View and edit the bot's runtime settings.
   can be reposted (default 1).
 - `releases_post_hour` — the UTC hour (1–23) the daily release announcements are
   posted (default 13).
+- `weekly_leaderboard_hour` — the UTC hour (1–23) the weekly XP leaderboard is
+  posted on Sundays (default 12).
 - `bot_updates_channel_id` — channel notified about upkeep events (streak
   closures, unlinked boosters).
 - `transparent_embed_image` — publicly reachable image used as a transparent

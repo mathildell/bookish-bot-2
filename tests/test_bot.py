@@ -456,8 +456,8 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
 
         self.assertEqual(embed.title, t("level.xp.leaderboard.title"))
         self.assertIn("🥇 <@1>", embed.description)
-        self.assertIn("**Level 0** `-` 0/75 XP", embed.description)
-        self.assertIn("10. <@10>", embed.description)
+        self.assertIn("**Level 0**  (0/75 XP)", embed.description)
+        self.assertIn("**10\\. <@10>**", embed.description)
 
     def test_never_shows_total_xp(self) -> None:
         embed = self._embed(self.Row(1, 500, 2))
@@ -469,8 +469,147 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
         embed = self._embed(self.Row(1, 75, 1, xp_frozen=True))
 
         self.assertIn(
-            f"**Level 1** `-` 0/175 XP{t('level.frozen')}", embed.description
+            f"**Level 1**  ({t('level.frozen')}0/175 XP)", embed.description
         )
+
+
+class WeeklyLeaderboardDueTests(unittest.TestCase):
+    def _due(self, moment: datetime.datetime, last=None) -> bool:
+        return level_service.is_weekly_post_due(
+            moment,
+            post_hour=12,
+            last_posted_on=last,
+        )
+
+    def test_due_on_sunday_at_or_after_the_hour(self) -> None:
+        self.assertTrue(self._due(datetime.datetime(2026, 10, 18, 12)))
+        self.assertTrue(self._due(datetime.datetime(2026, 10, 18, 17)))
+
+    def test_not_due_before_the_hour_or_on_other_days(self) -> None:
+        self.assertFalse(self._due(datetime.datetime(2026, 10, 18, 11)))
+        self.assertFalse(self._due(datetime.datetime(2026, 10, 19, 12)))
+
+    def test_already_posted_today_is_not_due(self) -> None:
+        self.assertFalse(
+            self._due(
+                datetime.datetime(2026, 10, 18, 13),
+                last=datetime.date(2026, 10, 18),
+            )
+        )
+
+    def test_previous_week_post_does_not_block_this_week(self) -> None:
+        self.assertTrue(
+            self._due(
+                datetime.datetime(2026, 10, 25, 12),
+                last=datetime.date(2026, 10, 18),
+            )
+        )
+
+
+class WeekStartTests(unittest.TestCase):
+    def test_returns_the_monday_of_the_week(self) -> None:
+        self.assertEqual(
+            level_service.week_start_for(datetime.date(2026, 10, 19)),
+            datetime.date(2026, 10, 19),
+        )
+        self.assertEqual(
+            level_service.week_start_for(datetime.date(2026, 10, 25)),
+            datetime.date(2026, 10, 19),
+        )
+        self.assertEqual(
+            level_service.week_start_for(datetime.date(2026, 10, 21)),
+            datetime.date(2026, 10, 19),
+        )
+
+
+class WeeklyLeaderboardEmbedTests(unittest.TestCase):
+    class Row:
+        def __init__(self, user_id: int, xp: int) -> None:
+            self.user_id = user_id
+            self.xp = xp
+
+    class Member:
+        def __init__(self, user_id: int) -> None:
+            self.mention = f"<@{user_id}>"
+
+    def _embed(self, rows, *, now=None):
+        ranked = [(row, index + 1) for index, row in enumerate(rows)]
+        members = [self.Member(row.user_id) for row in rows]
+        return level_cmds.weekly_leaderboard_embed(
+            FakeClient(),
+            ranked,
+            members,
+            week_start=datetime.date(2026, 10, 19),
+            now=now or datetime.datetime(2026, 10, 21, 12),
+        )
+
+    def test_uses_the_leaderboard_layout_and_weekly_xp(self) -> None:
+        embed = self._embed([self.Row(1, 500), self.Row(2, 250)])
+
+        self.assertEqual(
+            embed.title, t("level.xp.leaderboard.weekly_title")
+        )
+        self.assertIn("🥇 <@1>", embed.description)
+        self.assertIn("🥈 <@2>", embed.description)
+        self.assertIn(
+            t("level.xp.leaderboard.weekly_details", xp=500),
+            embed.description,
+        )
+        self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
+        self.assertEqual(embed.colour.value, 0x97A97C)
+
+    def test_reports_the_week_and_the_reset_countdown(self) -> None:
+        embed = self._embed([self.Row(1, 500)])
+
+        self.assertIn(
+            t(
+                "level.xp.leaderboard.weekly_resets_in",
+                days=4,
+            ),
+            embed.description,
+        )
+
+    def test_reset_countdown_on_sunday(self) -> None:
+        embed = self._embed(
+            [self.Row(1, 500)],
+            now=datetime.datetime(2026, 10, 25, 12),
+        )
+
+        self.assertIn(
+            t("level.xp.leaderboard.weekly_resets_today"),
+            embed.description,
+        )
+
+    def test_empty_week_is_explained(self) -> None:
+        embed = self._embed([])
+
+        self.assertIn(
+            t("level.xp.leaderboard.weekly_empty"), embed.description
+        )
+
+
+class LeaderboardViewTests(unittest.IsolatedAsyncioTestCase):
+    def _view(self) -> level_cmds.LeaderboardView:
+        return level_cmds.LeaderboardView(
+            discord.Embed(title="all time"),
+            discord.Embed(title="weekly"),
+        )
+
+    async def test_buttons_swap_the_embed(self) -> None:
+        view = self._view()
+        interaction = _FakeInteraction()
+
+        await view.weekly_button.callback(interaction)
+        self.assertEqual(
+            interaction.response.edited["embed"].title, "weekly"
+        )
+        self.assertEqual(view.showing, "weekly")
+
+        await view.all_time_button.callback(interaction)
+        self.assertEqual(
+            interaction.response.edited["embed"].title, "all time"
+        )
+        self.assertEqual(view.showing, "all")
 
 
 class LevelFormulaTests(unittest.TestCase):
@@ -667,7 +806,7 @@ class LevelProgressTests(unittest.TestCase):
         fields = self._fields(1, 75, xp_frozen=True)
         self.assertEqual(
             fields[t("level.progress")],
-            f"0/175 XP{t('level.frozen')}",
+            f"{t('level.frozen')}0/175 XP",
         )
         self.assertEqual(fields[t("level.level")], "1")
 
@@ -1738,6 +1877,12 @@ class BotGroupTests(unittest.TestCase):
         self.assertEqual(names, {"say", "react"})
 
 
+class XpGroupTests(unittest.TestCase):
+    def test_group_hosts_the_weekly_channel_command(self) -> None:
+        names = {command.name for command in level_cmds.xp_group.commands}
+        self.assertIn("weekly", names)
+
+
 class SettingsGroupTests(unittest.TestCase):
     def test_group_hosts_list_and_edit(self) -> None:
         names = {command.name for command in settings_cmds.settings_group.commands}
@@ -2431,6 +2576,9 @@ class SettingsDisplayTests(unittest.TestCase):
     class _Reviews:
         repost_cooldown_days = 1
 
+    class _Weekly:
+        post_hour = 12
+
     class _BotSettings:
         updates_channel_id = 42
         transparent_embed_image = "https://example.com/bg.png"
@@ -2446,6 +2594,7 @@ class SettingsDisplayTests(unittest.TestCase):
             self.releases = SettingsDisplayTests._Releases()
             self.streaks = SettingsDisplayTests._Streaks()
             self.reviews = SettingsDisplayTests._Reviews()
+            self.weekly = SettingsDisplayTests._Weekly()
             self.bot_settings = SettingsDisplayTests._BotSettings()
 
     class _Interaction:

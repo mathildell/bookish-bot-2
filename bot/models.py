@@ -97,6 +97,31 @@ class UserXP(Base):
     )
 
 
+class WeeklyXP(Base):
+    """XP earned by a member in a Monday-based week."""
+
+    __tablename__ = "weekly_xp"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # Monday the row's XP belongs to; stale rows are ignored and rolled over.
+    week_start: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    xp: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_weekly_xp_guild_xp", "guild_id", "xp"),
+        Index("ix_weekly_xp_guild_user_unique", "guild_id", "user_id", unique=True),
+    )
+
+
 class LevelReward(Base):
     """Reward role assigned at a specific level."""
 
@@ -115,6 +140,30 @@ class LevelReward(Base):
 
     __table_args__ = (
         Index("ix_level_rewards_guild_level_unique", "guild_id", "level", unique=True),
+    )
+
+
+class WeeklySetting(Base):
+    """Per-guild settings for the weekly XP leaderboard."""
+
+    __tablename__ = "weekly_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # UTC hour (1-23) the weekly leaderboard is posted on Sundays.
+    post_hour: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=12, server_default="12"
+    )
+    # Sunday the board was last posted (idempotency marker).
+    last_posted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
     )
 
 

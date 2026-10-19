@@ -12,7 +12,9 @@ Implemented features:
 - **Booster roles** — let boosters rename/recolour a custom role an admin linked
   to them.
 - **Levels** — members earn XP from messages; each level grants the configured
-  reward role.
+  reward role. `/xp leaderboard` switches between all-time and the current
+  Monday-to-Sunday week. A top-10 weekly leaderboard is posted on Sundays at
+  the configurable hour, and the weekly totals roll over for the next week.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
@@ -43,10 +45,11 @@ Implemented features:
   have been earned.
 - **Settings** — `/settings list|edit` let admins view and set the bot's runtime
   settings: the daily cleanup retention windows (old releases, streak logs), the
-  review repost cooldown, the UTC hour release announcements are posted, the
-  admins' updates channel, the transparent embed background, the default embed
-  colour and the buddy read forum channel + reference message link. This is the
-  home for values that used to live in `config.yaml`.
+  review repost cooldown, the UTC hours release announcements and the weekly XP
+  leaderboard are posted, the admins' updates channel, the transparent embed
+  background, the default embed colour and the buddy read forum channel +
+  reference message link. This is the home for values that used to live in
+  `config.yaml`.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -112,17 +115,18 @@ bot/
   main.py                  bot wiring (events, intents, startup)
   config.py                config.yaml loader
   db.py                    async engine/session helpers
-  models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
-                           LevelReward, ReviewFeed, ReviewEntry, ReviewSetting,
-                           IntroQuestion, IntroSetting, IntroPost, BookRelease,
-                           ReleaseSetting, ReleaseEditDraft, StreakGoal, Streak,
-                           StreakLog, StreakSetting, BotSetting)
+    models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
+                           WeeklyXP, WeeklySetting, LevelReward, ReviewFeed,
+                           ReviewEntry, ReviewSetting, IntroQuestion,
+                           IntroSetting, IntroPost, BookRelease, ReleaseSetting,
+                           ReleaseEditDraft, StreakGoal, Streak, StreakLog,
+                           StreakSetting, BotSetting)
   notifications.py         level-up + streak-closed announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...
     booster_role.py       /booster role ...
-    level.py               /xp root group + level/leaderboard/add/remove/freeze/unfreeze
+    level.py               /xp root group + level/leaderboard/weekly/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
     releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
@@ -138,7 +142,7 @@ bot/
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
-    level.py               XP curve + per-user XP storage
+    level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads

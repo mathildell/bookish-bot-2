@@ -26,7 +26,7 @@ from .commands.intro import (
     repost_sticky,
     resolve_intro_channel,
 )
-from .commands.level import xp_group
+from .commands.level import weekly_leaderboard_embed, xp_group
 from .commands.listing import parse_hex_colour
 from .commands.ping import ping_command
 from .commands.releases import releases_group
@@ -40,7 +40,9 @@ from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.intro import IntroService
+from .services.level import WeeklyLeaderboardService
 from .services.level_rewards import LevelRewardService, sync_member_roles
+from .services.members import resolve_members
 from .services.reference import post_reference
 from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
@@ -138,6 +140,7 @@ async def run() -> None:
     intros = IntroService(int(config.guild_id))
     releases = ReleaseService(int(config.guild_id))
     streaks = StreakService(int(config.guild_id))
+    weekly = WeeklyLeaderboardService(int(config.guild_id))
     bot_settings = BotSettingsService(int(config.guild_id))
     release_scraper = ReleaseScraper()
 
@@ -153,6 +156,7 @@ async def run() -> None:
     bot.intros = intros
     bot.releases = releases
     bot.streaks = streaks
+    bot.weekly = weekly
     bot.bot_settings = bot_settings
     bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
@@ -413,6 +417,59 @@ async def run() -> None:
         except Exception:
             logger.exception("Streak log purge catch-up failed")
 
+    # ---------------------- weekly XP leaderboard ----------------------
+    async def post_weekly_leaderboard_now() -> None:
+        now = level_service.utcnow()
+        if not weekly.is_due(now):
+            return
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        channel = await resolve_notify_channel(guild, weekly.channel_id or 0)
+        if channel is None:
+            logger.warning(
+                "Weekly leaderboard is due but no channel is set"
+            )
+            return
+
+        week_start = level_service.week_start_for(now.date())
+        rows = await weekly.top(
+            week_start=week_start,
+            limit=level_service.WEEKLY_LEADERBOARD_SIZE,
+        )
+        members = await resolve_members(guild, [row.user_id for row in rows])
+        ranked = [(row, index + 1) for index, row in enumerate(rows)]
+        try:
+            await channel.send(
+                embed=weekly_leaderboard_embed(
+                    bot,
+                    ranked,
+                    members,
+                    week_start=week_start,
+                    now=now,
+                )
+            )
+        except discord.HTTPException:
+            logger.warning(
+                "Could not post the weekly XP leaderboard", exc_info=True
+            )
+            return
+
+        await weekly.mark_posted(now.date())
+        logger.info("Posted the weekly XP leaderboard")
+
+    @tasks.loop(time=HOURLY_TIMES)
+    async def post_weekly_leaderboard() -> None:
+        await post_weekly_leaderboard_now()
+
+    @post_weekly_leaderboard.before_loop
+    async def _wait_ready_weekly() -> None:
+        await bot.wait_until_ready()
+        try:
+            await post_weekly_leaderboard_now()
+        except Exception:
+            logger.exception("Weekly leaderboard catch-up failed")
+
     # ------------------------- startup -------------------------
     @bot.event
     async def on_ready() -> None:
@@ -462,6 +519,13 @@ async def run() -> None:
         await streaks.reload()
         logger.info("Streak channel: %s", streaks.channel_id)
 
+        await weekly.reload()
+        logger.info(
+            "Weekly leaderboard channel: %s (Sunday %02d:00 UTC)",
+            weekly.channel_id,
+            weekly.post_hour,
+        )
+
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
         if not poll_reviews.is_running():
@@ -474,6 +538,8 @@ async def run() -> None:
             streak_hourly.start()
         if not purge_streak_logs.is_running():
             purge_streak_logs.start()
+        if not post_weekly_leaderboard.is_running():
+            post_weekly_leaderboard.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:

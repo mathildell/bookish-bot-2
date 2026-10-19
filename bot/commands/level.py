@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime, time, timezone
+
 import discord
 from discord import app_commands
 
 from ..db import session_scope
-from ..models import UserXP
+from ..models import UserXP, WeeklyXP
 from ..notifications import announce_level_up
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_member_roles
@@ -136,16 +138,23 @@ def _leaderboard_embed(
     client: discord.Client,
     rows: list[tuple[UserXP, int]],
     members: list[discord.Member | None],
+    *,
+    title: str | None = None,
+    board_description: str | None = None,
+    details=None,
 ) -> discord.Embed:
     embed = new_embed(client)
-    embed.title = t("level.xp.leaderboard.title")
-    lines = [t("level.xp.leaderboard.board_description"), ""]
+    embed.title = title or t("level.xp.leaderboard.title")
+    lines = [board_description or t("level.xp.leaderboard.board_description"), ""]
     for index, ((user_xp, _rank), member) in enumerate(zip(rows, members)):
         place = PODIUM[index] if index < 3 else f"{index + 1}\."
         mention = member.mention if member else f"<@{user_xp.user_id}>"
         lines.append(
             t("level.xp.leaderboard.entry", place=place, mention=mention)
         )
+        if details is not None:
+            lines.append(details(user_xp))
+            continue
         current, needed = _progress_values(user_xp)
         lines.append(
             t(
@@ -161,16 +170,118 @@ def _leaderboard_embed(
     return embed
 
 
+def _week_reset_text(now: datetime) -> str:
+    """How long the current Monday-based week has left before Sunday ends."""
+    days = 6 - now.weekday()
+    if days == 0:
+        return t("level.xp.leaderboard.weekly_resets_today")
+    if days == 1:
+        return t("level.xp.leaderboard.weekly_resets_tomorrow")
+    return t("level.xp.leaderboard.weekly_resets_in", days=days)
+
+
+def weekly_leaderboard_embed(
+    client: discord.Client,
+    rows: list[tuple[WeeklyXP, int]],
+    members: list[discord.Member | None],
+    *,
+    week_start: date,
+    now: datetime,
+) -> discord.Embed:
+    """Build the weekly board using the all-time leaderboard layout."""
+    monday = datetime.combine(week_start, time.min, tzinfo=timezone.utc)
+    note = t(
+        "level.xp.leaderboard.weekly_week_of",
+        start=discord.utils.format_dt(monday, "D"),
+        reset=_week_reset_text(now),
+    )
+    description = (
+        f"{t('level.xp.leaderboard.weekly_board_description')}\n{note}"
+    )
+    embed = _leaderboard_embed(
+        client,
+        rows,
+        members,
+        title=t("level.xp.leaderboard.weekly_title"),
+        board_description=description,
+        details=lambda row: t("level.xp.leaderboard.weekly_details", xp=row.xp),
+    )
+    if not rows:
+        embed.description = (
+            f"{embed.description}\n{t('level.xp.leaderboard.weekly_empty')}"
+        )
+    return embed
+
+
+class LeaderboardView(discord.ui.View):
+    """Switch the leaderboard between all-time and the current week."""
+
+    def __init__(
+        self,
+        all_time_embed: discord.Embed,
+        weekly_embed: discord.Embed,
+    ) -> None:
+        super().__init__(timeout=180)
+        self.embeds = {"all": all_time_embed, "weekly": weekly_embed}
+        self.showing = "all"
+        self._sync_styles()
+
+    def _sync_styles(self) -> None:
+        self.all_time_button.style = (
+            discord.ButtonStyle.primary
+            if self.showing == "all"
+            else discord.ButtonStyle.secondary
+        )
+        self.weekly_button.style = (
+            discord.ButtonStyle.primary
+            if self.showing == "weekly"
+            else discord.ButtonStyle.secondary
+        )
+
+    async def _switch(self, interaction: discord.Interaction, which: str) -> None:
+        self.showing = which
+        self._sync_styles()
+        await interaction.response.edit_message(
+            embed=self.embeds[which], view=self
+        )
+
+    @discord.ui.button(
+        label=t("level.xp.leaderboard.button_all_time"),
+        style=discord.ButtonStyle.primary,
+    )
+    async def all_time_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._switch(interaction, "all")
+
+    @discord.ui.button(
+        label=t("level.xp.leaderboard.button_weekly"),
+        style=discord.ButtonStyle.secondary,
+    )
+    async def weekly_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._switch(interaction, "weekly")
+
+
 @xp_group.command(
     name="leaderboard", description=t("level.xp.leaderboard.description")
 )
 async def leaderboard(interaction: discord.Interaction) -> None:
+    now = level_service.utcnow()
+    week_start = level_service.week_start_for(now.date())
     async with session_scope() as session:
         rows = await level_service.page_of_user_xp(
             session,
             guild_id=interaction.guild_id,
             limit=LEADERBOARD_SIZE,
             offset=0,
+        )
+        weekly_rows = await level_service.page_of_weekly_xp(
+            session,
+            guild_id=interaction.guild_id,
+            week_start=week_start,
+            limit=LEADERBOARD_SIZE,
         )
 
     if not rows:
@@ -182,8 +293,36 @@ async def leaderboard(interaction: discord.Interaction) -> None:
     members = await resolve_members(
         interaction.guild, [user_xp.user_id for user_xp, _ in rows]
     )
+    weekly_members = await resolve_members(
+        interaction.guild, [row.user_id for row in weekly_rows]
+    )
+    weekly_ranked = [
+        (row, index + 1) for index, row in enumerate(weekly_rows)
+    ]
+    all_time_embed = _leaderboard_embed(interaction.client, rows, members)
+    weekly_embed = weekly_leaderboard_embed(
+        interaction.client,
+        weekly_ranked,
+        weekly_members,
+        week_start=week_start,
+        now=now,
+    )
     await interaction.response.send_message(
-        embed=_leaderboard_embed(interaction.client, rows, members)
+        embed=all_time_embed,
+        view=LeaderboardView(all_time_embed, weekly_embed),
+    )
+
+
+@xp_group.command(name="weekly", description=t("level.xp.weekly.description"))
+@app_commands.describe(channel=t("level.xp.weekly.param_channel"))
+async def weekly_channel(
+    interaction: discord.Interaction, channel: discord.TextChannel
+) -> None:
+    if not await require_admin(interaction):
+        return
+    await interaction.client.weekly.set_channel(channel.id)
+    await interaction.response.send_message(
+        t("level.xp.weekly.success", channel=channel.mention)
     )
 
 

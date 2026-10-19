@@ -30,6 +30,7 @@ PURGE_BOOK_RELEASES = "purge_book_releases"
 PURGE_STREAK_LOGS = "purge_streak_logs"
 REVIEW_REPOST_COOLDOWN = "review_repost_cooldown_days"
 RELEASES_POST_HOUR = "releases_post_hour"
+WEEKLY_LEADERBOARD_HOUR = "weekly_leaderboard_hour"
 BOT_UPDATES_CHANNEL = "bot_updates_channel_id"
 TRANSPARENT_IMAGE = "transparent_embed_image"
 DEFAULT_COLOR = "default_embed_color"
@@ -43,6 +44,7 @@ _KINDS = {
     PURGE_STREAK_LOGS: "days",
     REVIEW_REPOST_COOLDOWN: "days",
     RELEASES_POST_HOUR: "hour",
+    WEEKLY_LEADERBOARD_HOUR: "hour",
     BOT_UPDATES_CHANNEL: "channel",
     TRANSPARENT_IMAGE: "url",
     DEFAULT_COLOR: "color",
@@ -148,7 +150,10 @@ def _current_value(
     if kind == "days":
         return str(_current_days(interaction, key)), t("settings.list.unit_days")
     if kind == "hour":
-        hour = interaction.client.releases.post_hour
+        if key == WEEKLY_LEADERBOARD_HOUR:
+            hour = interaction.client.weekly.post_hour
+        else:
+            hour = interaction.client.releases.post_hour
         return f"{hour:02d}:00", t("settings.list.unit_hour")
     if kind == "channel":
         if key == BUDDY_READ_CHANNEL:
@@ -214,7 +219,11 @@ async def apply_value(
         else:
             await interaction.client.reviews.set_repost_cooldown_days(days)
     elif kind == "hour":
-        await interaction.client.releases.set_post_hour(parse_hour(raw))
+        hour = parse_hour(raw)
+        if key == WEEKLY_LEADERBOARD_HOUR:
+            await interaction.client.weekly.set_post_hour(hour)
+        else:
+            await interaction.client.releases.set_post_hour(hour)
     elif kind == "channel":
         channel_id = parse_channel_id(raw)
         if (
