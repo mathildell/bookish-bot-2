@@ -28,9 +28,9 @@ level:
       description: "Show XP leaderboard"
       empty: "No XP data yet."
       title: "XP Leaderboard"
-      board_description: "The members who have gathered the most XP."
+      board_description: "The all-time most active members!"
       entry: "%{place} %{mention}"
-      xp_details: "> **Level %{level}**   `-`   %{frozen}%{current}/%{needed} XP"
+      xp_details: "> **Level %{level}**   %{frozen}%{current}/%{needed} XP"
     add:
       description: "Add XP to a user"
       param_user: "User to add XP to"
