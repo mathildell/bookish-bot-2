@@ -87,7 +87,7 @@ streaks:
   log:
     description: "Log how much you read today"
     param_amount: "Amount read today (`+`/`-` aggregators also work)"
-    button: "Log"
+    button: "Daily log"
     button_emoji: "✏️"
     modal_title: "Log your reading"
     modal_amount: "Amount read today"
