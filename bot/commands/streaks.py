@@ -571,7 +571,7 @@ def _leaderboard_embed(
         "",
     ]
     for index, ((streak, _goal), member) in enumerate(zip(rows, members)):
-        place = PODIUM[index] if index < 3 else f"{index + 1}"
+        place = PODIUM[index] if index < 3 else f"{index + 1}\."
         mention = member.mention if member else f"<@{streak.user_id}>"
         latest = streak.last_log_date or streak.start_date
         lines.append(
