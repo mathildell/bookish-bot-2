@@ -172,7 +172,8 @@ def _leaderboard_embed(
     embed.description = "\n".join(lines)
     
     if note is not None:
-        embed.description += note if note is not None
+        embed.description += note
+    
     if not rows:
         embed.description += f"\n{t('level.xp.leaderboard.weekly_empty')}"
     
