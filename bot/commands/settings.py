@@ -35,6 +35,7 @@ TRANSPARENT_IMAGE = "transparent_embed_image"
 DEFAULT_COLOR = "default_embed_color"
 BUDDY_READ_CHANNEL = "buddy_read_channel_id"
 BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
+ADMIN_TEST_CHANNEL = "admin_test_channel_id"
 
 # Interpretation of each key's value.
 _KINDS = {
@@ -47,6 +48,7 @@ _KINDS = {
     DEFAULT_COLOR: "color",
     BUDDY_READ_CHANNEL: "channel",
     BUDDY_READ_MESSAGE_LINK: "message_link",
+    ADMIN_TEST_CHANNEL: "channel",
 }
 
 SETTING_KEYS = tuple(_KINDS)
@@ -151,6 +153,8 @@ def _current_value(
     if kind == "channel":
         if key == BUDDY_READ_CHANNEL:
             channel_id = settings.reference_forum_channel_id
+        elif key == ADMIN_TEST_CHANNEL:
+            channel_id = settings.admin_test_channel_id
         else:
             channel_id = settings.updates_channel_id
         if channel_id:
@@ -224,6 +228,11 @@ async def apply_value(
                 channel_id
             )
             interaction.client.reference_forum_channel_id = channel_id or 0
+        elif key == ADMIN_TEST_CHANNEL:
+            await interaction.client.bot_settings.set_admin_test_channel(
+                channel_id
+            )
+            interaction.client.admin_test_channel_id = channel_id or 0
         else:
             await interaction.client.bot_settings.set_updates_channel(channel_id)
             interaction.client.bot_updates_channel_id = channel_id or 0

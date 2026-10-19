@@ -23,6 +23,7 @@ class BotSettingsService:
         self._default_embed_color: str | None = None
         self._reference_forum_channel_id: int | None = None
         self._reference_message_link: str | None = None
+        self._admin_test_channel_id: int | None = None
 
     @property
     def updates_channel_id(self) -> int | None:
@@ -44,6 +45,10 @@ class BotSettingsService:
     def reference_message_link(self) -> str | None:
         return self._reference_message_link
 
+    @property
+    def admin_test_channel_id(self) -> int | None:
+        return self._admin_test_channel_id
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._find(session)
@@ -57,6 +62,9 @@ class BotSettingsService:
         )
         self._reference_message_link = (
             row.reference_message_link if row else None
+        )
+        self._admin_test_channel_id = (
+            row.admin_test_channel_id if row else None
         )
 
     async def set_updates_channel(self, channel_id: int | None) -> None:
@@ -78,6 +86,10 @@ class BotSettingsService:
     async def set_reference_message_link(self, link: str | None) -> None:
         await self._update(reference_message_link=link)
         self._reference_message_link = link
+
+    async def set_admin_test_channel(self, channel_id: int | None) -> None:
+        await self._update(admin_test_channel_id=channel_id)
+        self._admin_test_channel_id = channel_id
 
     async def _find(self, session) -> BotSetting | None:
         return (

@@ -30,7 +30,7 @@ from ..services.streaks import (
     valid_timezone,
 )
 from ..texts import t, t_choice
-from .checks import require_admin
+from .checks import in_admin_test_channel, require_admin
 from .listing import PODIUM, new_embed, set_author, set_transparent_image
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
@@ -150,7 +150,11 @@ def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
 
 async def _channel_guard(interaction: discord.Interaction) -> bool:
     channel_id = _service(interaction).channel_id
-    if channel_id is None or interaction.channel_id == channel_id:
+    if (
+        channel_id is None
+        or interaction.channel_id == channel_id
+        or in_admin_test_channel(interaction)
+    ):
         return True
     await interaction.response.send_message(
         t("streaks.errors.wrong_channel", channel=f"<#{channel_id}>"),

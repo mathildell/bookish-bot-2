@@ -169,6 +169,7 @@ async def run() -> None:
     bot.reference_forum_channel_id = 0
     bot.reference_channel_id = 0
     bot.reference_message_id = 0
+    bot.admin_test_channel_id = 0
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
@@ -440,6 +441,7 @@ async def run() -> None:
         reference = parse_message_link(reference_link) if reference_link else None
         bot.reference_channel_id = reference[0] if reference else 0
         bot.reference_message_id = reference[1] if reference else 0
+        bot.admin_test_channel_id = bot_settings.admin_test_channel_id or 0
 
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)

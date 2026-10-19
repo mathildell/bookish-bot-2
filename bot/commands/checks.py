@@ -26,6 +26,15 @@ def is_booster(interaction: discord.Interaction) -> bool:
     return any(role.id == role_id for role in roles)
 
 
+def in_admin_test_channel(interaction: discord.Interaction) -> bool:
+    """Whether the command was run in the configured admin test channel.
+
+    Channel-locked commands skip their lock there so admins can try them out.
+    """
+    channel_id = getattr(interaction.client, "admin_test_channel_id", 0)
+    return bool(channel_id) and interaction.channel_id == channel_id
+
+
 async def require_admin(interaction: discord.Interaction) -> bool:
     """Reply with a denial unless the member has Manage Server.
 

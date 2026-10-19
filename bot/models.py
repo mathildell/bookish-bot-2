@@ -549,6 +549,10 @@ class BotSetting(Base):
     reference_message_link: Mapped[str | None] = mapped_column(
         String(512), nullable=True
     )
+    # Channel where channel-locked commands are allowed regardless of their lock.
+    admin_test_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

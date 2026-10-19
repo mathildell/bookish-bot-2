@@ -418,6 +418,7 @@ View and edit the bot's runtime settings.
 /settings edit key: default_embed_color value: "#97A97C"
 /settings edit key: buddy_read_channel_id value: <#123456789012345678>
 /settings edit key: buddy_read_message_link value: https://discord.com/channels/1/222/333
+/settings edit key: admin_test_channel_id value: <#123456789012345678>
 ```
 - `purge_book_releases` — how many days a released book is kept before it is
   purged (default 30).
@@ -436,6 +437,8 @@ View and edit the bot's runtime settings.
   message reposted and pinned.
 - `buddy_read_message_link` — jump link to the message reposted into new forum
   threads (right-click the message → Copy Message Link).
+- `admin_test_channel_id` — channel where channel-locked commands (like
+  `/streak`) work regardless of their configured channel.
 
 ## Utility
 

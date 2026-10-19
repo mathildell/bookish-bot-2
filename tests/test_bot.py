@@ -2407,6 +2407,7 @@ class AddMissingColumnsTests(unittest.TestCase):
         engine.dispose()
         self.assertIn("bot_settings.reference_forum_channel_id", added)
         self.assertIn("bot_settings.reference_message_link", added)
+        self.assertIn("bot_settings.admin_test_channel_id", added)
         self.assertIn("reference_message_link", columns)
 
     def test_leaves_existing_columns_alone(self) -> None:
@@ -2438,6 +2439,7 @@ class SettingsDisplayTests(unittest.TestCase):
         reference_message_link = (
             "https://discord.com/channels/1/222/333"
         )
+        admin_test_channel_id = 99
 
     class _Client:
         def __init__(self) -> None:

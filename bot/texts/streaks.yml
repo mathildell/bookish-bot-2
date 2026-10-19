@@ -158,7 +158,7 @@ streaks:
     all_time_title: "Streaks Leaderboard ( 🏆   All Time)"
     ongoing_desc: "The following are the top streaks currently ongoing in the server! Keep them going!"
     all_time_desc: "The following are the highest streaks ever recorded by the bot!"
-    entry: "### %{place} %{mention}"
+    entry: "**%{place} %{mention}**"
     days_details: "**%{days}** days (level %{level})   Started: %{date}"
     empty: "No streaks to rank yet."
 

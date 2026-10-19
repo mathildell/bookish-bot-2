@@ -11,6 +11,7 @@ settings:
     default_embed_color: "Default embed color"
     buddy_read_channel_id: "Buddy read channel"
     buddy_read_message_link: "Buddy read message"
+    admin_test_channel_id: "Admin test channel"
   list:
     description: "Show the bot's settings"
     title: "Settings"
@@ -31,6 +32,7 @@ settings:
       default_embed_color: "-# Default colour applied to every embed the bot sends."
       buddy_read_channel_id: "-# Forum channel where new threads get the reference message pinned."
       buddy_read_message_link: "-# Message reposted into new forum threads."
+      admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
   edit:
     description: "Change one of the bot's settings"
     param_key: "Which setting to change"
