@@ -27,18 +27,22 @@ level:
     leaderboard:
       description: "Show XP leaderboard"
       empty: "No XP data yet."
-      title: "XP Leaderboard"
-      board_description: "Our all-time most active members  💛"
+      title: "XP Leaderboard ( 👑   All time)"
+      board_description:  |
+        Our all-time most active members  💛 Thank you for making the server what it is!
+        XP is earned through messages, server events, and streaks.
       entry: "> ### %{place} %{mention}"
       xp_details: "> **Level %{level}**  (%{frozen}`%{current}`/`%{needed}` XP)"
-      weekly_title: "Weekly XP Leaderboard"
-      weekly_board_description: "Top yappers of the week!"
+      weekly_title: "XP Leaderboard ( 📅   Weekly)"
+      weekly_board_description: |
+        Top yappers of the week! 
+        XP is earned through messages, server events, and streaks.
       weekly_details_levels: "> **`%{xp}` XP** (Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
       weekly_details_progress: "> **`%{xp}` XP** (`%{n1}` → `%{n2}`/`%{needed}` XP)"
       weekly_empty: "No XP was earned this week."
       weekly_week_of: "-# Week of %{start} ・ resets %{reset} (Mon-Sun)."
-      button_all_time: "   All time"
-      button_weekly: "   Weekly"
+      button_all_time: "All time"
+      button_weekly: "Weekly"
       button_all_time_emoji: "👑"
       button_weekly_emoji: "📅"
     weekly:

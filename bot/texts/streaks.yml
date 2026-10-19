@@ -150,9 +150,9 @@ streaks:
 
   leaderboard:
     description: "Streaks Leaderboard"
-    ongoing_button: "   Ongoing"
+    ongoing_button: "Ongoing"
     ongoing_emoji: "🏅"
-    all_time_button: "   All Time"
+    all_time_button: "All Time"
     all_time_emoji: "🏆"
     ongoing_title: "Streaks Leaderboard ( 🏅   Currently Ongoing)"
     all_time_title: "Streaks Leaderboard ( 🏆   All Time)"
