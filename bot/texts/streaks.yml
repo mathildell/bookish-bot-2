@@ -149,16 +149,16 @@ streaks:
 
   leaderboard:
     description: "Streaks Leaderboard"
-    ongoing_button: "Ongoing"
+    ongoing_button: "   Top ongoing streaks"
     ongoing_emoji: "🏅"
-    all_time_button: "All time"
+    all_time_button: "   Top streaks of all-time"
     all_time_emoji: "🏆"
-    ongoing_title: "Streaks Leaderboard ( 🏅  Currently Ongoing)"
-    all_time_title: "Streaks Leaderboard ( 🏆  All Time)"
-    ongoing_desc: "Still alive, still counting. For now."
-    all_time_desc: "The longest streaks this server has ever mustered."
+    ongoing_title: "Streaks Leaderboard ( 🏅   Currently Ongoing)"
+    all_time_title: "Streaks Leaderboard ( 🏆   All Time)"
+    ongoing_desc: "The following are the top streaks currently ongoing in the server! Keep them going!"
+    all_time_desc: "The following are the highest streaks ever recorded by the bot!"
     entry: "**%{place} %{mention}**"
-    days_details: "-# **%{days}** days (level %{level}) `-` %{date}"
+    days_details: "-# **%{days}** days (level %{level})   `-`   %{date}\n"
     empty: "No streaks to rank yet."
 
   channel:
