@@ -258,7 +258,7 @@ def _register_confirmed_embed(
 ) -> discord.Embed:
     embed = new_embed(client)
     embed.title = t("streaks.register.confirmed_title")
-    embed.description = t("streaks.register.confirmed_description")
+    embed.description = t("streaks.register.confirmed_description", mention=goal.user_id)
     _add_goal_fields(embed, goal)
     set_transparent_image(embed, client)
     return embed
@@ -349,6 +349,45 @@ def _log_embed(
     else:
         set_transparent_image(embed, client)
     return embed
+
+
+async def _perform_log(
+    interaction: discord.Interaction, amount: str, *, ephemeral: bool = False
+) -> None:
+    try:
+        result = await _service(interaction).log_daily(
+            user_id=interaction.user.id, amount_raw=amount
+        )
+    except streak_service.StreakError as exc:
+        await interaction.response.send_message(
+            t(exc.key, **exc.variables), ephemeral=True
+        )
+        return
+
+    view = None
+    if result.rescuable is not None:
+        kind = streak_service.rescue_kind_for_closed(
+            result.rescuable.end_date,
+            result.goal.timezone,
+            streak_service.utcnow(),
+        )
+        view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
+    await interaction.response.send_message(
+        embed=_log_embed(interaction.client, interaction.user, result),
+        view=view,
+        ephemeral=ephemeral,
+    )
+    await _handle_progress(interaction, result.progress, interaction.user)
+    if result.closed is not None:
+        channel = await resolve_notify_channel(
+            interaction.guild,
+            getattr(interaction.client, "bot_updates_channel_id", 0),
+        )
+        await announce_streak_closed(
+            channel,
+            closed=[result.closed],
+            colour=getattr(interaction.client, "default_embed_color", None),
+        )
 
 
 def _view_embed(
@@ -975,7 +1014,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         rescuable=False,
         rescued=result,
     )
-    view = _ViewActions(rescue=False, edit=True)
+    view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
     await interaction.response.edit_message(embed=embed, view=view)
     await _handle_progress(interaction, result.progress, interaction.user)
@@ -1007,6 +1046,37 @@ class StreakRescueView(discord.ui.View):
         self.add_item(_RescueButton(kind))
 
 
+class _LogModal(discord.ui.Modal):
+    def __init__(self) -> None:
+        super().__init__(title=t("streaks.log.modal_title"))
+        self.amount = discord.ui.TextInput(
+            label=t("streaks.log.modal_amount"),
+            placeholder=t("streaks.log.modal_placeholder"),
+        )
+        self.add_item(self.amount)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        await _perform_log(interaction, str(self.amount.value))
+
+
+class _LogButton(discord.ui.Button):
+    def __init__(self) -> None:
+        super().__init__(
+            label=t("streaks.log.button"),
+            emoji=t("streaks.log.button_emoji"),
+            style=discord.ButtonStyle.secondary,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(_LogModal())
+
+
+class StreakLogView(_ExpiringView):
+    def __init__(self, *, timeout: float = 24 * 60 * 60) -> None:
+        super().__init__(timeout=timeout)
+        self.add_item(_LogButton())
+
+
 class _EditButton(discord.ui.Button):
     def __init__(self) -> None:
         super().__init__(
@@ -1031,11 +1101,14 @@ class _ViewActions(_ExpiringView):
         *,
         rescue: bool,
         edit: bool,
+        log: bool = False,
         rescue_kind: str = streak_service.RESCUE_NORMAL,
     ) -> None:
         super().__init__(timeout=300)
         if rescue:
             self.add_item(_RescueButton(rescue_kind))
+        if log:
+            self.add_item(_LogButton())
         if edit:
             self.add_item(_EditButton())
 
@@ -1176,39 +1249,7 @@ async def edit(interaction: discord.Interaction) -> None:
 async def log(interaction: discord.Interaction, amount: str) -> None:
     if not await _channel_guard(interaction):
         return
-    try:
-        result = await _service(interaction).log_daily(
-            user_id=interaction.user.id, amount_raw=amount
-        )
-    except streak_service.StreakError as exc:
-        await interaction.response.send_message(
-            t(exc.key, **exc.variables), ephemeral=True
-        )
-        return
-
-    view = None
-    if result.rescuable is not None:
-        kind = streak_service.rescue_kind_for_closed(
-            result.rescuable.end_date,
-            result.goal.timezone,
-            streak_service.utcnow(),
-        )
-        view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
-    await interaction.response.send_message(
-        embed=_log_embed(interaction.client, interaction.user, result),
-        view=view,
-    )
-    await _handle_progress(interaction, result.progress, interaction.user)
-    if result.closed is not None:
-        channel = await resolve_notify_channel(
-            interaction.guild,
-            getattr(interaction.client, "bot_updates_channel_id", 0),
-        )
-        await announce_streak_closed(
-            channel,
-            closed=[result.closed],
-            colour=getattr(interaction.client, "default_embed_color", None),
-        )
+    await _perform_log(interaction, amount)
 
 
 @streaks_group.command(name="today", description=t("streaks.today.description"))
@@ -1284,6 +1325,7 @@ async def view(
         _ViewActions(
             rescue=show_rescue,
             edit=is_self,
+            log=is_self,
             rescue_kind=kind or streak_service.RESCUE_NORMAL,
         )
         if (show_rescue or is_self)

@@ -27,12 +27,12 @@ from .commands.intro import (
     resolve_intro_channel,
 )
 from .commands.level import weekly_leaderboard_embed, xp_group
-from .commands.listing import parse_hex_colour
+from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
 from .commands.releases import releases_group
 from .commands.reviews import reviews_group
 from .commands.settings import settings_group
-from .commands.streaks import StreakRescueView, streaks_group
+from .commands.streaks import StreakLogView, StreakRescueView, streaks_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import announce_level_up, announce_streak_closed
@@ -121,6 +121,7 @@ async def _award_message_xp(
 
 
 async def _post_streak_reminders(
+    client: discord.Client,
     channel: discord.abc.Messageable,
     reminders: list[Reminder],
     *,
@@ -150,13 +151,16 @@ async def _post_streak_reminders(
             colour=colour,
         )
         embed.set_footer(text=t("streaks.reminders.footer"))
+        set_transparent_image(embed, client)
+        view = StreakLogView()
         try:
-            await channel.send(embed=embed)
+            message = await channel.send(embed=embed, view=view)
         except discord.HTTPException:
             logger.warning(
                 "Could not post %s streak reminder", kind, exc_info=True
             )
             continue
+        view.message = message
         sent.extend(
             reminder for reminder in reminders if reminder.kind == kind
         )
@@ -385,6 +389,7 @@ async def run() -> None:
             logger.warning("Streak reminders due but no channel is set")
             return
         sent = await _post_streak_reminders(
+            bot,
             channel,
             reminders,
             colour=getattr(bot, "default_embed_color", None),

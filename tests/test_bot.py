@@ -836,9 +836,12 @@ class FakeNotifyChannel:
     def __init__(self, *, fail: bool = False) -> None:
         self.sent: list[str] = []
         self.embeds: list[discord.Embed] = []
+        self.views: list[discord.ui.View | None] = []
         self._fail = fail
 
-    async def send(self, content: str | None = None, *, embed=None) -> None:
+    async def send(
+        self, content: str | None = None, *, embed=None, view=None
+    ) -> None:
         if self._fail:
             raise discord.HTTPException(
                 _FakeHTTPResponse(), {"message": "no", "code": 50013}
@@ -847,6 +850,7 @@ class FakeNotifyChannel:
             self.sent.append(content)
         if embed is not None:
             self.embeds.append(embed)
+        self.views.append(view)
 
 
 class FakeNotifyUser:
@@ -911,12 +915,12 @@ class AnnounceStreakClosedTests(unittest.IsolatedAsyncioTestCase):
 
 class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
     class FailingCustomChannel(FakeNotifyChannel):
-        async def send(self, content=None, *, embed=None) -> None:
+        async def send(self, content=None, *, embed=None, view=None) -> None:
             if embed is not None and embed.title == t("streaks.reminders.title"):
                 raise discord.HTTPException(
                     _FakeHTTPResponse(), {"message": "no", "code": 50013}
                 )
-            await super().send(content, embed=embed)
+            await super().send(content, embed=embed, view=view)
 
     def _reminder(self, user_id: int, kind: str) -> SimpleNamespace:
         return SimpleNamespace(
@@ -931,7 +935,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         sent = await bot_main._post_streak_reminders(
-            channel, reminders, colour=None
+            FakeClient(), channel, reminders, colour=None
         )
 
         self.assertEqual([reminder.goal.user_id for reminder in sent], [2])
@@ -945,10 +949,25 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         reminders = [self._reminder(1, "custom")]
 
         sent = await bot_main._post_streak_reminders(
-            channel, reminders, colour=None
+            FakeClient(), channel, reminders, colour=None
         )
 
         self.assertEqual(sent, reminders)
+        self.assertEqual(
+            channel.embeds[0].image.url, FakeClient.transparent_embed_image
+        )
+
+    async def test_reminder_messages_have_a_log_button(self) -> None:
+        channel = FakeNotifyChannel()
+        reminders = [self._reminder(1, "custom")]
+
+        await bot_main._post_streak_reminders(
+            FakeClient(), channel, reminders, colour=None
+        )
+
+        view = channel.views[0]
+        self.assertIsInstance(view, bot_main.StreakLogView)
+        self.assertEqual(view.children[0].label, t("streaks.log.button"))
 
 
 class LevelProgressTests(unittest.TestCase):

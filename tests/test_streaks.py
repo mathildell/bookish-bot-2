@@ -391,6 +391,25 @@ class TextChoiceTests(unittest.TestCase):
             t_choice("streaks.nope.missing")
 
 
+class RegisterConfirmedEmbedTests(unittest.TestCase):
+    def test_mentions_the_member(self) -> None:
+        goal = SimpleNamespace(
+            user_id=42,
+            amount=30,
+            unit="pages",
+            timezone="UTC",
+            reminder="none",
+            custom_hour=None,
+        )
+        client = SimpleNamespace(
+            default_embed_color=None, transparent_embed_image=None
+        )
+
+        embed = command_streaks._register_confirmed_embed(client, goal)
+
+        self.assertIn("<@42>", embed.description)
+
+
 class ModalLimitTests(unittest.TestCase):
     def test_modal_titles_and_labels_fit_discord_limits(self) -> None:
         goal = SimpleNamespace(
@@ -399,6 +418,7 @@ class ModalLimitTests(unittest.TestCase):
         modals = [
             command_streaks._AmountUnitModal(goal),
             command_streaks._TimezoneModal(goal),
+            command_streaks._LogModal(),
         ]
         for modal in modals:
             self.assertLessEqual(len(modal.title), 45, modal.title)
@@ -543,8 +563,21 @@ class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):
 
 
 class ExpiringViewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_view_actions_put_log_before_edit(self) -> None:
+        view = command_streaks._ViewActions(
+            rescue=True, log=True, edit=True
+        )
+        self.assertEqual(
+            [child.label for child in view.children],
+            [
+                t("streaks.shared.rescue_button"),
+                t("streaks.log.button"),
+                t("streaks.edit.button_on_view"),
+            ],
+        )
+
     async def test_timeout_disables_every_button(self) -> None:
-        view = command_streaks._ViewActions(rescue=True, edit=True)
+        view = command_streaks._ViewActions(rescue=True, log=True, edit=True)
         self.assertTrue(all(not child.disabled for child in view.children))
 
         class Message:
@@ -564,6 +597,11 @@ class ExpiringViewTests(unittest.IsolatedAsyncioTestCase):
     async def test_timeout_without_a_message_is_safe(self) -> None:
         view = command_streaks._LeaderboardView(author_id=2)
         view.message = None
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
+
+    async def test_reminder_log_view_disables_its_button(self) -> None:
+        view = command_streaks.StreakLogView()
         await view.on_timeout()
         self.assertTrue(all(child.disabled for child in view.children))
 

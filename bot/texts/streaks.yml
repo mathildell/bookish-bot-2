@@ -58,7 +58,7 @@ streaks:
     custom_description: "Pick any hour from 1AM to 10PM\n-# **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
-    confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I'll keep my eye on you... :eyes:"
+    confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I'll keep my eye on you <@%{mention}>... :eyes:"
 
   edit:
     description: "Change your daily goal or your reminders"
@@ -87,6 +87,11 @@ streaks:
   log:
     description: "Log how much you read today"
     param_amount: "Amount read today (`+`/`-` aggregators also work)"
+    button: "Log"
+    button_emoji: "✏️"
+    modal_title: "Log your reading"
+    modal_amount: "Amount read today"
+    modal_placeholder: "e.g. 30"
     title: "Logged"
     amount_field: "Logged"
     amount_value: "%{amount} %{unit}"
