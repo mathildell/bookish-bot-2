@@ -11,6 +11,9 @@ guild_id: 123456789012345678
 # (members with Manage Server can manage anyone; 0 disables the role)
 booster_role_id: 0
 
+# imgbb API key used to host generated streak coupons (falls back to tmpfiles)
+imgbb_api_key: ""
+
 # MySQL database (the compose file provisions these defaults)
 mysql:
   host: "127.0.0.1"

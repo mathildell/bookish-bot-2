@@ -24,6 +24,7 @@ class BotSettingsService:
         self._reference_forum_channel_id: int | None = None
         self._reference_message_link: str | None = None
         self._admin_test_channel_id: int | None = None
+        self._coupon_fallback_image: str | None = None
 
     @property
     def updates_channel_id(self) -> int | None:
@@ -49,6 +50,10 @@ class BotSettingsService:
     def admin_test_channel_id(self) -> int | None:
         return self._admin_test_channel_id
 
+    @property
+    def coupon_fallback_image(self) -> str | None:
+        return self._coupon_fallback_image
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._find(session)
@@ -65,6 +70,9 @@ class BotSettingsService:
         )
         self._admin_test_channel_id = (
             row.admin_test_channel_id if row else None
+        )
+        self._coupon_fallback_image = (
+            row.coupon_fallback_image if row else None
         )
 
     async def set_updates_channel(self, channel_id: int | None) -> None:
@@ -90,6 +98,10 @@ class BotSettingsService:
     async def set_admin_test_channel(self, channel_id: int | None) -> None:
         await self._update(admin_test_channel_id=channel_id)
         self._admin_test_channel_id = channel_id
+
+    async def set_coupon_fallback_image(self, image: str | None) -> None:
+        await self._update(coupon_fallback_image=image)
+        self._coupon_fallback_image = image
 
     async def _find(self, session) -> BotSetting | None:
         return (

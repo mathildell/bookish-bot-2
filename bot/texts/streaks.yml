@@ -108,6 +108,9 @@ streaks:
     top_up_title: "Goal reached"
     top_up_content: "You already received XP for finishing your level earlier, but you deserve a little more for completing today. Here's the **%{xp} XP** you are owed!"
 
+  coupon:
+    title: "Streak coupon"
+
   rescue:
     title: "Streak rescued"
     content: "Your **%{emoji} ‎ Streak Rescue** saved **%{days} days**, completing **💫 ‎ Level %{level}** and earning you **%{xp} XP**."

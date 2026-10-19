@@ -12,8 +12,10 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from bot.commands import streaks as command_streaks
+from bot.services import coupons
 from bot.services import streaks
 from bot.texts import MissingText, t, t_choice
 
@@ -102,6 +104,58 @@ class WindowXpTests(unittest.TestCase):
         self.assertEqual(
             streaks.on_track_xp(1, 5, 0), streaks.window_xp(2, 5)
         )
+
+
+class CouponDateTests(unittest.TestCase):
+    def test_uses_month_name_and_day(self) -> None:
+        self.assertEqual(coupons.coupon_date(date(2026, 10, 5)), "October 05")
+        self.assertEqual(coupons.coupon_date(date(2026, 1, 31)), "January 31")
+
+
+class CouponRenderTests(unittest.TestCase):
+    def test_renders_a_600x360_image_and_returns_a_temp_file(self) -> None:
+        path = coupons.render_coupon(
+            display_name="A Very Long Reader Name That Has To Shrink",
+            level=123,
+            on_date=date(2026, 10, 19),
+            xp=9999,
+        )
+        try:
+            self.assertTrue(path.exists())
+            with coupons.Image.open(path) as image:
+                self.assertEqual(image.size, (600, 360))
+        finally:
+            path.unlink(missing_ok=True)
+
+
+class CouponFallbackTests(unittest.IsolatedAsyncioTestCase):
+    async def test_falls_back_and_deletes_the_local_file(self) -> None:
+        path = coupons.render_coupon(
+            display_name="Alice",
+            level=1,
+            on_date=date(2026, 10, 19),
+            xp=250,
+        )
+
+        class Failing(coupons.CouponService):
+            async def _upload_imgbb(self, http, path):
+                raise coupons.CouponUploadError("imgbb down")
+
+            async def _upload_tmpfiles(self, http, path):
+                raise coupons.CouponUploadError("tmpfiles down")
+
+        service = Failing("key")
+        with patch("bot.services.coupons.render_coupon", return_value=path):
+            coupon = await service.generate(
+                display_name="Alice",
+                level=1,
+                on_date=date(2026, 10, 19),
+                xp=250,
+                fallback_image="https://example.com/fallback.gif",
+            )
+
+        self.assertEqual(coupon.url, "https://example.com/fallback.gif")
+        self.assertFalse(path.exists())
 
 
 class OutcomeTests(unittest.TestCase):

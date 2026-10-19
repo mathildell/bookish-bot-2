@@ -312,7 +312,9 @@ Members register a daily reading goal (amount, unit and timezone), log their
 progress each day, and keep a streak alive. Missing a day closes the streak; a
 closed streak can be repaired with a rescue (a normal one within 24 hours, then
 a golden one for a few more days). Every five logged days completes a level:
-it pays XP into the normal level system and grants a rescue. Every fifty levels
+it pays XP into the normal level system, grants a rescue and produces a coupon
+image showing the member's display name, the finished level, the date and the
+XP earned. Every fifty levels
 also grants a golden rescue, and every 365 days celebrates with a channel post,
 double XP for that window and a golden rescue. XP is binary per day — a day
 either reached the goal or it did not — and the payout per level caps at 3000
@@ -430,6 +432,7 @@ View and edit the bot's runtime settings.
 /settings edit key: buddy_read_channel_id value: <#123456789012345678>
 /settings edit key: buddy_read_message_link value: https://discord.com/channels/1/222/333
 /settings edit key: admin_test_channel_id value: <#123456789012345678>
+/settings edit key: coupon_fallback_image value: https://example.com/fallback.gif
 ```
 - `purge_book_releases` — how many days a released book is kept before it is
   purged (default 30).
@@ -452,6 +455,8 @@ View and edit the bot's runtime settings.
   threads (right-click the message → Copy Message Link).
 - `admin_test_channel_id` — channel where channel-locked commands (like
   `/streak`) work regardless of their configured channel.
+- `coupon_fallback_image` — image shown on a streak coupon when it cannot be
+  rendered or uploaded (defaults to a GIF).
 
 ## Utility
 

@@ -6,3 +6,4 @@ cryptography>=43.0.0
 PyYAML>=6.0.2
 beautifulsoup4>=4.12
 playwright>=1.44
+Pillow>=10.0

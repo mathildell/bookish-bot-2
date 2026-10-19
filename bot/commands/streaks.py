@@ -16,6 +16,7 @@ from discord import app_commands
 from ..notifications import announce_level_up, announce_streak_closed
 from ..services import streaks as streak_service
 from ..services.booster_role import resolve_notify_channel
+from ..services.coupons import DEFAULT_FALLBACK_IMAGE
 from ..services.level_rewards import sync_member_roles
 from ..services.members import resolve_members
 from ..services.streaks import (
@@ -163,13 +164,50 @@ async def _channel_guard(interaction: discord.Interaction) -> bool:
     return False
 
 
+async def _generate_coupons(
+    interaction: discord.Interaction,
+    member: discord.Member | discord.User,
+    goal: StreakGoal,
+    progress: streak_service.LevelProgress,
+) -> list[str]:
+    """Render and upload one coupon per award, in award order."""
+    coupons = getattr(interaction.client, "coupons", None)
+    if progress.dry_run or not progress.awards or coupons is None:
+        return []
+    on_date = streak_service.local_date(streak_service.utcnow(), goal.timezone)
+    fallback = getattr(
+        interaction.client, "coupon_fallback_image", DEFAULT_FALLBACK_IMAGE
+    )
+    urls = []
+    for award in progress.awards:
+        coupon = await coupons.generate(
+            display_name=member.display_name,
+            level=award.level,
+            on_date=on_date,
+            xp=award.xp,
+            fallback_image=fallback,
+        )
+        urls.append(coupon.url)
+    return urls
+
+
+def _coupon_embed(client: discord.Client, url: str) -> discord.Embed:
+    embed = new_embed(client)
+    embed.title = t("streaks.coupon.title")
+    embed.set_image(url=url)
+    return embed
+
+
 async def _handle_progress(
     interaction: discord.Interaction,
     progress: streak_service.LevelProgress,
     member: discord.Member | discord.User,
+    *,
+    coupon_urls: list[str] | None = None,
+    coupons_embedded: int = 0,
 ) -> None:
-    """Apply XP reward roles and celebrate an anniversary, if any."""
-    if not progress.leveled:
+    """Apply XP reward roles, celebrate milestones and send extra coupons."""
+    if not progress.leveled and not progress.awards:
         return
     if progress.anniversary:
         embed = new_embed(interaction.client)
@@ -196,6 +234,8 @@ async def _handle_progress(
         await announce_level_up(
             interaction.channel, member, progress.xp_new_level
         )
+    for url in (coupon_urls or [])[coupons_embedded:]:
+        await interaction.followup.send(embed=_coupon_embed(interaction.client, url))
 
 
 # ------------------------------------------------------------------ embeds
@@ -282,6 +322,7 @@ def _log_embed(
     client: discord.Client,
     member: discord.abc.User,
     result: streak_service.LogResult,
+    coupon_url: str | None = None,
 ) -> discord.Embed:
     goal = result.goal
     log = result.log
@@ -350,7 +391,9 @@ def _log_embed(
             value=t("streaks.log.dry_run", xp=result.progress.xp_awarded),
             inline=False,
         )
-    if result.progress.anniversary:
+    if coupon_url:
+        embed.set_image(url=coupon_url)
+    elif result.progress.anniversary:
         embed.set_image(url=t_choice("streaks.anniversary.images"))
     else:
         set_transparent_image(embed, client)
@@ -378,12 +421,31 @@ async def _perform_log(
             streak_service.utcnow(),
         )
         view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
-    await interaction.response.send_message(
-        embed=_log_embed(interaction.client, interaction.user, result),
-        view=view,
-        ephemeral=ephemeral,
+    generating = bool(result.progress.awards) and not result.progress.dry_run
+    if generating:
+        await interaction.response.defer(ephemeral=ephemeral)
+    coupons = await _generate_coupons(
+        interaction, interaction.user, result.goal, result.progress
     )
-    await _handle_progress(interaction, result.progress, interaction.user)
+    embed = _log_embed(
+        interaction.client,
+        interaction.user,
+        result,
+        coupon_url=coupons[0] if coupons else None,
+    )
+    if generating:
+        await interaction.edit_original_response(embed=embed, view=view)
+    else:
+        await interaction.response.send_message(
+            embed=embed, view=view, ephemeral=ephemeral
+        )
+    await _handle_progress(
+        interaction,
+        result.progress,
+        interaction.user,
+        coupon_urls=coupons,
+        coupons_embedded=1 if coupons else 0,
+    )
     if result.closed is not None:
         channel = await resolve_notify_channel(
             interaction.guild,
@@ -405,6 +467,7 @@ def _view_embed(
     *,
     rescuable: bool = False,
     rescued: streak_service.ReviveResult | None = None,
+    coupon_url: str | None = None,
 ) -> discord.Embed:
     embed = new_embed(client)
     set_author(embed, member, member.display_name)
@@ -605,7 +668,10 @@ def _view_embed(
                 value=t("streaks.log.dry_run", xp=rescued.progress.xp_awarded),
                 inline=False,
             )
-    set_transparent_image(embed, client)
+    if coupon_url:
+        embed.set_image(url=coupon_url)
+    else:
+        set_transparent_image(embed, client)
     return embed
 
 
@@ -1011,6 +1077,12 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
             t("streaks.errors.cant_rescue"), ephemeral=True
         )
         return
+    generating = bool(result.progress.awards) and not result.progress.dry_run
+    if generating:
+        await interaction.response.defer()
+    coupons = await _generate_coupons(
+        interaction, interaction.user, result.goal, result.progress
+    )
     embed = _view_embed(
         interaction.client,
         interaction.user,
@@ -1019,11 +1091,33 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         result.logs,
         rescuable=False,
         rescued=result,
+        coupon_url=coupons[0] if coupons else None,
     )
     view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
-    await interaction.response.edit_message(embed=embed, view=view)
-    await _handle_progress(interaction, result.progress, interaction.user)
+    extra = [
+        _coupon_embed(interaction.client, url) for url in coupons[1:]
+    ]
+    if generating:
+        if extra:
+            await interaction.edit_original_response(
+                embeds=[embed, *extra], view=view
+            )
+        else:
+            await interaction.edit_original_response(embed=embed, view=view)
+    elif extra:
+        await interaction.response.edit_message(
+            embeds=[embed, *extra], view=view
+        )
+    else:
+        await interaction.response.edit_message(embed=embed, view=view)
+    await _handle_progress(
+        interaction,
+        result.progress,
+        interaction.user,
+        coupon_urls=coupons,
+        coupons_embedded=1 if coupons else 0,
+    )
 
 
 class _RescueButton(discord.ui.Button):
@@ -1446,4 +1540,13 @@ async def admin_log(
             date=result.log.log_date.isoformat(),
         )
     )
-    await _handle_progress(interaction, result.progress, user)
+    coupons = await _generate_coupons(
+        interaction, user, result.goal, result.progress
+    )
+    await _handle_progress(
+        interaction,
+        result.progress,
+        user,
+        coupon_urls=coupons,
+        coupons_embedded=0,
+    )

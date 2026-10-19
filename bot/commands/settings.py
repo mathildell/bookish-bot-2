@@ -15,6 +15,7 @@ import re
 import discord
 from discord import app_commands
 
+from ..services.coupons import DEFAULT_FALLBACK_IMAGE
 from ..texts import t
 from .bot_say import parse_message_link
 from .checks import require_admin
@@ -37,6 +38,7 @@ DEFAULT_COLOR = "default_embed_color"
 BUDDY_READ_CHANNEL = "buddy_read_channel_id"
 BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
 ADMIN_TEST_CHANNEL = "admin_test_channel_id"
+COUPON_FALLBACK_IMAGE = "coupon_fallback_image"
 
 # Interpretation of each key's value.
 _KINDS = {
@@ -51,6 +53,7 @@ _KINDS = {
     BUDDY_READ_CHANNEL: "channel",
     BUDDY_READ_MESSAGE_LINK: "message_link",
     ADMIN_TEST_CHANNEL: "channel",
+    COUPON_FALLBACK_IMAGE: "url",
 }
 
 SETTING_KEYS = tuple(_KINDS)
@@ -166,6 +169,9 @@ def _current_value(
             return f"<#{channel_id}>", ""
         return t("settings.list.value_none"), ""
     if kind == "url":
+        if key == COUPON_FALLBACK_IMAGE:
+            fallback = getattr(settings, "coupon_fallback_image", None)
+            return fallback or DEFAULT_FALLBACK_IMAGE, ""
         return settings.transparent_embed_image or t("settings.list.value_none"), ""
     if kind == "message_link":
         link = settings.reference_message_link
@@ -247,8 +253,18 @@ async def apply_value(
             interaction.client.bot_updates_channel_id = channel_id or 0
     elif kind == "url":
         image = parse_url(raw)
-        await interaction.client.bot_settings.set_transparent_embed_image(image)
-        interaction.client.transparent_embed_image = image
+        if key == COUPON_FALLBACK_IMAGE:
+            await interaction.client.bot_settings.set_coupon_fallback_image(
+                image
+            )
+            interaction.client.coupon_fallback_image = (
+                image or DEFAULT_FALLBACK_IMAGE
+            )
+        else:
+            await interaction.client.bot_settings.set_transparent_embed_image(
+                image
+            )
+            interaction.client.transparent_embed_image = image
     elif kind == "message_link":
         link = parse_message_link_setting(raw)
         await interaction.client.bot_settings.set_reference_message_link(link)

@@ -602,6 +602,10 @@ class BotSetting(Base):
     admin_test_channel_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True
     )
+    # Image shown on a streak coupon when rendering/uploading fails.
+    coupon_fallback_image: Mapped[str | None] = mapped_column(
+        String(512), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

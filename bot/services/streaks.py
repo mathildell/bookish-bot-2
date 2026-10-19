@@ -16,7 +16,7 @@ read/write database work.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo, available_timezones
 
@@ -349,6 +349,14 @@ def valid_timezone(name: str) -> str | None:
 
 
 @dataclass
+class LevelAward:
+    """One coupon's worth of progression: a finished level and the XP it paid."""
+
+    level: int
+    xp: int
+
+
+@dataclass
 class LevelProgress:
     previous_level: int
     level: int
@@ -361,6 +369,7 @@ class LevelProgress:
     top_up: bool = False
     xp_old_level: int | None = None
     xp_new_level: int | None = None
+    awards: list[LevelAward] = field(default_factory=list)
 
 
 @dataclass
@@ -517,6 +526,7 @@ async def _apply_level_progress(
                 award *= 2
             total_award += award
             last_award = award
+            progress.awards.append(LevelAward(level=level, xp=award))
             streak.rescues_available += 1
             progress.rescues_granted += 1
             if anniversary or level % 50 == 0:
@@ -564,6 +574,9 @@ async def _apply_level_progress(
             streak.last_xp_at = now
             progress.top_up = True
             progress.xp_awarded = difference
+            progress.awards.append(
+                LevelAward(level=streak.level, xp=difference)
+            )
             if not dry_run:
                 change = await level_service.add_xp(
                     session, guild_id=guild_id, user_id=user_id, amount=difference

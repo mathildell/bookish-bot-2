@@ -36,7 +36,8 @@ Implemented features:
   with `/streak edit`. They log each day; missing a day closes the streak; a
   normal rescue repairs it within 24h, a golden one within 5 days. Every 5
   logged days completes a level (XP into the normal level system, plus a
-  rescue; every 50 levels a golden rescue; every 365 days a celebration). An
+  rescue and a generated coupon image; every 50 levels a golden rescue; every
+  365 days a celebration). An
   hourly task sends reminders (picked at random from a list of phrasings) and
   closes due streaks, notifying the admins' updates channel
   (`bot_updates_channel_id`) about each closure; daily logs are purged after a
@@ -47,9 +48,9 @@ Implemented features:
   settings: the daily cleanup retention windows (old releases, streak logs), the
   review repost cooldown, the UTC hours release announcements and the weekly XP
   leaderboard are posted, the admins' updates channel, the transparent embed
-  background, the default embed colour and the buddy read forum channel +
-  reference message link. This is the home for values that used to live in
-  `config.yaml`.
+  background, the default embed colour, the coupon fallback image and the buddy
+  read forum channel + reference message link. This is the home for values that
+  used to live in `config.yaml`.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -142,6 +143,7 @@ bot/
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
+    coupons.py             streak coupon rendering + image hosting
     level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
     members.py             guild member resolution

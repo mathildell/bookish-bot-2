@@ -39,6 +39,7 @@ from .notifications import announce_level_up, announce_streak_closed
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
+from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
 from .services.intro import IntroService
 from .services.level import WeeklyLeaderboardService
 from .services.level_rewards import LevelRewardService, sync_member_roles
@@ -189,6 +190,7 @@ async def run() -> None:
     streaks = StreakService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
     bot_settings = BotSettingsService(int(config.guild_id))
+    coupons = CouponService(config.get("imgbb_api_key"))
     release_scraper = ReleaseScraper()
 
     intents = discord.Intents.default()
@@ -205,6 +207,7 @@ async def run() -> None:
     bot.streaks = streaks
     bot.weekly = weekly
     bot.bot_settings = bot_settings
+    bot.coupons = coupons
     bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
@@ -221,6 +224,7 @@ async def run() -> None:
     bot.reference_channel_id = 0
     bot.reference_message_id = 0
     bot.admin_test_channel_id = 0
+    bot.coupon_fallback_image = DEFAULT_FALLBACK_IMAGE
 
     # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
@@ -525,6 +529,9 @@ async def run() -> None:
         bot.reference_channel_id = reference[0] if reference else 0
         bot.reference_message_id = reference[1] if reference else 0
         bot.admin_test_channel_id = bot_settings.admin_test_channel_id or 0
+        bot.coupon_fallback_image = (
+            bot_settings.coupon_fallback_image or DEFAULT_FALLBACK_IMAGE
+        )
 
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)

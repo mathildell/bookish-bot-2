@@ -13,6 +13,7 @@ settings:
     buddy_read_channel_id: "Buddy read channel"
     buddy_read_message_link: "Buddy read message"
     admin_test_channel_id: "Admin test channel"
+    coupon_fallback_image: "Coupon fallback image"
   list:
     description: "Show the bot's settings"
     title: "Settings"
@@ -35,6 +36,7 @@ settings:
       buddy_read_channel_id: "-# Forum channel where new threads get the reference message pinned."
       buddy_read_message_link: "-# Message reposted into new forum threads."
       admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
+      coupon_fallback_image: "-# Image shown on a streak coupon when it cannot be generated or uploaded."
   edit:
     description: "Change one of the bot's settings"
     param_key: "Which setting to change"
