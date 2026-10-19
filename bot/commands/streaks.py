@@ -247,7 +247,13 @@ def _reminders_prompt_embed(client: discord.Client) -> discord.Embed:
     embed.title = t("streaks.edit.reminders_title")
     embed.description = t(
         "streaks.edit.reminders_description",
-        options=t("streaks.shared.reminder_options"),
+        options=t(
+            "streaks.shared.reminder_options",
+            none_emoji=t("streaks.shared.reminder_none_emoji"),
+            custom_emoji=t("streaks.shared.reminder_custom_emoji"),
+            last_emoji=t("streaks.shared.reminder_last_emoji"),
+            both_emoji=t("streaks.shared.reminder_both_emoji")
+        ),
     )
     set_transparent_image(embed, client)
     return embed
