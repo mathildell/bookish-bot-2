@@ -140,6 +140,7 @@ bot/
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
+    views.py               shared timed-view base that disables buttons on timeout
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
@@ -180,6 +181,8 @@ bookishhideaway/           archived old Ruby project — out of scope, ignore
   `commands/checks.py` for permissions) and reference it.
 - **Match the existing style.** `from __future__ import annotations`, type hints
   on public functions, small focused helpers.
+- **Timed views subclass `ExpiringView`** (`commands/views.py`) so their buttons
+  are disabled when the bot stops listening to them.
 - **Do not add comments unless they explain non-obvious intent.** Keep comments
   accurate — delete comments that no longer match the code.
 - **CRUD vocabulary for commands:** `add`, `remove`, `list`, `view`, `edit`. If the user uses the term `delete` instead of `remove`, for example, remind them of the established naming convention.

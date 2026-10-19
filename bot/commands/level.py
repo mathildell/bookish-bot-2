@@ -17,6 +17,7 @@ from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
 from .listing import new_embed, placement, set_author, set_transparent_image
+from .views import ExpiringView
 
 xp_group = app_commands.Group(
     name="xp",
@@ -228,7 +229,7 @@ def weekly_leaderboard_embed(
     return embed
 
 
-class LeaderboardView(discord.ui.View):
+class LeaderboardView(ExpiringView):
     """Switch the leaderboard between all-time and the current week."""
 
     def __init__(
@@ -252,15 +253,6 @@ class LeaderboardView(discord.ui.View):
         await interaction.response.edit_message(
             embed=self.embeds[which], view=self
         )
-
-    async def on_timeout(self) -> None:
-        for child in self.children:
-            child.disabled = True
-        if self.message is not None:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_all_time"),

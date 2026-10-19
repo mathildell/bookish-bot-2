@@ -33,6 +33,7 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import Paginator, chunked, send_paginated
+from .views import ExpiringView
 
 logger = logging.getLogger("bh2.releases")
 
@@ -224,11 +225,11 @@ class ReleaseListView(Paginator):
         self.add_item(_MonthSelect(_month_options(today_utc())))
 
 
-class ReleaseConfirmView(discord.ui.View):
+class ReleaseConfirmView(ExpiringView):
     """Confirm/cancel buttons for a pending ``/releases update``."""
 
     def __init__(self, draft_id: int, author_id: int) -> None:
-        super().__init__(timeout=None)
+        super().__init__(timeout=15 * 60)
         self.draft_id = draft_id
         self.author_id = author_id
 
@@ -273,6 +274,7 @@ class ReleaseConfirmView(discord.ui.View):
         await interaction.followup.send(
             content=_added_thanks(service, book.release_date), embeds=[embed]
         )
+        self.stop()
 
     @discord.ui.button(
         label=t("releases.update.cancel"), style=discord.ButtonStyle.secondary
@@ -284,6 +286,7 @@ class ReleaseConfirmView(discord.ui.View):
         await interaction.response.edit_message(
             content=t("releases.update.cancelled"), embeds=[], view=None
         )
+        self.stop()
 
 
 @releases_group.command(name="add", description=t("releases.add.description"))
@@ -381,7 +384,7 @@ async def update_release(
     disambiguate_embed_urls([old_embed, new_embed])
     instruction_embed = build_confirm_embed(interaction.client)
     view = ReleaseConfirmView(draft.id, interaction.user.id)
-    await interaction.followup.send(
+    view.message = await interaction.followup.send(
         embeds=[old_embed, new_embed, instruction_embed],
         view=view,
         ephemeral=True,

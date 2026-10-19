@@ -2026,6 +2026,28 @@ class DeleteConfirmViewTests(unittest.TestCase):
         self.assertEqual(buttons[1].label, t("intro.delete.cancel_button"))
 
 
+class DeleteConfirmViewTimeoutTests(unittest.IsolatedAsyncioTestCase):
+    class _Post:
+        channel_id = 10
+        message_id = 20
+        id = 1
+
+    async def test_timeout_disables_every_button(self) -> None:
+        view = intro_cmds.DeleteConfirmView(
+            intro_service.IntroService(1), self._Post(), author_id=42
+        )
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
+
+
+class ReleaseConfirmViewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_disables_every_button(self) -> None:
+        view = release_cmds.ReleaseConfirmView(draft_id=1, author_id=2)
+        self.assertIsNotNone(view.timeout)
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
+
+
 class ParseMessageIdTests(unittest.TestCase):
     def test_bare_id(self) -> None:
         self.assertEqual(

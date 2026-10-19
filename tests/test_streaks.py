@@ -659,6 +659,16 @@ class ExpiringViewTests(unittest.IsolatedAsyncioTestCase):
         await view.on_timeout()
         self.assertTrue(all(child.disabled for child in view.children))
 
+    async def test_reminder_choice_disables_every_button(self) -> None:
+        view = command_streaks._ReminderChoiceView(1, None, None)
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
+
+    async def test_hour_select_disables_its_menu(self) -> None:
+        view = command_streaks._HourSelectView(1, "custom", None, None)
+        await view.on_timeout()
+        self.assertTrue(all(child.disabled for child in view.children))
+
 
 if __name__ == "__main__":
     unittest.main()

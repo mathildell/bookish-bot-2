@@ -22,6 +22,7 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import new_embed, set_transparent_image
+from .views import ExpiringView
 
 logger = logging.getLogger("bh2.intro")
 
@@ -178,14 +179,16 @@ class IntroRefreshView(discord.ui.View):
                 t("intro.delete.not_author"), ephemeral=True
             )
             return
+        view = DeleteConfirmView(service, post, interaction.user.id)
         await interaction.response.send_message(
             t("intro.delete.confirm"),
-            view=DeleteConfirmView(service, post, interaction.user.id),
+            view=view,
             ephemeral=True,
         )
+        view.message = await interaction.original_response()
 
 
-class DeleteConfirmView(discord.ui.View):
+class DeleteConfirmView(ExpiringView):
     """Ephemeral confirmation for deleting an introduction."""
 
     def __init__(self, service: IntroService, post, author_id: int) -> None:
@@ -217,6 +220,7 @@ class DeleteConfirmView(discord.ui.View):
             await interaction.response.edit_message(
                 content=t("intro.delete.failed"), view=None
             )
+            self.stop()
             return
         try:
             message = await channel.fetch_message(self.post.message_id)
@@ -228,11 +232,13 @@ class DeleteConfirmView(discord.ui.View):
             await interaction.response.edit_message(
                 content=t("intro.delete.failed"), view=None
             )
+            self.stop()
             return
         await self.service.delete_post(self.post.id)
         await interaction.response.edit_message(
             content=t("intro.delete.done"), view=None
         )
+        self.stop()
 
     @discord.ui.button(
         label=t("intro.delete.cancel_button"),
@@ -245,6 +251,7 @@ class DeleteConfirmView(discord.ui.View):
         await interaction.response.edit_message(
             content=t("intro.delete.cancelled"), view=None
         )
+        self.stop()
 
 
 class IntroModal(discord.ui.Modal):
@@ -512,7 +519,7 @@ def _question_embed(view: "QuestionsView", client: discord.Client) -> discord.Em
     return embed
 
 
-class QuestionsView(discord.ui.View):
+class QuestionsView(ExpiringView):
     """Interactive question manager: select a question, then act on it."""
 
     def __init__(
@@ -632,15 +639,6 @@ class QuestionsView(discord.ui.View):
             )
             return False
         return True
-
-    async def on_timeout(self) -> None:
-        for child in self.children:
-            child.disabled = True
-        if self.message is not None:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     def _embed(self, client: discord.Client) -> discord.Embed:
         return _question_embed(self, client)

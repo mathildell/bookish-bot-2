@@ -13,6 +13,7 @@ from typing import Iterable, Iterator, Protocol, Sequence
 import discord
 
 from ..texts import t
+from .views import ExpiringView
 
 EMBEDS_PER_PAGE = 6
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
@@ -79,7 +80,7 @@ def set_transparent_image(embed: discord.Embed, client: discord.Client) -> None:
         embed.set_image(url=url)
 
 
-class Paginator(discord.ui.View):
+class Paginator(ExpiringView):
     """Button pagination over a fixed list of pages or a lazy page source.
 
     Pass ``pages`` (each a list of embeds) when everything is already built, or
@@ -151,15 +152,6 @@ class Paginator(discord.ui.View):
         else:
             page = await self.load_page(self.index)
             await interaction.response.edit_message(embeds=page, view=self)
-
-    async def on_timeout(self) -> None:
-        for child in self.children:
-            child.disabled = True
-        if self.message is not None:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
 
     @discord.ui.button(
         label=t("components.pagination.prev"),
