@@ -32,7 +32,7 @@ level:
       entry: "**%{place} %{mention}**"
       xp_details: "> **Level %{level}**  (%{frozen}%{current}/%{needed} XP)"
       weekly_title: "Weekly XP Leaderboard"
-      weekly_board_description: "Our most active members this week  💛"
+      weekly_board_description: "Top yappers of the week!"
       weekly_details: "> **%{xp} XP** earned this week"
       weekly_empty: "No XP was earned this week."
       weekly_week_of: "-# Week of %{start} • %{reset}"
@@ -41,6 +41,8 @@ level:
       weekly_resets_in: "resets in %{days} days (Sunday)"
       button_all_time: "All time"
       button_weekly: "Weekly"
+      button_all_time_emoji: "👑"
+      button_weekly_emoji: "📅"
     weekly:
       description: "Set the channel for the weekly XP leaderboard"
       param_channel: "Channel for the weekly leaderboard"

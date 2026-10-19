@@ -227,16 +227,8 @@ class LeaderboardView(discord.ui.View):
         self._sync_styles()
 
     def _sync_styles(self) -> None:
-        self.all_time_button.style = (
-            discord.ButtonStyle.primary
-            if self.showing == "all"
-            else discord.ButtonStyle.secondary
-        )
-        self.weekly_button.style = (
-            discord.ButtonStyle.primary
-            if self.showing == "weekly"
-            else discord.ButtonStyle.secondary
-        )
+        self.all_time_button.disabled = self.showing == "all"
+        self.weekly_button.disabled = self.showing == "weekly"
 
     async def _switch(self, interaction: discord.Interaction, which: str) -> None:
         self.showing = which
@@ -247,7 +239,8 @@ class LeaderboardView(discord.ui.View):
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_all_time"),
-        style=discord.ButtonStyle.primary,
+        emoji=t("level.xp.leaderboard.button_all_time_emoji"),
+        style=discord.ButtonStyle.secondary,
     )
     async def all_time_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -256,6 +249,7 @@ class LeaderboardView(discord.ui.View):
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_weekly"),
+        emoji=t("level.xp.leaderboard.button_weekly_emoji"),
         style=discord.ButtonStyle.secondary,
     )
     async def weekly_button(

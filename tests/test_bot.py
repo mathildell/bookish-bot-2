@@ -595,6 +595,34 @@ class LeaderboardViewTests(unittest.IsolatedAsyncioTestCase):
             discord.Embed(title="weekly"),
         )
 
+    def test_buttons_are_secondary_with_the_expected_emoji(self) -> None:
+        view = self._view()
+
+        for button in (view.all_time_button, view.weekly_button):
+            self.assertEqual(
+                button.style, discord.ButtonStyle.secondary
+            )
+        self.assertEqual(
+            view.all_time_button.emoji.name,
+            t("level.xp.leaderboard.button_all_time_emoji"),
+        )
+        self.assertEqual(
+            view.weekly_button.emoji.name,
+            t("level.xp.leaderboard.button_weekly_emoji"),
+        )
+
+    def test_active_button_is_disabled(self) -> None:
+        view = self._view()
+
+        self.assertTrue(view.all_time_button.disabled)
+        self.assertFalse(view.weekly_button.disabled)
+
+        view.showing = "weekly"
+        view._sync_styles()
+
+        self.assertFalse(view.all_time_button.disabled)
+        self.assertTrue(view.weekly_button.disabled)
+
     async def test_buttons_swap_the_embed(self) -> None:
         view = self._view()
         interaction = _FakeInteraction()
@@ -604,12 +632,14 @@ class LeaderboardViewTests(unittest.IsolatedAsyncioTestCase):
             interaction.response.edited["embed"].title, "weekly"
         )
         self.assertEqual(view.showing, "weekly")
+        self.assertTrue(view.weekly_button.disabled)
 
         await view.all_time_button.callback(interaction)
         self.assertEqual(
             interaction.response.edited["embed"].title, "all time"
         )
         self.assertEqual(view.showing, "all")
+        self.assertTrue(view.all_time_button.disabled)
 
 
 class LevelFormulaTests(unittest.TestCase):
