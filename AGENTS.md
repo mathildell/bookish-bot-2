@@ -158,6 +158,7 @@ bookishhideaway/           archived old Ruby project — out of scope, ignore
 
 ## Conventions
 
+- **Do not overwrite changes humans made in-between prompts.** Be careful to always be working with the latest file version before writing changes. 
 - **All user-facing text lives in `bot/texts/`.** Look it up with
   `t("dotted.key", **variables)`. Nothing that a Discord user can read (command
   descriptions, parameters, responses, embed labels, button labels, audit-log

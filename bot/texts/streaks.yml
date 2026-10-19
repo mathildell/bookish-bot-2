@@ -71,9 +71,10 @@ streaks:
     timezone_param: "Your timezone (e.g. Europe/Paris)"
     reminders_title: "Pick your reminder option"
     reminders_description: "%{options}"
-    amount_confirmation: "**Amount & unit updated.** Your streak and progress are unchanged."
-    timezone_confirmation: "**Timezone updated.** Your streak and progress are unchanged."
-    reminders_confirmation: "**Reminders updated.** Your streak and progress are unchanged."
+    confirmed_title: "Change saved"
+    amount_confirmation: "Your daily goal was updated. Here's what's saved now:"
+    timezone_confirmation: "Your timezone was updated. Here's what's saved now:"
+    reminders_confirmation: "Your reminders were updated. Here's what's saved now:"
 
   log:
     description: "Log how much you read today"
@@ -158,7 +159,7 @@ streaks:
     ongoing_desc: "The following are the top streaks currently ongoing in the server! Keep them going!"
     all_time_desc: "The following are the highest streaks ever recorded by the bot!"
     entry: "**%{place} %{mention}**"
-    days_details: "-# **%{days}** days (level %{level})   `-`   %{date}\n"
+    days_details: "> **%{days}** days (level %{level})   `-`   %{date}"
     empty: "No streaks to rank yet."
 
   channel:

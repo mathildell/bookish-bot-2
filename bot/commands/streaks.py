@@ -214,15 +214,21 @@ def _register_step_embed(
     return embed
 
 
-def _edit_menu_embed(
-    client: discord.Client, *, confirmation: str | None = None
-) -> discord.Embed:
+def _edit_menu_embed(client: discord.Client) -> discord.Embed:
     embed = new_embed(client)
     embed.title = t("streaks.edit.title")
-    description = t("streaks.edit.menu_description")
-    if confirmation is not None:
-        description += "\n\n" + confirmation
-    embed.description = description
+    embed.description = t("streaks.edit.menu_description")
+    set_transparent_image(embed, client)
+    return embed
+
+
+def _edit_confirmation_embed(
+    client: discord.Client, goal: StreakGoal, confirmation_key: str
+) -> discord.Embed:
+    embed = new_embed(client)
+    embed.title = t("streaks.edit.confirmed_title")
+    embed.description = t(f"streaks.edit.{confirmation_key}")
+    _add_goal_fields(embed, goal)
     set_transparent_image(embed, client)
     return embed
 
@@ -739,7 +745,7 @@ def _register_saved(original: discord.Interaction) -> SavedHandler:
 async def _edit_reminder_saved(
     interaction: discord.Interaction, goal: StreakGoal
 ) -> None:
-    await _show_edit_menu(interaction, t("streaks.edit.reminders_confirmation"))
+    await _show_edit_menu(interaction, goal, "reminders_confirmation")
 
 
 class _ExpiringView(discord.ui.View):
@@ -758,12 +764,19 @@ class _ExpiringView(discord.ui.View):
 
 
 async def _show_edit_menu(
-    interaction: discord.Interaction, confirmation: str
+    interaction: discord.Interaction,
+    goal: StreakGoal,
+    confirmation_key: str,
 ) -> None:
     view = StreakEditView(interaction.user.id)
     view.message = interaction.message
     await interaction.response.edit_message(
-        embed=_edit_menu_embed(interaction.client, confirmation=confirmation),
+        embeds=[
+            _edit_confirmation_embed(
+                interaction.client, goal, confirmation_key
+            ),
+            _edit_menu_embed(interaction.client),
+        ],
         view=view,
     )
 
@@ -820,7 +833,7 @@ class _AmountUnitModal(discord.ui.Modal):
         )
         if self.view is not None:
             self.view.stop()
-        await _show_edit_menu(interaction, t("streaks.edit.amount_confirmation"))
+        await _show_edit_menu(interaction, goal, "amount_confirmation")
 
 
 class _TimezoneModal(discord.ui.Modal):
@@ -862,7 +875,7 @@ class _TimezoneModal(discord.ui.Modal):
         )
         if self.view is not None:
             self.view.stop()
-        await _show_edit_menu(interaction, t("streaks.edit.timezone_confirmation"))
+        await _show_edit_menu(interaction, goal, "timezone_confirmation")
 
 
 class StreakEditView(_ExpiringView):
