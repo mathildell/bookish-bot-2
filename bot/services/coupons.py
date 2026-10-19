@@ -39,17 +39,17 @@ IMGBB_EXPIRATION_SECONDS = 7 * 24 * 3600
 
 # Placement of each field on the 600x360 templates, tuned to the blank lines.
 NAME_CENTER = (300, 112)
-NAME_SIZE = 30
-NAME_MAX_WIDTH = 320
+NAME_SIZE = 40
+NAME_MAX_WIDTH = 350
 LEVEL_CENTER = (436, 173)
-LEVEL_SIZE = 22
-LEVEL_MAX_WIDTH = 55
+LEVEL_SIZE = 28
+LEVEL_MAX_WIDTH = 65
 DATE_CENTER = (333, 206)
-DATE_SIZE = 20
-DATE_MAX_WIDTH = 155
+DATE_SIZE = 28
+DATE_MAX_WIDTH = 170
 XP_CENTER = (311, 252)
-XP_SIZE = 22
-XP_MAX_WIDTH = 155
+XP_SIZE = 28
+XP_MAX_WIDTH = 170
 
 
 class CouponError(Exception):
@@ -118,7 +118,7 @@ def render_coupon(
     """Draw the coupon onto a random template, returning the temporary file."""
     template = random.choice(_templates())
     with Image.open(template) as opened:
-        image = opened.convert("RGB")
+        image = opened.convert("RGBA")
     draw = ImageDraw.Draw(image)
     fill, stroke = _text_colours(image)
 

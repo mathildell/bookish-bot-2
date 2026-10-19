@@ -211,6 +211,8 @@ class CouponRenderTests(unittest.TestCase):
             self.assertTrue(path.exists())
             with coupons.Image.open(path) as image:
                 self.assertEqual(image.size, (600, 360))
+                self.assertEqual(image.mode, "RGBA")
+                self.assertEqual(image.getchannel("A").getextrema()[0], 0)
         finally:
             path.unlink(missing_ok=True)
 
