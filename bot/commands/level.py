@@ -63,9 +63,8 @@ def _progress_bar(current: int, needed: int) -> str:
     )
 
 
-def _level_value(user_xp) -> str:
-    frozen = t("level.frozen") if user_xp.xp_frozen else ""
-    return f"{user_xp.level}{frozen}"
+def _frozen_marker(user_xp) -> str:
+    return t("level.frozen") if user_xp.xp_frozen else ""
 
 
 def _progress_fields(
@@ -76,11 +75,13 @@ def _progress_fields(
     current, needed = _progress_values(user_xp)
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
+    progress = t("level.xp.level.progress", current=current, needed=needed)
+    progress += _frozen_marker(user_xp)
 
     return [
-        (t("level.progress"), t("level.xp.level.progress", current=current, needed=needed)),
+        (t("level.progress"), progress),
         (t("level.rank"), f"#{str(rank)}"),
-        (t("level.level"), _level_value(user_xp)),
+        (t("level.level"), str(current_level)),
         (t("level.reward_role"), role.mention if role else t("level.none")),
     ]
 
@@ -136,19 +137,19 @@ def _leaderboard_embed(
     embed.title = t("level.xp.leaderboard.title")
     lines = [t("level.xp.leaderboard.board_description"), ""]
     for index, ((user_xp, _rank), member) in enumerate(zip(rows, members)):
-        place = PODIUM[index] if index < 3 else f"{index + 1}."
+        place = PODIUM[index] if index < 3 else f"{index + 1}\."
         mention = member.mention if member else f"<@{user_xp.user_id}>"
         lines.append(
             t("level.xp.leaderboard.entry", place=place, mention=mention)
         )
         current, needed = _progress_values(user_xp)
         lines.append(
-            "\n-# "
-            + t(
+            t(
                 "level.xp.leaderboard.xp_details",
-                level=_level_value(user_xp),
+                level=user_xp.level,
                 current=current,
                 needed=needed,
+                frozen=_frozen_marker(user_xp),
             )
         )
     embed.description = "\n".join(lines)

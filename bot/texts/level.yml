@@ -7,7 +7,7 @@ level:
   level_up: "**Congratulations %{user}!** You made it to level %{level}! <a:aMushroomJump:1407185627472203818> :sparkles:"
   rank: "Rank"
   level: "Level"
-  frozen: " 🧊"
+  frozen: "   🧊"
   progress: "Level progress"
   reward_role: "Reward role"
   none: "None"
@@ -30,7 +30,7 @@ level:
       title: "XP Leaderboard"
       board_description: "The members who have gathered the most XP."
       entry: "%{place} %{mention}"
-      xp_details: "**Level %{level}** `-` %{current}/%{needed} XP"
+      xp_details: "> **Level %{level}**   `-`   %{current}/%{needed} XP%{frozen}"
     add:
       description: "Add XP to a user"
       param_user: "User to add XP to"

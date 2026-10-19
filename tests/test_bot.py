@@ -465,10 +465,12 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
         self.assertNotIn("500", embed.description)
         self.assertNotIn("Total XP", embed.description)
 
-    def test_shows_the_frozen_marker_with_the_level(self) -> None:
+    def test_shows_the_frozen_marker_with_the_level_progress(self) -> None:
         embed = self._embed(self.Row(1, 75, 1, xp_frozen=True))
 
-        self.assertIn(f"**Level 1{t('level.frozen')}**", embed.description)
+        self.assertIn(
+            f"**Level 1** `-` 0/175 XP{t('level.frozen')}", embed.description
+        )
 
 
 class LevelFormulaTests(unittest.TestCase):
@@ -661,11 +663,13 @@ class LevelProgressTests(unittest.TestCase):
     def test_never_shows_total_xp(self) -> None:
         self.assertNotIn("Total XP", self._fields(1, 75 + 40))
 
-    def test_frozen_marker_is_shown_next_to_the_level(self) -> None:
+    def test_frozen_marker_is_shown_next_to_the_progress(self) -> None:
         fields = self._fields(1, 75, xp_frozen=True)
         self.assertEqual(
-            fields[t("level.level")], f"1{t('level.frozen')}"
+            fields[t("level.progress")],
+            f"0/175 XP{t('level.frozen')}",
         )
+        self.assertEqual(fields[t("level.level")], "1")
 
     def test_progress_bar_segments(self) -> None:
         segments = level_cmds.PROGRESS_BAR_SEGMENTS
