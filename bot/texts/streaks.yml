@@ -59,7 +59,7 @@ streaks:
   edit:
     description: "Change your daily goal or your reminders"
     title: "Editing your streak"
-    menu_description: "What would you like to change? Your streak and its progress are left well alone."
+    menu_description: "What would you like to change? Your streak's progress will stay untouched."
     amount_unit_button: "Amount & unit"
     timezone_button: "Timezone"
     reminders_button: "Reminders"
@@ -71,8 +71,9 @@ streaks:
     timezone_param: "Your timezone (e.g. Europe/Paris)"
     reminders_title: "Pick your reminder option"
     reminders_description: "%{options}"
-    confirmed_title: "Updated"
-    confirmed_description: "All done! Your streak and progress are unchanged."
+    amount_confirmation: "**Amount & unit updated.** Your streak and progress are unchanged."
+    timezone_confirmation: "**Timezone updated.** Your streak and progress are unchanged."
+    reminders_confirmation: "**Reminders updated.** Your streak and progress are unchanged."
 
   log:
     description: "Log how much you read today"

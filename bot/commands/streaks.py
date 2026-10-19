@@ -214,21 +214,15 @@ def _register_step_embed(
     return embed
 
 
-def _edit_menu_embed(client: discord.Client) -> discord.Embed:
-    embed = new_embed(client)
-    embed.title = t("streaks.edit.title")
-    embed.description = t("streaks.edit.menu_description")
-    set_transparent_image(embed, client)
-    return embed
-
-
-def _edit_confirmed_embed(
-    client: discord.Client, goal: StreakGoal
+def _edit_menu_embed(
+    client: discord.Client, *, confirmation: str | None = None
 ) -> discord.Embed:
     embed = new_embed(client)
-    embed.title = t("streaks.edit.confirmed_title")
-    embed.description = t("streaks.edit.confirmed_description")
-    _add_goal_fields(embed, goal)
+    embed.title = t("streaks.edit.title")
+    description = t("streaks.edit.menu_description")
+    if confirmation is not None:
+        description += "\n\n" + confirmation
+    embed.description = description
     set_transparent_image(embed, client)
     return embed
 
@@ -577,7 +571,7 @@ def _leaderboard_embed(
         "",
     ]
     for index, ((streak, _goal), member) in enumerate(zip(rows, members)):
-        place = PODIUM[index] if index < 3 else f"{index + 1}."
+        place = PODIUM[index] if index < 3 else f"{index + 1}\\."
         mention = member.mention if member else f"<@{streak.user_id}>"
         latest = streak.last_log_date or streak.start_date
         lines.append(
@@ -632,7 +626,7 @@ async def _author_check(interaction: discord.Interaction, author_id: int) -> boo
 ReminderSaver = Callable[
     [discord.Interaction, str, int | None], Awaitable[StreakGoal]
 ]
-ConfirmBuilder = Callable[[discord.Client, StreakGoal], discord.Embed]
+SavedHandler = Callable[[discord.Interaction, StreakGoal], Awaitable[None]]
 
 
 class _HourSelectView(discord.ui.View):
@@ -641,13 +635,13 @@ class _HourSelectView(discord.ui.View):
         author_id: int,
         reminder: str,
         save_reminder: ReminderSaver,
-        confirm_builder: ConfirmBuilder,
+        on_saved: SavedHandler,
     ) -> None:
         super().__init__(timeout=180)
         self.author_id = author_id
         self.reminder = reminder
         self.save_reminder = save_reminder
-        self.confirm_builder = confirm_builder
+        self.on_saved = on_saved
         self.add_item(_HourSelect())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -655,9 +649,7 @@ class _HourSelectView(discord.ui.View):
 
     async def save(self, interaction: discord.Interaction, hour: int) -> None:
         goal = await self.save_reminder(interaction, self.reminder, hour)
-        await interaction.response.edit_message(
-            embed=self.confirm_builder(interaction.client, goal), view=None
-        )
+        await self.on_saved(interaction, goal)
 
 
 class _ReminderChoiceView(discord.ui.View):
@@ -665,25 +657,23 @@ class _ReminderChoiceView(discord.ui.View):
         self,
         author_id: int,
         save_reminder: ReminderSaver,
-        confirm_builder: ConfirmBuilder,
+        on_saved: SavedHandler,
     ) -> None:
         super().__init__(timeout=180)
         self.author_id = author_id
         self.save_reminder = save_reminder
-        self.confirm_builder = confirm_builder
+        self.on_saved = on_saved
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await _author_check(interaction, self.author_id)
 
     async def _save(self, interaction: discord.Interaction, reminder: str) -> None:
         goal = await self.save_reminder(interaction, reminder, None)
-        await interaction.response.edit_message(
-            embed=self.confirm_builder(interaction.client, goal), view=None
-        )
+        await self.on_saved(interaction, goal)
 
     def _hour_view(self, reminder: str) -> _HourSelectView:
         return _HourSelectView(
-            self.author_id, reminder, self.save_reminder, self.confirm_builder
+            self.author_id, reminder, self.save_reminder, self.on_saved
         )
 
     @discord.ui.button(emoji="❌", style=discord.ButtonStyle.secondary)
@@ -732,9 +722,59 @@ async def _edit_save_reminder(
     )
 
 
+def _register_saved(original: discord.Interaction) -> SavedHandler:
+    async def save(
+        interaction: discord.Interaction, goal: StreakGoal
+    ) -> None:
+        await interaction.response.send_message(
+            embed=_register_confirmed_embed(interaction.client, goal)
+        )
+        try:
+            await original.delete_original_response()
+        except discord.HTTPException:
+            pass
+
+    return save
+
+
+async def _edit_reminder_saved(
+    interaction: discord.Interaction, goal: StreakGoal
+) -> None:
+    await _show_edit_menu(interaction, t("streaks.edit.reminders_confirmation"))
+
+
+class _ExpiringView(discord.ui.View):
+    """A timed view whose buttons grey out once it can no longer respond."""
+
+    message: discord.Message | None = None
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.disabled = True
+        if self.message is not None:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
+
+
+async def _show_edit_menu(
+    interaction: discord.Interaction, confirmation: str
+) -> None:
+    view = StreakEditView(interaction.user.id)
+    view.message = interaction.message
+    await interaction.response.edit_message(
+        embed=_edit_menu_embed(interaction.client, confirmation=confirmation),
+        view=view,
+    )
+
+
 class _AmountUnitModal(discord.ui.Modal):
-    def __init__(self, goal: StreakGoal) -> None:
+    def __init__(
+        self, goal: StreakGoal, view: discord.ui.View | None = None
+    ) -> None:
         super().__init__(title=t("streaks.edit.amount_modal_title"))
+        self.view = view
         self.amount = discord.ui.TextInput(
             label=t("streaks.edit.amount_param"), default=str(goal.amount)
         )
@@ -779,14 +819,17 @@ class _AmountUnitModal(discord.ui.Modal):
             reminder=goal.reminder,
             custom_hour=goal.custom_hour,
         )
-        await interaction.response.edit_message(
-            embed=_edit_confirmed_embed(interaction.client, goal), view=None
-        )
+        if self.view is not None:
+            self.view.stop()
+        await _show_edit_menu(interaction, t("streaks.edit.amount_confirmation"))
 
 
 class _TimezoneModal(discord.ui.Modal):
-    def __init__(self, goal: StreakGoal) -> None:
+    def __init__(
+        self, goal: StreakGoal, view: discord.ui.View | None = None
+    ) -> None:
         super().__init__(title=t("streaks.edit.timezone_modal_title"))
+        self.view = view
         self.timezone = discord.ui.TextInput(
             label=t("streaks.edit.timezone_param"), default=goal.timezone
         )
@@ -818,12 +861,12 @@ class _TimezoneModal(discord.ui.Modal):
             reminder=goal.reminder,
             custom_hour=goal.custom_hour,
         )
-        await interaction.response.edit_message(
-            embed=_edit_confirmed_embed(interaction.client, goal), view=None
-        )
+        if self.view is not None:
+            self.view.stop()
+        await _show_edit_menu(interaction, t("streaks.edit.timezone_confirmation"))
 
 
-class StreakEditView(discord.ui.View):
+class StreakEditView(_ExpiringView):
     def __init__(self, author_id: int) -> None:
         super().__init__(timeout=180)
         self.author_id = author_id
@@ -841,7 +884,8 @@ class StreakEditView(discord.ui.View):
 
     @discord.ui.button(
         label=t("streaks.edit.amount_unit_button"),
-        style=discord.ButtonStyle.primary,
+        emoji="📙",
+        style=discord.ButtonStyle.secondary,
     )
     async def amount_unit(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -849,10 +893,11 @@ class StreakEditView(discord.ui.View):
         goal = await self._goal(interaction)
         if goal is None:
             return
-        await interaction.response.send_modal(_AmountUnitModal(goal))
+        await interaction.response.send_modal(_AmountUnitModal(goal, self))
 
     @discord.ui.button(
         label=t("streaks.edit.timezone_button"),
+        emoji="🌍",
         style=discord.ButtonStyle.secondary,
     )
     async def timezone(
@@ -861,19 +906,23 @@ class StreakEditView(discord.ui.View):
         goal = await self._goal(interaction)
         if goal is None:
             return
-        await interaction.response.send_modal(_TimezoneModal(goal))
+        await interaction.response.send_modal(_TimezoneModal(goal, self))
 
     @discord.ui.button(
         label=t("streaks.edit.reminders_button"),
+        emoji="🕑",
         style=discord.ButtonStyle.secondary,
     )
     async def reminders(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
+        self.stop()
         await interaction.response.edit_message(
             embed=_reminders_prompt_embed(interaction.client),
             view=_ReminderChoiceView(
-                self.author_id, _edit_save_reminder, _edit_confirmed_embed
+                self.author_id,
+                _edit_save_reminder,
+                _edit_reminder_saved,
             ),
         )
 
@@ -946,26 +995,13 @@ class _EditButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        view = StreakEditView(interaction.user.id)
         await interaction.response.send_message(
             embed=_edit_menu_embed(interaction.client),
-            view=StreakEditView(interaction.user.id),
+            view=view,
             ephemeral=True,
         )
-
-
-class _ExpiringView(discord.ui.View):
-    """A timed view whose buttons grey out once it can no longer respond."""
-
-    message: discord.Message | None = None
-
-    async def on_timeout(self) -> None:
-        for child in self.children:
-            child.disabled = True
-        if self.message is not None:
-            try:
-                await self.message.edit(view=self)
-            except discord.HTTPException:
-                pass
+        view.message = await interaction.original_response()
 
 
 class _ViewActions(_ExpiringView):
@@ -1077,12 +1113,12 @@ async def register(
         )
 
     view = _ReminderChoiceView(
-        interaction.user.id, save_reminder, _register_confirmed_embed
+        interaction.user.id, save_reminder, _register_saved(interaction)
     )
     await interaction.response.send_message(
         embed=_register_step_embed(interaction.client, amount, clean_unit, zone),
         view=view,
-        ephemeral=False,
+        ephemeral=True,
     )
 
 
@@ -1105,11 +1141,13 @@ async def edit(interaction: discord.Interaction) -> None:
             t("streaks.errors.not_registered"), ephemeral=True
         )
         return
+    view = StreakEditView(interaction.user.id)
     await interaction.response.send_message(
         embed=_edit_menu_embed(interaction.client),
-        view=StreakEditView(interaction.user.id),
+        view=view,
         ephemeral=True,
     )
+    view.message = await interaction.original_response()
 
 
 @streaks_group.command(name="log", description=t("streaks.log.description"))
