@@ -852,35 +852,38 @@ async def run(args: argparse.Namespace) -> None:
 
     if not prepared_goals:
         print("\nNothing to import.")
-        await close_db()
         return
 
     init_db(config.mysql_url)
-    await create_tables()
+    created_goals = created_streaks = created_logs = 0
+    try:
+        await create_tables()
+        async with session_scope() as session:
+            goal_ids, streak_ids, existing_logs = await _target_rows(
+                session, guild_id, user_ids
+            )
+            print(
+                f"\nExisting rows for the {len(user_ids)} target member(s): "
+                f"{len(goal_ids)} goal(s), {len(streak_ids)} streak(s), "
+                f"{existing_logs} log(s)."
+            )
+            print(
+                f"Mode: "
+                f"{'dry-run' if args.dry_run else 'write (wipe + reinsert)'}\n"
+            )
 
-    async with session_scope() as session:
-        goal_ids, streak_ids, existing_logs = await _target_rows(
-            session, guild_id, user_ids
-        )
-        print(
-            f"\nExisting rows for the {len(user_ids)} target member(s): "
-            f"{len(goal_ids)} goal(s), {len(streak_ids)} streak(s), "
-            f"{existing_logs} log(s)."
-        )
-        print(f"Mode: {'dry-run' if args.dry_run else 'write (wipe + reinsert)'}\n")
+            if not args.dry_run:
+                await _wipe(session, goal_ids, streak_ids)
+                created_goals, created_streaks, created_logs = await _insert(
+                    session, guild_id, prepared_goals
+                )
+                await session.commit()
+    finally:
+        await close_db()
 
-        if args.dry_run:
-            print("Dry run: no changes written.")
-            await close_db()
-            return
-
-        await _wipe(session, goal_ids, streak_ids)
-        created_goals, created_streaks, created_logs = await _insert(
-            session, guild_id, prepared_goals
-        )
-        await session.commit()
-
-    await close_db()
+    if args.dry_run:
+        print("Dry run: no changes written.")
+        return
 
     print(
         f"Imported: {created_goals} goal(s), {created_streaks} streak(s), "
