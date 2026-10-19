@@ -287,6 +287,7 @@ class LeaderboardView(discord.ui.View):
     name="leaderboard", description=t("level.xp.leaderboard.description")
 )
 async def leaderboard(interaction: discord.Interaction) -> None:
+    await interaction.response.defer()
     now = level_service.utcnow()
     week_start = level_service.week_start_for(now.date())
     async with session_scope() as session:
@@ -304,9 +305,13 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         )
 
     if not rows:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             t("level.xp.leaderboard.empty"), ephemeral=True
         )
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException:
+            pass
         return
 
     members = await resolve_members(
@@ -326,8 +331,9 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         week_start=week_start,
     )
     view = LeaderboardView(all_time_embed, weekly_embed)
-    await interaction.response.send_message(embed=all_time_embed, view=view)
-    view.message = await interaction.original_response()
+    view.message = await interaction.edit_original_response(
+        embed=all_time_embed, view=view
+    )
 
 
 @xp_group.command(name="weekly", description=t("level.xp.weekly.description"))
