@@ -168,9 +168,7 @@ async def _post_streak_reminders(
         view = StreakLogView()
         try:
             message = await channel.send(
-                content=interpolate(template, mentions=mentions),
-                embed=embed,
-                view=view,
+                content=mentions, embed=embed, view=view
             )
         except discord.HTTPException:
             logger.warning(

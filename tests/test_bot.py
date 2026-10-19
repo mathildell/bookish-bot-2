@@ -980,7 +980,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
             FakeClient(), channel, reminders, guild=guild, colour=None
         )
 
-        self.assertIn("<@1>", channel.sent[0])
+        self.assertEqual(channel.sent[0], "<@1>")
         self.assertIn("Alice", channel.embeds[0].description)
         self.assertNotIn("<@1>", channel.embeds[0].description)
 
