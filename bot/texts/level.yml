@@ -30,7 +30,7 @@ level:
       title: "XP Leaderboard"
       board_description: "Our all-time most active members  💛"
       entry: "> ### %{place} %{mention}"
-      xp_details: "**Level %{level}**  (%{frozen}%{current}/%{needed} XP)"
+      xp_details: "> **Level %{level}**  (%{frozen}%{current}/%{needed} XP)"
       weekly_title: "Weekly XP Leaderboard"
       weekly_board_description: "Top yappers of the week!"
       weekly_details: "> **%{xp} XP** earned this week"
