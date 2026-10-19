@@ -141,6 +141,7 @@ def _leaderboard_embed(
     *,
     title: str | None = None,
     board_description: str | None = None,
+    note=None,
     details=None,
 ) -> discord.Embed:
     embed = new_embed(client)
@@ -169,6 +170,12 @@ def _leaderboard_embed(
             )
         )
     embed.description = "\n".join(lines)
+    
+    if note is not None:
+        embed.description += note if note is not None
+    if not rows:
+        embed.description += f"\n{t('level.xp.leaderboard.weekly_empty')}"
+    
     set_transparent_image(embed, client)
     return embed
 
@@ -210,21 +217,15 @@ def weekly_leaderboard_embed(
         start=week_start.strftime("%b %d, %Y"),
         reset=discord.utils.format_dt(reset_at, "R"),
     )
-    description = (
-        f"{t('level.xp.leaderboard.weekly_board_description')}\n{note}"
-    )
     embed = _leaderboard_embed(
         client,
         rows,
         members,
         title=t("level.xp.leaderboard.weekly_title"),
-        board_description=description,
+        board_description=t('level.xp.leaderboard.weekly_board_description'),
+        note=t('level.xp.leaderboard.weekly_week_of'),
         details=_weekly_details,
     )
-    if not rows:
-        embed.description = (
-            f"{embed.description}\n{t('level.xp.leaderboard.weekly_empty')}"
-        )
     return embed
 
 
