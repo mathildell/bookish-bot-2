@@ -72,9 +72,9 @@ streaks:
     reminders_title: "Pick your reminder option"
     reminders_description: "%{options}"
     confirmed_title: "Change saved"
-    amount_confirmation: "Your daily goal was updated. Here's what's saved now:"
-    timezone_confirmation: "Your timezone was updated. Here's what's saved now:"
-    reminders_confirmation: "Your reminders were updated. Here's what's saved now:"
+    amount_confirmation: "Your daily goal has been updated"
+    timezone_confirmation: "Your timezone has been updated"
+    reminders_confirmation: "Your reminders have been updated"
 
   log:
     description: "Log how much you read today"
