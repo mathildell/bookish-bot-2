@@ -21,3 +21,4 @@ venv/
 # Other
 docs/
 assets/tmp/
+bkp/streaks_2026-10-19/*.json
