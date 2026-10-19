@@ -25,14 +25,18 @@ streaks:
       custom: "Reminder at %{hour}"
       last_chance: "Last chance reminder (11PM)"
       both: "%{hour}, plus last chance (11PM)"
+    reminder_none_emoji: "❌"
+    reminder_custom_emoji: "🕑"
+    reminder_last_emoji: "🌙"
+    reminder_both_emoji: "2️⃣"
     reminder_options: |
-      ### ❌ ‎ None
+      ### %{none_emoji} ‎ None
       > You will not be pinged for streak reminders
-      ### 🕑 ‎ Custom time
+      ### %{custom_emoji} ‎ Custom time
       > Choose at which hour to receive your notification on (will ping you at the same time everyday)
-      ### 🌙 ‎ Last Chance Reminder
+      ### %{last_emoji} ‎ Last Chance Reminder
       > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
-      ### 2️⃣ ‎ Both
+      ### %{both_emoji} ‎ Both
       > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
 
   register:
@@ -60,9 +64,13 @@ streaks:
     description: "Change your daily goal or your reminders"
     title: "Editing your streak"
     menu_description: "What would you like to change? Your streak's progress will stay untouched."
+    amount_unit_button_emoji: "📙"
     amount_unit_button: "Amount & unit"
+    timezone_button_emoji: "🌍"
     timezone_button: "Timezone"
+    reminders_button_emoji: "🕑"
     reminders_button: "Reminders"
+    button_on_view_emoji: "⚙️"
     button_on_view: "Edit your goal"
     amount_modal_title: "Daily amount & unit"
     amount_param: "How many (pages, minutes, chapters...)"
@@ -196,7 +204,7 @@ streaks:
     cant_rescue: "That streak can't be rescued anymore. It had a good run. We will remember it fondly."
 
   reminders:
-    title: "A small reminder"
+    title: "Streak reminder"
     content:
       - "Oye, oye %{mentions}, your streak would like a word with you!"
       - "%{mentions} daily reminder to stay hydrated... and log your daily achievement!"
@@ -213,7 +221,7 @@ streaks:
   anniversary:
     title: "A whole year"
     content: "<@%{user_id}> has kept a reading streak alive for a full year! **%{days} days total**. WOW!"
-    footer: "Three hundred and sixty-five days. Some people plant trees for this."
+    footer: "You should treat yourself to a cake"
     images:
       - "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbWNxc2ZnNWkyNHNveXY0cnUxamdsOWFpaDdoaTd4b2QxbTQ5MTA0ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/OXY6TyrhUNdlu/giphy.gif"
       - "https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExeTNtaWY5NzJ2ajB2eXJwYXZzNnR0OGZid2d0OWxsaDZyYnRraWRvMyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/s2qXK8wAvkHTO/giphy.gif"

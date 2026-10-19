@@ -211,7 +211,13 @@ def _register_step_embed(
         amount=amount,
         unit=unit,
         timezone=timezone,
-        options=t("streaks.shared.reminder_options"),
+        options=t(
+            "streaks.shared.reminder_options",
+            none_emoji=t("streaks.shared.reminder_none_emoji"),
+            custom_emoji=t("streaks.shared.reminder_custom_emoji"),
+            last_emoji=t("streaks.shared.reminder_last_emoji"),
+            both_emoji=t("streaks.shared.reminder_both_emoji")
+        ),
     )
     set_transparent_image(embed, client)
     return embed
@@ -684,13 +690,13 @@ class _ReminderChoiceView(discord.ui.View):
             self.author_id, reminder, self.save_reminder, self.on_saved
         )
 
-    @discord.ui.button(emoji="❌", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji=t("streaks.shared.reminder_none_emoji"), style=discord.ButtonStyle.secondary)
     async def none(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await self._save(interaction, "none")
 
-    @discord.ui.button(emoji="🕑", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji=t("streaks.shared.reminder_custom_emoji"), style=discord.ButtonStyle.secondary)
     async def custom(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
@@ -698,13 +704,13 @@ class _ReminderChoiceView(discord.ui.View):
             embed=_hour_embed(interaction.client), view=self._hour_view("custom")
         )
 
-    @discord.ui.button(emoji="🌙", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji=t("streaks.shared.reminder_last_emoji"), style=discord.ButtonStyle.secondary)
     async def last_chance(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await self._save(interaction, "last_chance")
 
-    @discord.ui.button(emoji="2️⃣", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji=t("streaks.shared.reminder_both_emoji"), style=discord.ButtonStyle.secondary)
     async def both(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
@@ -899,7 +905,7 @@ class StreakEditView(_ExpiringView):
 
     @discord.ui.button(
         label=t("streaks.edit.amount_unit_button"),
-        emoji="📙",
+        emoji=t("streaks.edit.amount_unit_button_emoji"),
         style=discord.ButtonStyle.secondary,
     )
     async def amount_unit(
@@ -912,7 +918,7 @@ class StreakEditView(_ExpiringView):
 
     @discord.ui.button(
         label=t("streaks.edit.timezone_button"),
-        emoji="🌍",
+        emoji=t("streaks.edit.timezone_button_emoji"),
         style=discord.ButtonStyle.secondary,
     )
     async def timezone(
@@ -925,7 +931,7 @@ class StreakEditView(_ExpiringView):
 
     @discord.ui.button(
         label=t("streaks.edit.reminders_button"),
-        emoji="🕑",
+        emoji=t("streaks.edit.reminders_button_emoji"),
         style=discord.ButtonStyle.secondary,
     )
     async def reminders(
@@ -1005,7 +1011,7 @@ class _EditButton(discord.ui.Button):
     def __init__(self) -> None:
         super().__init__(
             label=t("streaks.edit.button_on_view"),
-            emoji="✏️",
+            emoji=t("streaks.edit.button_on_view_emoji"),
             style=discord.ButtonStyle.secondary,
         )
 
