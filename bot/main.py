@@ -446,7 +446,6 @@ async def run() -> None:
                     ranked,
                     members,
                     week_start=week_start,
-                    now=now,
                 )
             )
         except discord.HTTPException:

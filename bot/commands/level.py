@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import discord
 from discord import app_commands
 
 from ..db import session_scope
-from ..models import UserXP, WeeklyXP
+from ..models import UserXP
 from ..notifications import announce_level_up
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_member_roles
@@ -172,30 +172,42 @@ def _leaderboard_embed(
     return embed
 
 
-def _week_reset_text(now: datetime) -> str:
-    """How long the current Monday-based week has left before Sunday ends."""
-    days = 6 - now.weekday()
-    if days == 0:
-        return t("level.xp.leaderboard.weekly_resets_today")
-    if days == 1:
-        return t("level.xp.leaderboard.weekly_resets_tomorrow")
-    return t("level.xp.leaderboard.weekly_resets_in", days=days)
+def _weekly_details(row: level_service.WeeklyStanding) -> str:
+    """Describe a member's weekly XP and the level progress it bought."""
+    if row.level_start == row.level_end:
+        return t(
+            "level.xp.leaderboard.weekly_details_progress",
+            xp=row.xp,
+            n1=row.progress_start,
+            n2=row.progress_end,
+            needed=row.needed,
+        )
+    return t(
+        "level.xp.leaderboard.weekly_details_levels",
+        xp=row.xp,
+        l1=row.level_start,
+        l2=row.level_end,
+        n1=row.progress_start,
+        n2=row.progress_end,
+        needed=row.needed,
+    )
 
 
 def weekly_leaderboard_embed(
     client: discord.Client,
-    rows: list[tuple[WeeklyXP, int]],
+    rows: list[tuple[level_service.WeeklyStanding, int]],
     members: list[discord.Member | None],
     *,
     week_start: date,
-    now: datetime,
 ) -> discord.Embed:
     """Build the weekly board using the all-time leaderboard layout."""
-    monday = datetime.combine(week_start, time.min, tzinfo=timezone.utc)
+    reset_at = datetime.combine(
+        week_start + timedelta(days=7), time.min, tzinfo=timezone.utc
+    )
     note = t(
         "level.xp.leaderboard.weekly_week_of",
-        start=discord.utils.format_dt(monday, "D"),
-        reset=_week_reset_text(now),
+        start=week_start.strftime("%b %d, %Y"),
+        reset=discord.utils.format_dt(reset_at, "R"),
     )
     description = (
         f"{t('level.xp.leaderboard.weekly_board_description')}\n{note}"
@@ -206,7 +218,7 @@ def weekly_leaderboard_embed(
         members,
         title=t("level.xp.leaderboard.weekly_title"),
         board_description=description,
-        details=lambda row: t("level.xp.leaderboard.weekly_details", xp=row.xp),
+        details=_weekly_details,
     )
     if not rows:
         embed.description = (
@@ -226,6 +238,7 @@ class LeaderboardView(discord.ui.View):
         super().__init__(timeout=180)
         self.embeds = {"all": all_time_embed, "weekly": weekly_embed}
         self.showing = "all"
+        self.message: discord.Message | None = None
         self._sync_styles()
 
     def _sync_styles(self) -> None:
@@ -238,6 +251,15 @@ class LeaderboardView(discord.ui.View):
         await interaction.response.edit_message(
             embed=self.embeds[which], view=self
         )
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.disabled = True
+        if self.message is not None:
+            try:
+                await self.message.edit(view=self)
+            except discord.HTTPException:
+                pass
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_all_time"),
@@ -301,12 +323,10 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         weekly_ranked,
         weekly_members,
         week_start=week_start,
-        now=now,
     )
-    await interaction.response.send_message(
-        embed=all_time_embed,
-        view=LeaderboardView(all_time_embed, weekly_embed),
-    )
+    view = LeaderboardView(all_time_embed, weekly_embed)
+    await interaction.response.send_message(embed=all_time_embed, view=view)
+    view.message = await interaction.original_response()
 
 
 @xp_group.command(name="weekly", description=t("level.xp.weekly.description"))

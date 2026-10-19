@@ -225,12 +225,50 @@ async def page_of_user_xp(
     return [(user_xp, int(rank)) for user_xp, rank in result]
 
 
+@dataclass
+class WeeklyStanding:
+    """A member's weekly XP plus the level progress it produced."""
+
+    user_id: int
+    xp: int
+    level_start: int
+    progress_start: int
+    level_end: int
+    progress_end: int
+    needed: int
+
+
+def standing_from_weekly(weekly: WeeklyXP, user_xp: UserXP) -> WeeklyStanding:
+    """Derive a week's XP and level change from the stored totals.
+
+    The level at the start of the week is recovered by subtracting the week's
+    XP from the current total, which is exact unless XP was removed mid-week.
+    """
+    start_total = max(0, user_xp.total_xp - weekly.xp)
+    level_start = level_from_total_xp(start_total)
+    level_end = user_xp.level
+    return WeeklyStanding(
+        user_id=weekly.user_id,
+        xp=weekly.xp,
+        level_start=level_start,
+        progress_start=start_total - total_xp_for_level(level_start),
+        level_end=level_end,
+        progress_end=user_xp.total_xp - total_xp_for_level(level_end),
+        needed=xp_increment_to_reach_level(level_end),
+    )
+
+
 async def page_of_weekly_xp(
     session, *, guild_id: int, week_start: date, limit: int, offset: int = 0
-) -> list[WeeklyXP]:
+) -> list[WeeklyStanding]:
     """Members ordered by XP earned in the week starting ``week_start``."""
     stmt = (
-        select(WeeklyXP)
+        select(WeeklyXP, UserXP)
+        .join(
+            UserXP,
+            (UserXP.guild_id == WeeklyXP.guild_id)
+            & (UserXP.user_id == WeeklyXP.user_id),
+        )
         .where(
             WeeklyXP.guild_id == guild_id,
             WeeklyXP.week_start == week_start,
@@ -239,7 +277,8 @@ async def page_of_weekly_xp(
         .limit(limit)
         .offset(offset)
     )
-    return list((await session.execute(stmt)).scalars())
+    result = await session.execute(stmt)
+    return [standing_from_weekly(weekly, user_xp) for weekly, user_xp in result]
 
 
 def is_weekly_post_due(
@@ -306,7 +345,7 @@ class WeeklyLeaderboardService:
 
     async def top(
         self, *, week_start: date, limit: int = WEEKLY_LEADERBOARD_SIZE
-    ) -> list[WeeklyXP]:
+    ) -> list[WeeklyStanding]:
         async with session_scope() as session:
             return await page_of_weekly_xp(
                 session,

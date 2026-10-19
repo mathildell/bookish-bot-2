@@ -457,7 +457,7 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
         self.assertEqual(embed.title, t("level.xp.leaderboard.title"))
         self.assertIn("🥇 <@1>", embed.description)
         self.assertIn("**Level 0**  (0/75 XP)", embed.description)
-        self.assertIn("**10\\. <@10>**", embed.description)
+        self.assertIn("> ### 10\\. <@10>", embed.description)
 
     def test_never_shows_total_xp(self) -> None:
         embed = self._embed(self.Row(1, 500, 2))
@@ -523,16 +523,32 @@ class WeekStartTests(unittest.TestCase):
 
 
 class WeeklyLeaderboardEmbedTests(unittest.TestCase):
-    class Row:
-        def __init__(self, user_id: int, xp: int) -> None:
-            self.user_id = user_id
-            self.xp = xp
-
     class Member:
         def __init__(self, user_id: int) -> None:
             self.mention = f"<@{user_id}>"
 
-    def _embed(self, rows, *, now=None):
+    def _row(
+        self,
+        user_id: int,
+        xp: int,
+        *,
+        level_start: int = 0,
+        progress_start: int = 0,
+        level_end: int = 1,
+        progress_end: int = 0,
+        needed: int = 175,
+    ) -> level_service.WeeklyStanding:
+        return level_service.WeeklyStanding(
+            user_id=user_id,
+            xp=xp,
+            level_start=level_start,
+            progress_start=progress_start,
+            level_end=level_end,
+            progress_end=progress_end,
+            needed=needed,
+        )
+
+    def _embed(self, rows) -> discord.Embed:
         ranked = [(row, index + 1) for index, row in enumerate(rows)]
         members = [self.Member(row.user_id) for row in rows]
         return level_cmds.weekly_leaderboard_embed(
@@ -540,45 +556,85 @@ class WeeklyLeaderboardEmbedTests(unittest.TestCase):
             ranked,
             members,
             week_start=datetime.date(2026, 10, 19),
-            now=now or datetime.datetime(2026, 10, 21, 12),
         )
 
     def test_uses_the_leaderboard_layout_and_weekly_xp(self) -> None:
-        embed = self._embed([self.Row(1, 500), self.Row(2, 250)])
+        embed = self._embed([self._row(1, 500), self._row(2, 250)])
 
         self.assertEqual(
             embed.title, t("level.xp.leaderboard.weekly_title")
         )
         self.assertIn("🥇 <@1>", embed.description)
         self.assertIn("🥈 <@2>", embed.description)
-        self.assertIn(
-            t("level.xp.leaderboard.weekly_details", xp=500),
-            embed.description,
-        )
+        self.assertIn("**500 XP**", embed.description)
         self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
         self.assertEqual(embed.colour.value, 0x97A97C)
 
-    def test_reports_the_week_and_the_reset_countdown(self) -> None:
-        embed = self._embed([self.Row(1, 500)])
+    def test_details_report_the_level_change(self) -> None:
+        embed = self._embed(
+            [
+                self._row(
+                    1,
+                    500,
+                    level_start=0,
+                    progress_start=0,
+                    level_end=2,
+                    progress_end=150,
+                    needed=275,
+                )
+            ]
+        )
 
         self.assertIn(
             t(
-                "level.xp.leaderboard.weekly_resets_in",
-                days=4,
+                "level.xp.leaderboard.weekly_details_levels",
+                xp=500,
+                l1=0,
+                l2=2,
+                n1=0,
+                n2=150,
+                needed=275,
             ),
             embed.description,
         )
 
-    def test_reset_countdown_on_sunday(self) -> None:
+    def test_details_without_a_level_change_omit_the_levels(self) -> None:
         embed = self._embed(
-            [self.Row(1, 500)],
-            now=datetime.datetime(2026, 10, 25, 12),
+            [
+                self._row(
+                    1,
+                    100,
+                    level_start=1,
+                    progress_start=50,
+                    level_end=1,
+                    progress_end=150,
+                    needed=175,
+                )
+            ]
         )
 
         self.assertIn(
-            t("level.xp.leaderboard.weekly_resets_today"),
+            t(
+                "level.xp.leaderboard.weekly_details_progress",
+                xp=100,
+                n1=50,
+                n2=150,
+                needed=175,
+            ),
             embed.description,
         )
+
+    def test_reports_the_week_and_the_reset_timestamp(self) -> None:
+        embed = self._embed([self._row(1, 500)])
+
+        self.assertIn("Week of Oct 19, 2026", embed.description)
+        reset_at = datetime.datetime(
+            2026, 10, 26, tzinfo=datetime.timezone.utc
+        )
+        self.assertIn(
+            discord.utils.format_dt(reset_at, "R"), embed.description
+        )
+        self.assertIn("(Mon-Sun).", embed.description)
 
     def test_empty_week_is_explained(self) -> None:
         embed = self._embed([])
@@ -640,6 +696,17 @@ class LeaderboardViewTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(view.showing, "all")
         self.assertTrue(view.all_time_button.disabled)
+
+    async def test_timeout_disables_the_buttons(self) -> None:
+        view = self._view()
+        message = _FakeMessage()
+        view.message = message
+
+        await view.on_timeout()
+
+        self.assertTrue(view.all_time_button.disabled)
+        self.assertTrue(view.weekly_button.disabled)
+        self.assertEqual(message.edits, [{"view": view}])
 
 
 class LevelFormulaTests(unittest.TestCase):
