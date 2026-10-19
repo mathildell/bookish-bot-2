@@ -171,7 +171,7 @@ def _leaderboard_embed(
     embed.description = "\n".join(lines)
     
     if note is not None:
-        embed.description += f"\n{note}"
+        embed.description += f"\n\n{note}"
     
     if not rows:
         embed.description += f"\n{t('level.xp.leaderboard.weekly_empty')}"
@@ -212,11 +212,11 @@ def weekly_leaderboard_embed(
     reset_at = datetime.combine(
         week_start + timedelta(days=7), time.min, tzinfo=timezone.utc
     )
-    note = t(
+    note = f"{t(
         "level.xp.leaderboard.weekly_week_of",
         start=week_start.strftime("%b %d, %Y"),
         reset=discord.utils.format_dt(reset_at, "R"),
-    )
+    )}"
     embed = _leaderboard_embed(
         client,
         rows,
