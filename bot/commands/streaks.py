@@ -129,6 +129,11 @@ def _window_successes(streak: Streak, logs: list[StreakLog]) -> int:
 
 def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
     embed.add_field(
+        name=t("streaks.shared.goal_field"),
+        value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
+        inline=True,
+    )
+    embed.add_field(
         name=t("streaks.shared.timezone_field"),
         value=t(
             "streaks.shared.timezone_value",
@@ -140,11 +145,6 @@ def _add_goal_fields(embed: discord.Embed, goal: StreakGoal) -> None:
     embed.add_field(
         name=t("streaks.shared.notification_field"),
         value=_reminder_text(goal),
-        inline=True,
-    )
-    embed.add_field(
-        name=t("streaks.shared.goal_field"),
-        value=t("streaks.shared.per_day", amount=goal.amount, unit=goal.unit),
         inline=True,
     )
 
