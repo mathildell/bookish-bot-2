@@ -15,6 +15,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import discord
 
@@ -455,9 +456,21 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
         embed = self._embed(*rows)
 
         self.assertEqual(embed.title, t("level.xp.leaderboard.title"))
-        self.assertIn("🥇 <@1>", embed.description)
-        self.assertIn("**Level 0**  (0/75 XP)", embed.description)
-        self.assertIn("> ### 10\\. <@10>", embed.description)
+        self.assertIn(
+            f"{t('components.leaderboard.placement_1')} <@1>",
+            embed.description,
+        )
+        self.assertIn(
+            t(
+                "level.xp.leaderboard.xp_details",
+                level=0,
+                current=0,
+                needed=75,
+                frozen="",
+            ),
+            embed.description,
+        )
+        self.assertIn("> ### 10. <@10>", embed.description)
 
     def test_never_shows_total_xp(self) -> None:
         embed = self._embed(self.Row(1, 500, 2))
@@ -469,7 +482,14 @@ class LevelLeaderboardEmbedTests(unittest.TestCase):
         embed = self._embed(self.Row(1, 75, 1, xp_frozen=True))
 
         self.assertIn(
-            f"**Level 1**  ({t('level.frozen')}0/175 XP)", embed.description
+            t(
+                "level.xp.leaderboard.xp_details",
+                level=1,
+                current=0,
+                needed=175,
+                frozen=t("level.frozen"),
+            ),
+            embed.description,
         )
 
 
@@ -564,9 +584,26 @@ class WeeklyLeaderboardEmbedTests(unittest.TestCase):
         self.assertEqual(
             embed.title, t("level.xp.leaderboard.weekly_title")
         )
-        self.assertIn("🥇 <@1>", embed.description)
-        self.assertIn("🥈 <@2>", embed.description)
-        self.assertIn("**500 XP**", embed.description)
+        self.assertIn(
+            f"{t('components.leaderboard.placement_1')} <@1>",
+            embed.description,
+        )
+        self.assertIn(
+            f"{t('components.leaderboard.placement_2')} <@2>",
+            embed.description,
+        )
+        self.assertIn(
+            t(
+                "level.xp.leaderboard.weekly_details_levels",
+                xp=500,
+                l1=0,
+                l2=1,
+                n1=0,
+                n2=0,
+                needed=175,
+            ),
+            embed.description,
+        )
         self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
         self.assertEqual(embed.colour.value, 0x97A97C)
 
@@ -627,14 +664,17 @@ class WeeklyLeaderboardEmbedTests(unittest.TestCase):
     def test_reports_the_week_and_the_reset_timestamp(self) -> None:
         embed = self._embed([self._row(1, 500)])
 
-        self.assertIn("Week of Oct 19, 2026", embed.description)
         reset_at = datetime.datetime(
             2026, 10, 26, tzinfo=datetime.timezone.utc
         )
         self.assertIn(
-            discord.utils.format_dt(reset_at, "R"), embed.description
+            t(
+                "level.xp.leaderboard.weekly_week_of",
+                start="Oct 19, 2026",
+                reset=discord.utils.format_dt(reset_at, "R"),
+            ),
+            embed.description,
         )
-        self.assertIn("(Mon-Sun).", embed.description)
 
     def test_empty_week_is_explained(self) -> None:
         embed = self._embed([])
@@ -869,6 +909,48 @@ class AnnounceStreakClosedTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(channel.embeds, [])
 
 
+class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
+    class FailingCustomChannel(FakeNotifyChannel):
+        async def send(self, content=None, *, embed=None) -> None:
+            if embed is not None and embed.title == t("streaks.reminders.title"):
+                raise discord.HTTPException(
+                    _FakeHTTPResponse(), {"message": "no", "code": 50013}
+                )
+            await super().send(content, embed=embed)
+
+    def _reminder(self, user_id: int, kind: str) -> SimpleNamespace:
+        return SimpleNamespace(
+            goal=SimpleNamespace(user_id=user_id), kind=kind
+        )
+
+    async def test_failed_reminders_are_not_marked_sent(self) -> None:
+        channel = self.FailingCustomChannel()
+        reminders = [
+            self._reminder(1, "custom"),
+            self._reminder(2, "last_chance"),
+        ]
+
+        sent = await bot_main._post_streak_reminders(
+            channel, reminders, colour=None
+        )
+
+        self.assertEqual([reminder.goal.user_id for reminder in sent], [2])
+        self.assertEqual(
+            [embed.title for embed in channel.embeds],
+            [t("streaks.reminders.last_chance_title")],
+        )
+
+    async def test_successful_reminders_are_returned(self) -> None:
+        channel = FakeNotifyChannel()
+        reminders = [self._reminder(1, "custom")]
+
+        sent = await bot_main._post_streak_reminders(
+            channel, reminders, colour=None
+        )
+
+        self.assertEqual(sent, reminders)
+
+
 class LevelProgressTests(unittest.TestCase):
     """The progress shown starts at 0 for every level."""
 
@@ -887,14 +969,30 @@ class LevelProgressTests(unittest.TestCase):
         row.xp_frozen = xp_frozen
         return dict(level_cmds._progress_fields(row, 1, service, None))
 
+    def _progress(self, current: int, needed: int) -> str:
+        return t(
+            "level.xp.level.progress",
+            current=current,
+            needed=needed,
+            frozen="",
+        )
+
     def test_starts_at_zero(self) -> None:
-        self.assertEqual(self._fields(0, 0)["Level progress"], "0/75 XP")
-        self.assertEqual(self._fields(1, 75)["Level progress"], "0/175 XP")
-        self.assertEqual(self._fields(2, 250)["Level progress"], "0/275 XP")
+        self.assertEqual(self._fields(0, 0)["Level progress"], self._progress(0, 75))
+        self.assertEqual(
+            self._fields(1, 75)["Level progress"], self._progress(0, 175)
+        )
+        self.assertEqual(
+            self._fields(2, 250)["Level progress"], self._progress(0, 275)
+        )
 
     def test_partial_progress(self) -> None:
-        self.assertEqual(self._fields(0, 30)["Level progress"], "30/75 XP")
-        self.assertEqual(self._fields(1, 75 + 40)["Level progress"], "40/175 XP")
+        self.assertEqual(
+            self._fields(0, 30)["Level progress"], self._progress(30, 75)
+        )
+        self.assertEqual(
+            self._fields(1, 75 + 40)["Level progress"], self._progress(40, 175)
+        )
 
     def test_never_shows_total_xp(self) -> None:
         self.assertNotIn("Total XP", self._fields(1, 75 + 40))
@@ -903,7 +1001,12 @@ class LevelProgressTests(unittest.TestCase):
         fields = self._fields(1, 75, xp_frozen=True)
         self.assertEqual(
             fields[t("level.progress")],
-            f"{t('level.frozen')}0/175 XP",
+            t(
+                "level.xp.level.progress",
+                current=0,
+                needed=175,
+                frozen=t("level.frozen"),
+            ),
         )
         self.assertEqual(fields[t("level.level")], "1")
 
@@ -2326,7 +2429,7 @@ class ReleaseEmbedTests(unittest.TestCase):
 
     def test_month_embed_uses_date_fields_with_markdown_list(self) -> None:
         embed = release_service.build_month_embeds(
-            [self._Book()], FakeClient(), month_label="October 2026"
+            [self._Book()], FakeClient()
         )[0]
         self.assertIsNone(embed.description)
         self.assertEqual(len(embed.fields), 1)
@@ -2344,7 +2447,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             self._Book(id=2, announcement_sent=False, title="Other"),
         ]
         embeds = release_service.build_month_embeds(
-            books, FakeClient(), month_label="October 2026"
+            books, FakeClient()
         )
         self.assertEqual(len(embeds), 1)
         self.assertNotIn("~~", embeds[0].fields[0].value)
@@ -2360,7 +2463,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             for index in range(30)
         ]
         embeds = release_service.build_month_embeds(
-            books, FakeClient(), month_label="October 2026"
+            books, FakeClient()
         )
         self.assertGreater(len(embeds), 1)
         self.assertEqual(self._count_release_lines(embeds), len(books))
@@ -2374,7 +2477,7 @@ class ReleaseEmbedTests(unittest.TestCase):
             for index in range(120)
         ]
         embeds = release_service.build_month_embeds(
-            books, FakeClient(), month_label="October 2026"
+            books, FakeClient()
         )
         self.assertGreater(len(embeds), 1)
         self.assertEqual(self._count_release_lines(embeds), len(books))
@@ -2385,13 +2488,13 @@ class ReleaseEmbedTests(unittest.TestCase):
     def test_month_embed_footer_counts_releases(self) -> None:
         books = [self._Book(id=index, title=f"B{index}") for index in range(3)]
         embeds = release_service.build_month_embeds(
-            books, FakeClient(), month_label="October 2026"
+            books, FakeClient()
         )
         self.assertEqual(embeds[-1].footer.text, "3 releases")
 
     def test_month_embed_footer_is_singular_for_one(self) -> None:
         embeds = release_service.build_month_embeds(
-            [self._Book()], FakeClient(), month_label="October 2026"
+            [self._Book()], FakeClient()
         )
         self.assertEqual(embeds[-1].footer.text, "1 release")
 

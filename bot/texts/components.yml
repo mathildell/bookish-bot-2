@@ -8,5 +8,10 @@ components:
     page_x_of_y: "Page %{current} of %{total} • %{results} results"
   # Shared by any component whose buttons are usable only by the invoker.
   not_author: "Sneaky little thing! Only the command author can use these buttons."
+  leaderboard:
+    placement_1: "🥇"
+    placement_2: "🥈"
+    placement_3: "🥉"
+    placement_other: "%{place}."
   permissions:
     no_permission: "Can't fault you for trying, but you really can't do that. :eyes: "

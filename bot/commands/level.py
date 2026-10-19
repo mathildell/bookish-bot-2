@@ -16,7 +16,7 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
-from .listing import PODIUM, new_embed, set_author, set_transparent_image
+from .listing import new_embed, placement, set_author, set_transparent_image
 
 xp_group = app_commands.Group(
     name="xp",
@@ -150,7 +150,7 @@ def _leaderboard_embed(
         board_description or t("level.xp.leaderboard.board_description")
     ]
     for index, ((user_xp, _rank), member) in enumerate(zip(rows, members)):
-        place = PODIUM[index] if index < 3 else f"{index + 1}\."
+        place = placement(index)
         mention = member.mention if member else f"<@{user_xp.user_id}>"
         lines.append(
             t("level.xp.leaderboard.entry", place=place, mention=mention)

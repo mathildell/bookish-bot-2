@@ -150,7 +150,6 @@ streaks:
     yesterday_percent: "-# %{percent}% achieved"
     dry_icon: "🫧"
     dry_run_field: "Dry run"
-    dry_run_value: "XP gain is off. Progress still counts, your pool stays empty."
 
   closed:
     title: "Streaks closed"

@@ -26,8 +26,8 @@ from ..services.releases import (
     build_book_embed,
     build_confirm_embed,
     disambiguate_embed_urls,
-    format_created_stamp,
     format_plain_date,
+    today_utc,
 )
 from ..services.members import resolve_members
 from ..texts import t
@@ -221,7 +221,7 @@ class ReleaseListView(Paginator):
 
     def __init__(self, source: _ReleaseListSource, author_id: int) -> None:
         super().__init__(source=source, author_id=author_id)
-        self.add_item(_MonthSelect(_month_options(date.today())))
+        self.add_item(_MonthSelect(_month_options(today_utc())))
 
 
 class ReleaseConfirmView(discord.ui.View):
@@ -310,7 +310,7 @@ async def add_release(interaction: discord.Interaction, url: str) -> None:
     data = await _scrape(interaction, url)
     if data is None:
         return
-    if data.release_date <= date.today():
+    if data.release_date <= today_utc():
         await interaction.followup.send(
             t("releases.errors.not_in_future"), ephemeral=True
         )
@@ -345,7 +345,7 @@ async def update_release(
     data = await _scrape(interaction, url)
     if data is None:
         return
-    if data.release_date <= date.today():
+    if data.release_date <= today_utc():
         await interaction.followup.send(
             t("releases.errors.not_in_future"), ephemeral=True
         )

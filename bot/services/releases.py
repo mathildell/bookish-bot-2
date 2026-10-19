@@ -50,6 +50,11 @@ MONTH_FIELDS = 25
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
 
 
+def today_utc() -> date:
+    """The current UTC date, matching the naive UTC timestamps we store."""
+    return utcnow().date()
+
+
 def _embed_size(embed: discord.Embed) -> int:
     size = len(embed.title or "") + len(embed.description or "")
     if embed.footer:
@@ -236,12 +241,6 @@ def format_plain_date(value: date, year=True) -> str:
         )
 
 
-def format_created_stamp(value: datetime) -> str:
-    """Render a stored timestamp as a Discord date stamp (day precision)."""
-    moment = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    return f"<t:{int(moment.timestamp())}:D>"
-
-
 def build_book_embed(
     book,
     member: discord.Member | None,
@@ -424,9 +423,7 @@ def _field_values(lines: list[str]) -> list[str]:
     return values
 
 
-def build_month_embeds(
-    books: list, client: discord.Client, *, month_label: str
-) -> list[discord.Embed]:
+def build_month_embeds(books: list, client: discord.Client) -> list[discord.Embed]:
     """Build the monthly overview, one field per release date.
 
     Each date is a field (labelled like ``October 16th``) whose value is a
@@ -699,7 +696,7 @@ class ReleaseService:
                 .select_from(BookRelease)
                 .where(
                     BookRelease.guild_id == self.guild_id,
-                    BookRelease.release_date >= date.today(),
+                    BookRelease.release_date >= today_utc(),
                 )
             )
         return count or 0
@@ -711,7 +708,7 @@ class ReleaseService:
                     select(BookRelease)
                     .where(
                         BookRelease.guild_id == self.guild_id,
-                        BookRelease.release_date >= date.today(),
+                        BookRelease.release_date >= today_utc(),
                     )
                     .order_by(*_release_order(ascending=True))
                     .offset(offset)
@@ -728,7 +725,7 @@ class ReleaseService:
                 .select_from(BookRelease)
                 .where(
                     BookRelease.guild_id == self.guild_id,
-                    BookRelease.release_date >= date.today(),
+                    BookRelease.release_date >= today_utc(),
                     BookRelease.release_date < target,
                 )
             )
@@ -812,7 +809,7 @@ class ReleaseService:
 
     async def purge_old_releases(self, *, today: date | None = None) -> int:
         """Delete releases older than the configured retention window."""
-        cutoff = (today or date.today()) - timedelta(days=self._purge_days)
+        cutoff = (today or today_utc()) - timedelta(days=self._purge_days)
         async with session_scope() as session:
             result = await session.execute(
                 delete(BookRelease).where(
@@ -897,7 +894,7 @@ class ReleaseService:
         channel: discord.abc.Messageable,
         client: discord.Client,
     ) -> int:
-        today = date.today()
+        today = today_utc()
         posted = await self._post_daily(
             guild, channel, client, await self._due_releases(today)
         )
@@ -912,7 +909,7 @@ class ReleaseService:
     ) -> int:
         """Post today's releases, even ones already announced."""
         async with self._post_lock:
-            books = await self._today_releases(date.today())
+            books = await self._today_releases(today_utc())
             return await self._post_daily(guild, channel, client, books)
 
     async def force_post_monthly(
@@ -924,7 +921,7 @@ class ReleaseService:
         """Post the current month's overview, ignoring the monthly marker."""
         async with self._post_lock:
             return await self._post_monthly(
-                guild, channel, client, date.today()
+                guild, channel, client, today_utc()
             )
 
     async def _today_releases(self, today: date) -> list[BookRelease]:
@@ -1033,12 +1030,7 @@ class ReleaseService:
         books = await self.month_releases(today.year, today.month)
         if books:
             month_name = t(f"releases.months.{today.month}")
-            month_label = t(
-                "releases.month_label", month=month_name, year=today.year
-            )
-            embeds = build_month_embeds(
-                books, client, month_label=month_label
-            )
+            embeds = build_month_embeds(books, client)
             if self._ping_role_id:
                 content = f"-# <@&{self._ping_role_id}>\n"
             else:

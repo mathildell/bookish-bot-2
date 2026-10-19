@@ -382,8 +382,8 @@ class TextChoiceTests(unittest.TestCase):
 
     def test_single_string_is_accepted(self) -> None:
         self.assertEqual(
-            t_choice("streaks.info.dry_run_value"),
-            t("streaks.info.dry_run_value"),
+            t_choice("streaks.icons.upcoming"),
+            t("streaks.icons.upcoming"),
         )
 
     def test_unknown_key_raises(self) -> None:

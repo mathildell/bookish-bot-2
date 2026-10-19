@@ -1,7 +1,6 @@
 # Texts for the upcoming book releases feature.
 releases:
   group_description: "Track upcoming book releases and announce them"
-  month_label: "%{month} %{year}"
   months:
     "1": "January"
     "2": "February"

@@ -48,7 +48,7 @@ from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
 from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
-from .services.streaks import StreakService
+from .services.streaks import Reminder, StreakService
 from .texts import t, t_choice
 
 logger = logging.getLogger("bh2")
@@ -118,6 +118,49 @@ async def _award_message_xp(
         )
 
     await announce_level_up(message.channel, message.author, result.new_level)
+
+
+async def _post_streak_reminders(
+    channel: discord.abc.Messageable,
+    reminders: list[Reminder],
+    *,
+    colour: discord.Colour | None,
+) -> list[Reminder]:
+    """Post the due reminders, returning only the ones actually delivered."""
+    groups = (
+        ("custom", "streaks.reminders.title", "streaks.reminders.content"),
+        (
+            "last_chance",
+            "streaks.reminders.last_chance_title",
+            "streaks.reminders.last_chance_content",
+        ),
+    )
+    sent: list[Reminder] = []
+    for kind, title_key, content_key in groups:
+        mentions = [
+            f"<@{reminder.goal.user_id}>"
+            for reminder in reminders
+            if reminder.kind == kind
+        ]
+        if not mentions:
+            continue
+        embed = discord.Embed(
+            title=t(title_key),
+            description=t_choice(content_key, mentions=", ".join(mentions)),
+            colour=colour,
+        )
+        embed.set_footer(text=t("streaks.reminders.footer"))
+        try:
+            await channel.send(embed=embed)
+        except discord.HTTPException:
+            logger.warning(
+                "Could not post %s streak reminder", kind, exc_info=True
+            )
+            continue
+        sent.extend(
+            reminder for reminder in reminders if reminder.kind == kind
+        )
+    return sent
 
 
 async def run() -> None:
@@ -341,33 +384,12 @@ async def run() -> None:
         if channel is None:
             logger.warning("Streak reminders due but no channel is set")
             return
-        groups = (
-            ("custom", "streaks.reminders.title", "streaks.reminders.content"),
-            (
-                "last_chance",
-                "streaks.reminders.last_chance_title",
-                "streaks.reminders.last_chance_content",
-            ),
+        sent = await _post_streak_reminders(
+            channel,
+            reminders,
+            colour=getattr(bot, "default_embed_color", None),
         )
-        for kind, title_key, content_key in groups:
-            mentions = [
-                f"<@{reminder.goal.user_id}>"
-                for reminder in reminders
-                if reminder.kind == kind
-            ]
-            if not mentions:
-                continue
-            embed = discord.Embed(
-                title=t(title_key),
-                description=t_choice(content_key, mentions=", ".join(mentions)),
-                colour=getattr(bot, "default_embed_color", None),
-            )
-            embed.set_footer(text=t("streaks.reminders.footer"))
-            try:
-                await channel.send(embed=embed)
-            except discord.HTTPException:
-                logger.warning("Could not post streak reminder", exc_info=True)
-        await streaks.mark_reminder(reminders)
+        await streaks.mark_reminder(sent)
 
     async def streak_hourly_now() -> None:
         guild = bot.get_guild(int(config.guild_id))

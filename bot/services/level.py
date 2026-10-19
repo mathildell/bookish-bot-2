@@ -197,14 +197,6 @@ async def all_user_xp(session, *, guild_id: int) -> list[UserXP]:
     return list((await session.execute(stmt)).scalars())
 
 
-async def count_user_xp(session, *, guild_id: int) -> int:
-    """Number of ranked members, for sizing the leaderboard pagination."""
-    stmt = select(func.count()).select_from(UserXP).where(
-        UserXP.guild_id == guild_id
-    )
-    return int((await session.execute(stmt)).scalar_one())
-
-
 async def page_of_user_xp(
     session, *, guild_id: int, limit: int, offset: int
 ) -> list[tuple[UserXP, int]]:

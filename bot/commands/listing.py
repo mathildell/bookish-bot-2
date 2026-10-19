@@ -15,7 +15,6 @@ import discord
 from ..texts import t
 
 EMBEDS_PER_PAGE = 6
-PODIUM = ("🥇", "🥈", "🥉")
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
 
 
@@ -27,6 +26,13 @@ class PaginatedSource(Protocol):
 
     async def get_page(self, index: int) -> list[discord.Embed]:
         ...
+
+
+def placement(index: int) -> str:
+    """Render a zero-based leaderboard position."""
+    if index < 3:
+        return t(f"components.leaderboard.placement_{index + 1}")
+    return t("components.leaderboard.placement_other", place=index + 1)
 
 
 def parse_hex_colour(value: str) -> discord.Colour:

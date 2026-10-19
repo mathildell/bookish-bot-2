@@ -31,7 +31,7 @@ from ..services.streaks import (
 )
 from ..texts import t, t_choice
 from .checks import in_admin_test_channel, require_admin
-from .listing import PODIUM, new_embed, set_author, set_transparent_image
+from .listing import new_embed, placement, set_author, set_transparent_image
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
 
@@ -586,7 +586,7 @@ def _leaderboard_embed(
         ""
     ]
     for index, ((streak, _goal), member) in enumerate(zip(rows, members)):
-        place = PODIUM[index] if index < 3 else f"{index + 1}\."
+        place = placement(index)
         mention = member.mention if member else f"<@{streak.user_id}>"
         latest = streak.last_log_date or streak.start_date
         lines.append(
@@ -1231,11 +1231,6 @@ async def today(interaction: discord.Interaction) -> None:
             unit=goal.unit,
             date=_format_date(status.last_date),
         )
-    # elif status.ever_logged and status.last_date is not None:
-    #     message = t(
-    #         "streaks.today.no",
-    #         date=_format_date(status.last_date),
-    #     )
     else:
         message = t("streaks.today.no_first")
 
