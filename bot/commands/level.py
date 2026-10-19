@@ -75,8 +75,12 @@ def _progress_fields(
     current, needed = _progress_values(user_xp)
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
-    progress = t("level.xp.level.progress", current=current, needed=needed)
-    progress += _frozen_marker(user_xp)
+    progress = t(
+        "level.xp.level.progress", 
+        current=current, 
+        needed=needed, 
+        frozen=_frozen_marker(user_xp)
+    )
 
     return [
         (t("level.progress"), progress),
