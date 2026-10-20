@@ -195,7 +195,7 @@ async def _generate_coupons(
     member: discord.Member | discord.User,
     goal: StreakGoal,
     progress: streak_service.LevelProgress,
-) -> list[str]:
+) -> list:
     """Render and upload one coupon per cleared level, in award order."""
     coupons = getattr(interaction.client, "coupons", None)
     awards = _coupon_awards(progress)
@@ -205,7 +205,7 @@ async def _generate_coupons(
     fallback = getattr(
         interaction.client, "coupon_fallback_image", DEFAULT_FALLBACK_IMAGE
     )
-    urls = []
+    coupon_results = []
     for award in awards:
         coupon = await coupons.generate(
             display_name=member.display_name,
@@ -214,14 +214,16 @@ async def _generate_coupons(
             xp=award.xp,
             fallback_image=fallback,
         )
-        urls.append(coupon.url)
-    return urls
+        coupon_results.append(coupon)
+    return coupon_results
 
 
-def _coupon_embed(client: discord.Client, url: str) -> discord.Embed:
+def _coupon_embed(client: discord.Client, url: str, color: int | None = None) -> discord.Embed:
     embed = new_embed(client)
     embed.title = t("streaks.coupon.title")
     embed.set_image(url=url)
+    if color is not None:
+        embed.colour = discord.Colour(color)
     return embed
 
 
@@ -231,6 +233,7 @@ async def _handle_progress(
     member: discord.Member | discord.User,
     *,
     coupon_urls: list[str] | None = None,
+    coupon_colors: list[int | None] | None = None,
     coupons_embedded: int = 0,
 ) -> None:
     """Apply XP reward roles, celebrate milestones and send extra coupons."""
@@ -261,8 +264,11 @@ async def _handle_progress(
         await announce_level_up(
             interaction.channel, member, progress.xp_new_level
         )
-    for url in (coupon_urls or [])[coupons_embedded:]:
-        await interaction.followup.send(embed=_coupon_embed(interaction.client, url))
+    urls = coupon_urls or []
+    colors = coupon_colors or []
+    for idx, url in enumerate(urls[coupons_embedded:]):
+        color = colors[coupons_embedded + idx] if len(colors) > coupons_embedded + idx else None
+        await interaction.followup.send(embed=_coupon_embed(interaction.client, url, color=color))
 
 
 # ------------------------------------------------------------------ embeds
@@ -455,11 +461,12 @@ async def _perform_log(
     coupons = await _generate_coupons(
         interaction, interaction.user, result.goal, result.progress
     )
+    coupon_url = coupons[0].url if coupons else None
     embed = _log_embed(
         interaction.client,
         interaction.user,
         result,
-        coupon_url=coupons[0] if coupons else None,
+        coupon_url=coupon_url,
     )
     if generating:
         await interaction.edit_original_response(embed=embed, view=view)
@@ -471,7 +478,8 @@ async def _perform_log(
         interaction,
         result.progress,
         interaction.user,
-        coupon_urls=coupons,
+        coupon_urls=[c.url for c in coupons],
+        coupon_colors=[getattr(c, "color", None) for c in coupons],
         coupons_embedded=1 if coupons else 0,
     )
     if result.closed is not None:
@@ -1120,12 +1128,12 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         result.logs,
         rescuable=False,
         rescued=result,
-        coupon_url=coupons[0] if coupons else None,
+        coupon_url=coupons[0].url if coupons else None,
     )
     view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
     extra = [
-        _coupon_embed(interaction.client, url) for url in coupons[1:]
+        _coupon_embed(interaction.client, c.url, color=getattr(c, "color", None)) for c in coupons[1:]
     ]
     if generating:
         if extra:
@@ -1144,7 +1152,8 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         interaction,
         result.progress,
         interaction.user,
-        coupon_urls=coupons,
+        coupon_urls=[c.url for c in coupons],
+        coupon_colors=[getattr(c, "color", None) for c in coupons],
         coupons_embedded=1 if coupons else 0,
     )
 
@@ -1577,6 +1586,7 @@ async def admin_log(
         interaction,
         result.progress,
         user,
-        coupon_urls=coupons,
+        coupon_urls=[c.url for c in coupons],
+        coupon_colors=[getattr(c, "color", None) for c in coupons],
         coupons_embedded=0,
     )

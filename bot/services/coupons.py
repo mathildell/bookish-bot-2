@@ -63,6 +63,7 @@ class Coupon:
     xp: int
     on_date: date
     url: str
+    color: int | None = None
 
 
 def coupon_date(on_date: date) -> str:
@@ -104,11 +105,23 @@ def _fit(
     return font, f"{truncated}…"
 
 
+def _extract_color_from_template(template: Path) -> int | None:
+    """Extract the hex color from template filename like bg-9EA93F.png."""
+    match = re.search(r"bg-([0-9a-fA-F]{6})", template.name)
+    if match:
+        try:
+            return int(match.group(1), 16)
+        except ValueError:
+            return None
+    return None
+
+
 def render_coupon(
     *, display_name: str, level: int, on_date: date, xp: int
-) -> Path:
-    """Draw the coupon onto a random template, returning the temporary file."""
+) -> tuple[Path, int | None]:
+    """Draw the coupon onto a random template, returning the temporary file and color."""
     template = random.choice(_templates())
+    color = _extract_color_from_template(template)
     with Image.open(template) as opened:
         image = opened.convert("RGBA")
     draw = ImageDraw.Draw(image)
@@ -132,7 +145,7 @@ def render_coupon(
     handle, path = tempfile.mkstemp(prefix="coupon-", suffix=".png")
     os.close(handle)
     image.save(path, "PNG")
-    return Path(path)
+    return Path(path), color
 
 
 class CouponUploadError(Exception):
@@ -157,18 +170,20 @@ class CouponService:
     ) -> Coupon:
         """Render, upload and delete a coupon, using the fallback on any error."""
         path: Path | None = None
+        color: int | None = None
         try:
-            path = render_coupon(
+            path, color = render_coupon(
                 display_name=display_name, level=level, on_date=on_date, xp=xp
             )
             url = await self._upload(path)
         except Exception:
             logger.exception("Could not create the level %s coupon", level)
             url = fallback_image or DEFAULT_FALLBACK_IMAGE
+            color = None
         finally:
             if path is not None:
                 path.unlink(missing_ok=True)
-        return Coupon(level=level, xp=xp, on_date=on_date, url=url)
+        return Coupon(level=level, xp=xp, on_date=on_date, url=url, color=color)
 
     async def _upload(self, path: Path) -> str:
         errors: list[Exception] = []
