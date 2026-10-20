@@ -122,7 +122,7 @@ streaks:
     no_first: "❌ ‎ Oops, no. Looks like you haven't logged anything yet."
     this: "this"
     these: "these"
-    hurry: "Better get %{this} %{amount} %{unit} quickly, your streak closes %{closes}."
+    hurry: "Better get to %{this} %{amount} %{unit} quickly, your streak closes %{closes}."
     not_registered: "I can't find a goal for you. You should run `/streak register` first!"
 
   view:
@@ -135,7 +135,7 @@ streaks:
   info:
     closed_field: "Closed"
     started_field: "Streak started"
-    started_value: "%{date}\n-# %{days} days"
+    started_value: "%{date}\n-# %{days} day%{s}"
     rescues_field: "Rescues"
     rescues_value: |
       %{rescue_emoji} ‎ %{normal} available (%{normal_used})
@@ -174,7 +174,7 @@ streaks:
     ongoing_desc: "The following are the top streaks currently ongoing in the server! Keep them going!"
     all_time_desc: "The following are the highest streaks ever recorded by the bot!"
     entry: "> ### %{place} %{mention}"
-    days_details: "> **%{days}** days (level %{level})   Started: %{date}"
+    days_details: "> **%{days}** day%{s} (level %{level})   Started: %{date}"
     empty: "No streaks to rank yet."
 
   channel:
@@ -214,9 +214,11 @@ streaks:
     title: "Streak reminder"
     content:
       - "Oye, oye %{mentions}, your streak would like a word with you!"
-      - "%{mentions} daily reminder to stay hydrated... and log your daily achievement!"
-      - "Gentle nudge for %{mentions}; it's time to log your streak."
-      - "Hello %{mentions}! Have you made any progress on those books today?"
+      - "%{mentions}: daily reminder to stay hydrated... and log your daily achievement!"
+      - "Nudge for %{mentions}; it's time to log your streak!"
+      - "Hello %{mentions}! Have you made any progress on your current reads today?"
+      - "What have you been reading lately? %{mentions}, time to log your streak!"
+      - "%{mentions}, we heard you're the best at reading; prove it!"
     last_chance_title: "Last chance"
     last_chance_content:
       - "Tick tock %{mentions}, there's only one hour left until midnight!"

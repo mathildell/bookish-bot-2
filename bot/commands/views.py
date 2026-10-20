@@ -17,6 +17,6 @@ class ExpiringView(discord.ui.View):
             child.disabled = True
         if self.message is not None:
             try:
-                await self.message.edit(view=self)
+                await self.message.edit(view=None)
             except discord.HTTPException:
                 logger.debug("Could not disable an expired view", exc_info=True)

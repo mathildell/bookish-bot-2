@@ -11,6 +11,7 @@ colours.
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 import discord
 from discord import app_commands
@@ -151,7 +152,8 @@ def _current_value(
     kind = _KINDS[key]
     settings = interaction.client.bot_settings
     if kind == "days":
-        return str(_current_days(interaction, key)), t("settings.list.unit_days")
+        days = _current_days(interaction, key)
+        return str(days), t("settings.list.unit_days", s="" if days == 1 else "s")
     if kind == "hour":
         if key == WEEKLY_LEADERBOARD_HOUR:
             hour = interaction.client.weekly.post_hour
@@ -322,10 +324,34 @@ async def edit(
             ephemeral=True,
         )
         return
-    await interaction.response.send_message(
-        t(
-            "settings.edit.success",
-            label=setting_label(key),
-            value=current_display(interaction, key),
+    kind = _KINDS[key]
+    if kind == "hour":
+        try:
+            hour = parse_hour(value)
+            dt = datetime.now(timezone.utc).replace(
+                hour=hour, minute=0, second=0, microsecond=0
+            )
+            ts = int(dt.timestamp())
+            await interaction.response.send_message(
+                t(
+                    "settings.edit.success",
+                    label=setting_label(key),
+                    value=f"{hour:02d}:00 UTC (<t:{ts}:t>)",
+                )
+            )
+        except ValueError:
+            await interaction.response.send_message(
+                t(
+                    "settings.edit.success",
+                    label=setting_label(key),
+                    value=current_display(interaction, key),
+                )
+            )
+    else:
+        await interaction.response.send_message(
+            t(
+                "settings.edit.success",
+                label=setting_label(key),
+                value=current_display(interaction, key),
+            )
         )
-    )

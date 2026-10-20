@@ -523,6 +523,7 @@ def _view_embed(
                 "streaks.info.started_value",
                 date=_format_date_short(streak.start_date),
                 days=streak.days_logged,
+                s="" if streak.days_logged == 1 else "s",
             ),
             inline=True,
         )
@@ -574,6 +575,7 @@ def _view_embed(
             "streaks.info.started_value",
             date=_format_date_short(streak.start_date),
             days=streak.days_logged,
+            s="" if streak.days_logged == 1 else "s",
         ),
         inline=True,
     )
@@ -736,6 +738,7 @@ def _leaderboard_embed(
                 days=streak.days_logged,
                 level=display_level(streak.days_logged),
                 date=_format_date(latest),
+                s="" if streak.days_logged == 1 else "s",
             )
         )
     embed.description = "\n".join(lines)
@@ -1197,7 +1200,7 @@ class _LogButton(discord.ui.Button):
 
 
 class StreakLogView(ExpiringView):
-    def __init__(self, *, timeout: float = 24 * 60 * 60) -> None:
+    def __init__(self, *, timeout: float = 2 * 60 * 60) -> None:
         super().__init__(timeout=timeout)
         self.add_item(_LogButton())
 
@@ -1229,7 +1232,7 @@ class _ViewActions(ExpiringView):
         log: bool = False,
         rescue_kind: str = streak_service.RESCUE_NORMAL,
     ) -> None:
-        super().__init__(timeout=300)
+        super().__init__(timeout=2 * 60 * 60)
         if rescue:
             self.add_item(_RescueButton(rescue_kind))
         if log:
