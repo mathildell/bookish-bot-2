@@ -197,19 +197,22 @@ class FakeMessage:
     def __init__(self) -> None:
         self.id = 777
         self.pinned = False
+        self.views = []
 
     async def pin(self, *, reason: str | None = None) -> None:
         self.pinned = True
 
+    async def edit(self, *, view) -> None:
+        self.views.append(view)
 
-class FakeThread:
-    id = 900
-    mention = "<#900>"
 
+class FakeThread(discord.Thread):
     def __init__(self) -> None:
+        self.id = 900
         self.added = []
         self.sent = []
-        self.message = None
+        self.message = FakeMessage()
+        self.edits = []
         self.deleted = False
 
     async def add_user(self, user) -> None:
@@ -218,6 +221,12 @@ class FakeThread:
     async def send(self, **kwargs):
         self.sent.append(kwargs)
         self.message = FakeMessage()
+        return self.message
+
+    async def edit(self, **kwargs) -> None:
+        self.edits.append(kwargs)
+
+    async def fetch_message(self, message_id: int) -> FakeMessage:
         return self.message
 
     async def delete(self) -> None:
@@ -262,9 +271,10 @@ class FakeTicketService:
     channel_id = 5
     admin_role_id = 55
 
-    def __init__(self) -> None:
+    def __init__(self, ticket=None) -> None:
         self.open_lock = asyncio.Lock()
         self.created = None
+        self.ticket = ticket
 
     async def next_number(self) -> int:
         return 3
@@ -273,9 +283,71 @@ class FakeTicketService:
         self.created = kwargs
         return SimpleNamespace(**kwargs)
 
+    async def get_by_thread(self, thread_id: int):
+        return self.ticket
+
+    async def reopen(self, ticket_id: int):
+        self.ticket.status = ticket_service.STATUS_OPEN
+        self.ticket.closed_at = None
+        return self.ticket
+
+
+class ReopenTicketTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reopen_unarchives_before_unlocking(self) -> None:
+        closed_at = ticket_service.utcnow() - timedelta(minutes=5)
+        ticket = SimpleNamespace(
+            id=1,
+            number=3,
+            name="Alice's ticket #3",
+            status=ticket_service.STATUS_CLOSED,
+            closed_at=closed_at,
+            button_removed=False,
+            opener_id=42,
+            message_id=777,
+        )
+        service = FakeTicketService(ticket)
+        thread = FakeThread()
+        interaction = SimpleNamespace(
+            channel=thread,
+            user=SimpleNamespace(id=42, roles=[]),
+            permissions=SimpleNamespace(manage_guild=False),
+            client=SimpleNamespace(tickets=service),
+            response=FakeResponse(),
+            followup=FakeFollowup(),
+        )
+
+        await ticket_cmds._handle_reopen(
+            interaction, allow_opener=True, from_button=True
+        )
+
+        self.assertEqual(
+            thread.edits[0],
+            {
+                "archived": False,
+                "reason": t("tickets.audit.reopen", number=3),
+            },
+        )
+        self.assertEqual(
+            thread.edits[1],
+            {
+                "name": "Alice's ticket #3",
+                "locked": False,
+                "reason": t("tickets.audit.reopen", number=3),
+            },
+        )
+        self.assertEqual(ticket.status, ticket_service.STATUS_OPEN)
+        self.assertIsNone(ticket.closed_at)
+        self.assertIsInstance(
+            thread.message.views[-1], ticket_cmds.TicketCloseView
+        )
+        self.assertEqual(
+            interaction.followup.messages[-1]["message"],
+            t("tickets.reopen.success"),
+        )
+
 
 class OpenTicketTests(unittest.IsolatedAsyncioTestCase):
-    async def test_open_adds_the_opener_and_posts_both_mentions(self) -> None:
+    async def test_open_posts_both_mentions_without_confirmation(self) -> None:
         thread = FakeThread()
         channel = FakeTicketChannel()
         channel.thread = thread
@@ -295,7 +367,7 @@ class OpenTicketTests(unittest.IsolatedAsyncioTestCase):
 
         await ticket_cmds._handle_open(interaction)
 
-        self.assertEqual(thread.added, [opener])
+        self.assertEqual(thread.added, [])
         self.assertEqual(len(thread.sent), 1)
         payload = thread.sent[0]
         self.assertIn(opener.mention, payload["content"])
@@ -312,7 +384,4 @@ class OpenTicketTests(unittest.IsolatedAsyncioTestCase):
             channel.created_kwargs["type"], discord.ChannelType.private_thread
         )
         self.assertFalse(thread.deleted)
-        self.assertEqual(
-            interaction.followup.messages[-1]["message"],
-            t("tickets.open.created", thread=thread.mention),
-        )
+        self.assertEqual(interaction.followup.messages, [])

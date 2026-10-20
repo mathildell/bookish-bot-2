@@ -121,6 +121,15 @@ async def _defer(interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
 
 
+async def _clear_command_progress(interaction: discord.Interaction) -> None:
+    if interaction.type is not discord.InteractionType.application_command:
+        return
+    try:
+        await interaction.delete_original_response()
+    except discord.HTTPException:
+        logger.debug("Could not clear the ticket command response", exc_info=True)
+
+
 async def _refresh_ticket_message(
     thread: discord.Thread, ticket: Ticket, view: discord.ui.View
 ) -> None:
@@ -192,19 +201,6 @@ async def _handle_open(interaction: discord.Interaction) -> None:
             return
 
         try:
-            await thread.add_user(interaction.user)
-        except discord.HTTPException:
-            logger.warning("Could not add the opener to the ticket", exc_info=True)
-            try:
-                await thread.delete()
-            except discord.HTTPException:
-                pass
-            await interaction.followup.send(
-                t("tickets.open.failed"), ephemeral=True
-            )
-            return
-
-        try:
             message = await thread.send(
                 content=f"{interaction.user.mention} {role.mention}",
                 embed=ticket_embed(interaction.client, number),
@@ -252,10 +248,6 @@ async def _handle_open(interaction: discord.Interaction) -> None:
             )
             return
 
-    await interaction.followup.send(
-        t("tickets.open.created", thread=thread.mention), ephemeral=True
-    )
-
 
 async def _handle_close(
     interaction: discord.Interaction, *, allow_opener: bool
@@ -301,7 +293,7 @@ async def _handle_close(
     except discord.HTTPException:
         logger.warning("Could not archive ticket thread", exc_info=True)
     await _announce_closed(interaction.client, interaction.guild, updated)
-    await interaction.followup.send(t("tickets.close.success"), ephemeral=True)
+    await _clear_command_progress(interaction)
 
 
 async def _handle_reopen(
@@ -335,9 +327,8 @@ async def _handle_reopen(
     await _defer(interaction)
     reason = t("tickets.audit.reopen", number=ticket.number)
     try:
-        await thread.edit(
-            name=ticket.name, locked=False, archived=False, reason=reason
-        )
+        await thread.edit(archived=False, reason=reason)
+        await thread.edit(name=ticket.name, locked=False, reason=reason)
     except discord.HTTPException:
         logger.warning("Could not reopen ticket thread", exc_info=True)
         await interaction.followup.send(
@@ -363,6 +354,7 @@ class OpenTicketView(discord.ui.View):
 
     @discord.ui.button(
         label=t("tickets.sticky.button"),
+        emoji=t("tickets.sticky.button_emoji"),
         style=discord.ButtonStyle.primary,
         custom_id=OPEN_CUSTOM_ID,
     )
@@ -380,6 +372,7 @@ class TicketCloseView(discord.ui.View):
 
     @discord.ui.button(
         label=t("tickets.embed.close_button"),
+        emoji=t("tickets.embed.close_button_emoji"),
         style=discord.ButtonStyle.danger,
         custom_id=CLOSE_CUSTOM_ID,
     )
@@ -397,6 +390,7 @@ class TicketReopenView(discord.ui.View):
 
     @discord.ui.button(
         label=t("tickets.embed.reopen_button"),
+        label=t("tickets.embed.reopen_button_emoji"),
         style=discord.ButtonStyle.success,
         custom_id=REOPEN_CUSTOM_ID,
     )

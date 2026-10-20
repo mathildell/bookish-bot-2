@@ -15,8 +15,7 @@ tickets:
       param_role: "Admin role pinged in every new ticket"
       success: "New tickets will ping %{role}. Members of that role need the Manage Threads permission to see private tickets."
   close:
-    description: "Close this ticket (admins only)"
-    success: "Ticket closed."
+    description: "Close the ticket in this thread."
     failed: "I couldn’t close this ticket. Please try again later."
     already_closed: "This ticket is already closed."
   reopen:
@@ -26,7 +25,6 @@ tickets:
     already_open: "This ticket is already open."
     expired: "The Reopen button has expired. Ask an admin to run `/tickets reopen` in this thread."
   open:
-    created: "Your ticket is ready: %{thread}"
     failed: "I couldn’t open your ticket. Please try again later."
   errors:
     not_configured: "Tickets aren’t configured yet. Ask an admin to set the ticket channel and role."
@@ -34,13 +32,19 @@ tickets:
     not_ticket: "This thread isn’t a ticket."
     no_permission: "Only the ticket opener or the ticket admins can do that."
   sticky:
-    title: "Need help?"
-    description: "Click the button below to open a private ticket with the admin team. Please only open a ticket when you actually need help."
+    title: "Talk to the team!"
+    description: |
+      Click on the button below to open a support ticket. This will create a private thread where you can chat directly with the team, no one else included.
+      **No request is too big or too small, we're always happy to help!**
     button: "Open a ticket"
+    button_emoji: "🌿"
   embed:
     title: "Ticket #%{number}"
-    description: "A member of the admin team will be with you shortly. Describe your issue in this thread and we’ll help you out."
+    description: |
+      Please describe your issue here and we’ll answer you shortly!
+    close_button_emoji: "🔒"
     close_button: "Close ticket"
+    reopen_button_emoji: "🔓"
     reopen_button: "Reopen"
   thread:
     name: "%{display_name}'s ticket #%{number}"
