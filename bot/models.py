@@ -315,6 +315,67 @@ class IntroPost(Base):
     )
 
 
+class TicketSetting(Base):
+    """Per-guild settings for the ticketing feature (panel + admin role)."""
+
+    __tablename__ = "ticket_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    admin_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    sticky_message_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Ticket(Base):
+    """A private support ticket opened from the ticketing panel."""
+
+    __tablename__ = "tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # Per-guild sequential number shown in the thread name and embed title.
+    number: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    opener_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # The base thread name without the "[Resolved] " prefix.
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    thread_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    message_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # "open" or "closed"
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="open")
+    opened_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Set once the 2h Reopen button window has passed and the button is gone.
+    button_removed: Mapped[bool] = mapped_column(
+        default=False, nullable=False, server_default="0"
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_tickets_guild_number_unique", "guild_id", "number", unique=True),
+        Index("ix_tickets_guild_status", "guild_id", "status"),
+    )
+
+
 class BookRelease(Base):
     """An upcoming book release tracked from Goodreads or NetGalley."""
 

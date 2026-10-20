@@ -28,6 +28,13 @@ Implemented features:
   introduction.
 - **Pinned forum reference** — when a new thread/post is created in the
   configured forum channel, repost a fixed reference message into it and pin it.
+- **Ticketing** — admins set a read-only panel channel and the role pinged for
+  tickets. Members use the panel button to open a private thread named
+  `Display name's ticket #n`; the pinned ticket message pings the opener and the
+  admin role. The opener or a ticket admin can close it via the button or
+  `/tickets close`, which locks/archives the thread, prefixes its name with
+  `[Resolved]`, and posts a summary in the updates channel. A Reopen button
+  lives for two hours; `/tickets reopen` lets admins reopen later.
 - **Bot actions** — `/bot say` lets admins post a message as the bot into any
   channel or thread, optionally as a reply; `/bot react` adds an emoji reaction
   to a message.
@@ -132,9 +139,10 @@ bot/
     models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
                            WeeklyXP, WeeklySetting, LevelReward, ReviewFeed,
                            ReviewEntry, ReviewSetting, IntroQuestion,
-                           IntroSetting, IntroPost, BookRelease, ReleaseSetting,
-                           ReleaseEditDraft, StreakGoal, Streak, StreakLog,
-                           StreakSetting, BotSetting, Reminder, ReminderSnooze)
+                           IntroSetting, IntroPost, TicketSetting, Ticket,
+                           BookRelease, ReleaseSetting, ReleaseEditDraft,
+                           StreakGoal, Streak, StreakLog, StreakSetting,
+                           BotSetting, Reminder, ReminderSnooze)
   notifications.py         level-up + streak-closed announcements
   commands/
     booster.py             /booster root group
@@ -147,6 +155,7 @@ bot/
     intro.py               /intro group + sticky button/modal + question manager
     streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
     reminders.py           /reminder group + add/edit/remove/list + complete/snooze buttons
+    tickets.py             /tickets group + panel/close/reopen buttons
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
     bot_react.py           /bot react (add an emoji reaction to a message)
@@ -170,6 +179,7 @@ bot/
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
     reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
+    tickets.py             ticket settings/tickets + embeds + Reopen button expiry
     timezones.py           IANA timezone search/validation shared by streaks and reminders
     settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)

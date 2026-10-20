@@ -318,6 +318,46 @@ or remove it. Only the first 5 active questions are shown in the form.
 
 ***
 
+## Ticketing
+
+Admins configure a read-only ticketing channel and the admin role notified
+about new tickets. The bot posts a single panel message there; its button opens
+a private thread named after the member and their ticket number. The bot pins a
+message in the thread that pings the opener and the admin role. The opener or a
+ticket admin can close the ticket with the button or `/tickets close`; closing
+locks and archives the thread, renames it with a `[Resolved]` prefix, and posts
+a summary in the bot updates channel. A Reopen button stays available for two
+hours; after that it is removed, though admins can still reopen with
+`/tickets reopen`. Keep the panel channel read-only for messages but allow
+members to send messages in threads, or tickets will not be writable.
+
+```
+/tickets channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set the read-only ticketing channel and post the panel message.
+
+```
+/tickets role set role:
+```
+**Permissions:** 🔒 Admin
+Set the role pinged in every new ticket. Its members need Manage Threads to see
+private tickets.
+
+```
+/tickets close
+```
+**Permissions:** 🔒 Admin
+Close the ticket in the current thread.
+
+```
+/tickets reopen
+```
+**Permissions:** 🔒 Admin
+Reopen the ticket in the current thread.
+
+***
+
 ## Streaks
 
 Members register a daily reading goal (amount, unit and timezone), log their

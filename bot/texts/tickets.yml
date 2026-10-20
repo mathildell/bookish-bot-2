@@ -1,0 +1,59 @@
+# Texts for the private ticketing feature.
+tickets:
+  group_description: "Open and manage private support tickets"
+  channel:
+    group_description: "Where the ticket panel is posted"
+    set:
+      description: "Set the read-only ticket channel and post the panel"
+      param_channel: "Read-only channel for the ticket panel"
+      success: "The ticket panel was posted in %{channel}. Make sure members can send messages in threads there."
+      failed: "I couldn’t post the ticket panel in %{channel}. Check I can send messages and manage threads there."
+  role:
+    group_description: "Role notified for new tickets"
+    set:
+      description: "Set the admin role notified about new tickets"
+      param_role: "Admin role pinged in every new ticket"
+      success: "New tickets will ping %{role}. Members of that role need the Manage Threads permission to see private tickets."
+  close:
+    description: "Close this ticket (admins only)"
+    success: "Ticket closed."
+    failed: "I couldn’t close this ticket. Please try again later."
+    already_closed: "This ticket is already closed."
+  reopen:
+    description: "Reopen this ticket (admins only)"
+    success: "Ticket reopened."
+    failed: "I couldn’t reopen this ticket. Please try again later."
+    already_open: "This ticket is already open."
+    expired: "The Reopen button has expired. Ask an admin to run `/tickets reopen` in this thread."
+  open:
+    created: "Your ticket is ready: %{thread}"
+    failed: "I couldn’t open your ticket. Please try again later."
+  errors:
+    not_configured: "Tickets aren’t configured yet. Ask an admin to set the ticket channel and role."
+    not_thread: "Run this command inside a ticket thread."
+    not_ticket: "This thread isn’t a ticket."
+    no_permission: "Only the ticket opener or the ticket admins can do that."
+  sticky:
+    title: "Need help?"
+    description: "Click the button below to open a private ticket with the admin team. Please only open a ticket when you actually need help."
+    button: "Open a ticket"
+  embed:
+    title: "Ticket #%{number}"
+    description: "A member of the admin team will be with you shortly. Describe your issue in this thread and we’ll help you out."
+    close_button: "Close ticket"
+    reopen_button: "Reopen"
+  thread:
+    name: "%{display_name}'s ticket #%{number}"
+    resolved_prefix: "[Resolved] "
+  summary:
+    title: "Ticket closed"
+    description: "**%{name}**\nOpened by %{user}"
+    opened_field: "Opened"
+    closed_field: "Closed"
+    unknown_time: "Unknown"
+  audit:
+    open: "Opened ticket #%{number} for %{user}"
+    close: "Closed ticket #%{number}"
+    reopen: "Reopened ticket #%{number}"
+    pin: "Pinned ticket #%{number}"
+    expire: "Removed the expired Reopen button from ticket #%{number}"

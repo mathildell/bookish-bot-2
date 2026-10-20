@@ -39,6 +39,14 @@ from .commands.releases import releases_group
 from .commands.reviews import reviews_group
 from .commands.settings import settings_group
 from .commands.streaks import StreakLogView, StreakRescueView, streaks_group
+from .commands.tickets import (
+    OpenTicketView,
+    TicketCloseView,
+    TicketReopenView,
+    ensure_sticky as ensure_ticket_sticky,
+    resolve_ticket_channel,
+    tickets_group,
+)
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import announce_level_up, announce_streak_closed
@@ -57,6 +65,7 @@ from .services.reminders import ReminderService, is_stale
 from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
 from .services.streaks import Reminder, StreakService
+from .services.tickets import TicketService
 from .texts import interpolate, t, t_choice, t_choice_template
 
 logger = logging.getLogger("bh2")
@@ -208,6 +217,7 @@ async def run() -> None:
     releases = ReleaseService(int(config.guild_id))
     streaks = StreakService(int(config.guild_id))
     reminders = ReminderService(int(config.guild_id))
+    tickets = TicketService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
     bot_settings = BotSettingsService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))
@@ -226,6 +236,7 @@ async def run() -> None:
     bot.releases = releases
     bot.streaks = streaks
     bot.reminders = reminders
+    bot.tickets = tickets
     bot.weekly = weekly
     bot.bot_settings = bot_settings
     bot.coupons = coupons
@@ -236,6 +247,10 @@ async def run() -> None:
     bot.add_view(IntroRefreshView())
     # Persistent "repair streak" button offered on log/view messages.
     bot.add_view(StreakRescueView())
+    # Persistent ticket panel and ticket close/reopen buttons.
+    bot.add_view(OpenTicketView())
+    bot.add_view(TicketCloseView())
+    bot.add_view(TicketReopenView())
     # Bot-wide settings are loaded from the database in on_ready; start with
     # the disabled/unset defaults so nothing fires before the first reload.
     bot.bot_updates_channel_id = 0
@@ -256,6 +271,7 @@ async def run() -> None:
     bot.tree.add_command(releases_group, guild=guild)
     bot.tree.add_command(streaks_group, guild=guild)
     bot.tree.add_command(reminders_group, guild=guild)
+    bot.tree.add_command(tickets_group, guild=guild)
     bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(settings_group, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
@@ -559,6 +575,27 @@ async def run() -> None:
         except Exception:
             logger.exception("Reminder catch-up failed")
 
+    # ------------------------ ticket upkeep ------------------------
+    async def expire_ticket_buttons_now() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        removed = await tickets.expire_reopen_buttons(guild)
+        if removed:
+            logger.info("Expired %d ticket Reopen button(s)", removed)
+
+    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    async def expire_ticket_buttons() -> None:
+        await expire_ticket_buttons_now()
+
+    @expire_ticket_buttons.before_loop
+    async def _wait_ready_tickets() -> None:
+        await bot.wait_until_ready()
+        try:
+            await expire_ticket_buttons_now()
+        except Exception:
+            logger.exception("Ticket button expiry catch-up failed")
+
     # ---------------------- weekly XP leaderboard ----------------------
     async def post_weekly_leaderboard_now() -> None:
         now = level_service.utcnow()
@@ -644,6 +681,17 @@ async def run() -> None:
             bot_settings.coupon_fallback_image or DEFAULT_FALLBACK_IMAGE
         )
 
+        await tickets.reload()
+        logger.info("Ticket channel: %s", tickets.channel_id)
+        ticket_channel = await resolve_ticket_channel(bot, tickets.channel_id)
+        if ticket_channel is not None:
+            try:
+                await ensure_ticket_sticky(bot, ticket_channel)
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not restore the ticket panel", exc_info=True
+                )
+
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)
         channel = await resolve_intro_channel(bot, intros.channel_id)
@@ -684,6 +732,8 @@ async def run() -> None:
             purge_streak_logs.start()
         if not post_member_reminders.is_running():
             post_member_reminders.start()
+        if not expire_ticket_buttons.is_running():
+            expire_ticket_buttons.start()
         if not post_weekly_leaderboard.is_running():
             post_weekly_leaderboard.start()
 
