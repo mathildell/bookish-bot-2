@@ -64,6 +64,7 @@ SOURCES = {
 
 TIMEZONE_ALIASES = {
     "Moscow": "Europe/Moscow",
+    "CST6CDT": "America/Denver",
 }
 
 UNIT_FIXES = {

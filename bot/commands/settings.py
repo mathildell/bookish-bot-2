@@ -200,7 +200,7 @@ def current_value_line(interaction: discord.Interaction, key: str) -> str:
 def build_description(interaction: discord.Interaction) -> str:
     """Build the list embed's description: heading + value + note per setting."""
     blocks = []
-    for key in SETTING_KEYS:
+    for key in sorted(SETTING_KEYS, key=lambda k: setting_label(k).lower()):
         blocks.append(
             "\n".join(
                 (
