@@ -1,6 +1,6 @@
 # Texts for the /settings commands (bot-wide settings editable at runtime).
 settings:
-  group_description: "View and edit the bot's settings"
+  group_description: "View and edit the bot’s settings"
   keys:
     admin_test_channel_id: "Channel for bot tests (mods)"
     bot_updates_channel_id: "Channel for bot updates"
@@ -15,7 +15,7 @@ settings:
     transparent_embed_image: "Transparent embed image"
     weekly_leaderboard_hour: "Hour for weekly leaderboard"
   list:
-    description: "Show the bot's settings"
+    description: "Show the bot’s settings"
     title: "Settings"
     heading: "### %{label}"
     value: "Value: `%{value}`"
@@ -26,7 +26,7 @@ settings:
     value_none: "none"
     info:
       purge_book_releases: "-# Time the books are kept in the releases table after the release announcement was posted."
-      purge_streak_logs: "-# Time a streak's daily log is kept before it is purged (streak totals persist)."
+      purge_streak_logs: "-# Time a streak’s daily log is kept before it is purged (streak totals persist)."
       review_repost_cooldown_days: "-# Time an edited review must wait before it can be reposted."
       releases_post_hour: "-# The UTC hour the daily release announcements are posted."
       weekly_leaderboard_hour: "-# The UTC hour the weekly XP leaderboard is posted on Sundays."
@@ -38,7 +38,7 @@ settings:
       admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
       coupon_fallback_image: "-# Image shown on a streak coupon when it cannot be generated or uploaded."
   edit:
-    description: "Change one of the bot's settings"
+    description: "Change one of the bot’s settings"
     param_key: "Which setting to change"
     param_value: "The new value"
     success: "%{label} is now %{value}."

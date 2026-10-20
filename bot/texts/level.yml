@@ -1,7 +1,7 @@
 # Leveling system texts
 level:
   xp_group_description: "XP and leveling commands"
-  cannot_remove_more: "You can't remove more XP than %{user} has, that's brutal!"
+  cannot_remove_more: "You can’t remove more XP than %{user} has, that’s brutal!"
   xp_added: "Added `%{amount}` XP to %{user}. New level: %{level} (%{current}/%{needed})"
   xp_removed: "Removed `%{amount}` XP from %{user}. New level: %{level} (%{current}/%{needed})"
   level_up: "**Congratulations %{user}!** You made it to level %{level}! <a:aMushroomJump:1407185627472203818> :sparkles:"
@@ -13,9 +13,9 @@ level:
   none: "None"
   xp:
     level:
-      description: "Show a member's level progress and rank"
+      description: "Show a member’s level progress and rank"
       param_user: "Member to show (defaults to you)"
-      embed_title: "%{user}'s level"
+      embed_title: "%{user}’s level"
       no_xp: "%{user} has no XP recorded yet."
       progress: "%{frozen}`%{current}`/`%{needed}` XP"
       bar_start_filled: "<:loadingBarStartFilled:1560265908403052544>"
@@ -85,5 +85,5 @@ level:
       title: "Level rewards"
       empty: "No level rewards configured."
     resync:
-      description: "Reapply reward roles to match every member's level"
+      description: "Reapply reward roles to match every member’s level"
       done: "Resynced reward roles for %{count} member(s)."

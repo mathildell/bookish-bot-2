@@ -29,6 +29,12 @@ from .commands.intro import (
 from .commands.level import weekly_leaderboard_embed, xp_group
 from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
+from .commands.reminders import (
+    ReminderActionsView,
+    reminder_embed,
+    reminders_group,
+    schedule_footer,
+)
 from .commands.releases import releases_group
 from .commands.reviews import reviews_group
 from .commands.settings import settings_group
@@ -47,6 +53,7 @@ from .services.members import resolve_members
 from .services.reference import post_reference
 from .services.release_sources import BookScrapeError, ReleaseScraper
 from .services.releases import ReleaseService
+from .services.reminders import ReminderService, is_stale
 from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
 from .services.streaks import Reminder, StreakService
@@ -200,6 +207,7 @@ async def run() -> None:
     intros = IntroService(int(config.guild_id))
     releases = ReleaseService(int(config.guild_id))
     streaks = StreakService(int(config.guild_id))
+    reminders = ReminderService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
     bot_settings = BotSettingsService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))
@@ -217,6 +225,7 @@ async def run() -> None:
     bot.intros = intros
     bot.releases = releases
     bot.streaks = streaks
+    bot.reminders = reminders
     bot.weekly = weekly
     bot.bot_settings = bot_settings
     bot.coupons = coupons
@@ -246,6 +255,7 @@ async def run() -> None:
     bot.tree.add_command(intro_group, guild=guild)
     bot.tree.add_command(releases_group, guild=guild)
     bot.tree.add_command(streaks_group, guild=guild)
+    bot.tree.add_command(reminders_group, guild=guild)
     bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(settings_group, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
@@ -461,6 +471,86 @@ async def run() -> None:
         except Exception:
             logger.exception("Streak log purge catch-up failed")
 
+    # ------------------------ member reminders ------------------------
+    async def _post_reminder_message(
+        channel: discord.abc.Messageable,
+        bot: commands.Bot,
+        *,
+        user_id: int,
+        task_text: str,
+        footer: str | None,
+        reminder_id: int | None,
+    ) -> discord.Message | None:
+        """Ping the owner in ``channel`` with the reminder embed and buttons."""
+        view = ReminderActionsView(reminder_id, user_id, task_text)
+        try:
+            message = await channel.send(
+                content=f"<@{user_id}>",
+                embed=reminder_embed(bot, task_text, footer=footer),
+                view=view,
+            )
+        except discord.HTTPException:
+            logger.warning(
+                "Could not post reminder %s", reminder_id, exc_info=True
+            )
+            return None
+        view.message = message
+        return message
+
+    async def post_member_reminders_now() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        now = level_service.utcnow()
+
+        for reminder in await reminders.due(now):
+            channel = await resolve_notify_channel(guild, reminder.channel_id)
+            if channel is None:
+                logger.warning(
+                    "Reminder %s has no reachable channel", reminder.id
+                )
+            elif not is_stale(reminder.next_run_at, now):
+                await _post_reminder_message(
+                    channel,
+                    bot,
+                    user_id=reminder.user_id,
+                    task_text=reminder.message,
+                    footer=schedule_footer(reminder),
+                    reminder_id=reminder.id,
+                )
+            await reminders.mark_done(reminder, now)
+
+        for snooze in await reminders.due_snoozes(now):
+            channel = await resolve_notify_channel(guild, snooze.channel_id)
+            if channel is None:
+                logger.warning(
+                    "Snoozed reminder %s has no reachable channel", snooze.id
+                )
+            elif not is_stale(snooze.due_at, now):
+                await _post_reminder_message(
+                    channel,
+                    bot,
+                    user_id=snooze.user_id,
+                    task_text=snooze.message,
+                    footer=None,
+                    reminder_id=snooze.source_reminder_id,
+                )
+            await reminders.discard_snooze(snooze)
+
+    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    async def post_member_reminders() -> None:
+        await post_member_reminders_now()
+
+    @post_member_reminders.before_loop
+    async def _wait_ready_reminders() -> None:
+        await bot.wait_until_ready()
+        # Catch up on reminders that came due while the bot was down; the
+        # 24h staleness rule keeps old ones from being posted on restart.
+        try:
+            await post_member_reminders_now()
+        except Exception:
+            logger.exception("Reminder catch-up failed")
+
     # ---------------------- weekly XP leaderboard ----------------------
     async def post_weekly_leaderboard_now() -> None:
         now = level_service.utcnow()
@@ -584,6 +674,8 @@ async def run() -> None:
             streak_hourly.start()
         if not purge_streak_logs.is_running():
             purge_streak_logs.start()
+        if not post_member_reminders.is_running():
+            post_member_reminders.start()
         if not post_weekly_leaderboard.is_running():
             post_weekly_leaderboard.start()
 

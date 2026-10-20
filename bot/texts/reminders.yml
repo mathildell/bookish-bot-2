@@ -1,0 +1,103 @@
+# Texts for the reminder feature (one-off and recurring member reminders).
+reminders:
+  group_description: "Set one-off or recurring reminders in this channel"
+
+  shared:
+    param_message: "The reminder text (up to 240 characters)"
+    param_schedule: "When to fire, e.g. `at 2pm`, `on monday at 2pm`, `every 2 days at 2pm` or `on the last day of the month at 2pm`"
+    param_repeat: "How often it should repeat"
+    param_timezone: "Timezone the schedule is read in (defaults to your streak timezone)"
+    param_reminder: "Which reminder (start typing to search)"
+    param_user: "Whose reminders to list"
+    summary_field: "Schedule"
+    next_field: "Next run"
+    channel_field: "Channel"
+    id_value: "`%{id}`"
+    hour_value_am: "%{hour}:00 AM"
+    hour_value_pm: "%{hour}:00 PM"
+    weekday:
+      monday: "Monday"
+      tuesday: "Tuesday"
+      wednesday: "Wednesday"
+      thursday: "Thursday"
+      friday: "Friday"
+      saturday: "Saturday"
+      sunday: "Sunday"
+    suffix:
+      st: "st"
+      nd: "nd"
+      rd: "rd"
+      th: "th"
+
+  repeat:
+    once: "Once"
+    daily: "Every day"
+    weekly: "Every week"
+    monthly: "Every month"
+    interval: "Every N days"
+
+  schedule:
+    once: "Once, %{when}"
+    daily: "Every day at %{hour}"
+    weekly: "Every %{weekday} at %{hour}"
+    monthly: "Every month on the %{day}%{suffix} at %{hour}"
+    monthly_last: "Every month on the last day at %{hour}"
+    monthly_before: "Every month %{days} day before the end at %{hour}"
+    monthly_before_plural: "Every month %{days} days before the end at %{hour}"
+    interval: "Every %{days} day at %{hour}"
+    interval_plural: "Every %{days} days at %{hour}"
+
+  schedule_help:
+    once: "`2026-10-29 at 14:00`, `thursday at 2pm` or `tomorrow at 9am`"
+    daily: "`at 2pm` or `every day at 2pm`"
+    weekly: "`on monday at 2pm` or `every monday at 2pm`"
+    monthly: "`on the 15th at 2pm`, `on the last day of the month at 2pm` or `2 days before the end of the month at 2pm`"
+    interval: "`every 2 days at 2pm`"
+
+  add:
+    description: "Create a reminder in this channel"
+    title: "Reminder set"
+  edit:
+    description: "Change one of your reminders"
+    title: "Reminder updated"
+  remove:
+    description: "Delete one of your reminders"
+    success: "Removed reminder %{id}"
+    not_found: "I couldn’t find reminder %{id}."
+  list:
+    description: "List members’ reminders"
+    empty: "You don’t have any reminders yet. Use `/reminder add` to create one."
+    empty_user: "%{user} doesn’t have any reminders."
+
+  post:
+    completed_title: "✅ ~~%{task}~~"
+    completed_footer: "Completed"
+    snoozed_footer: "Snoozed until %{time}"
+  buttons:
+    complete: "Mark completed"
+    complete_emoji: "✅"
+    snooze: "Snooze 1 hour"
+    snooze_emoji: "⏰"
+
+  errors:
+    generic: "Something went wrong with that reminder."
+    missing_schedule: "Tell me when to fire. For **%{repeat}** reminders, use %{examples}."
+    invalid_schedule: "I couldn’t read that schedule. For **%{repeat}** reminders, use %{examples}."
+    invalid_time: "I couldn’t read that time. Reminders fire on the hour: use `2pm` or `14:00`."
+    missing_message: "The reminder text can’t be empty."
+    message_too_long: "That reminder text is %{length} characters long; the max is %{maximum}."
+    invalid_hour: "`%{hour}` isn’t a valid hour of the day."
+    invalid_timezone: "`%{timezone}` isn’t a timezone I recognise; try looking up a metropolis near you instead."
+    invalid_kind: "`%{kind}` isn’t a schedule I know."
+    missing_date: "One-off reminders need a date: `2026-10-29` or a weekday like `thursday`."
+    invalid_date: "`%{date}` isn’t a date I recognise; use `2026-10-29` or a weekday like `thursday`."
+    past_date: "`%{date}` is already in the past, so it would never fire. Pick a future date."
+    invalid_weekday: "`%{weekday}` isn’t a day of the week I recognise."
+    missing_weekday: "Weekly reminders need a weekday to fire on."
+    missing_day: "Monthly reminders need a day of the month (1-31) or days before the month’s end."
+    invalid_day: "`%{day}` isn’t a valid day of the month."
+    both_day_and_month_end: "Give either a fixed day of the month or days before its end, not both."
+    invalid_month_end: "`%{offset}` isn’t a valid number of days before the month’s end (0-27)."
+    missing_interval: "Interval reminders need a number of days between runs."
+    invalid_interval: "`%{days}` isn’t a valid number of days (1-365)."
+    not_found: "I couldn’t find reminder %{id}."

@@ -51,6 +51,17 @@ Implemented features:
   background, the default embed colour, the coupon fallback image and the buddy
   read forum channel + reference message link. This is the home for values that
   used to live in `config.yaml`.
+- **Reminders** — members set one-off or recurring reminders (`/reminder
+  add|edit|remove|list`) that fire on the hour in a chosen timezone (defaulting
+  to the streak timezone, then UTC) and are posted in the channel they were
+  created in, pinging the owner. A reminder is a message, a repeat kind and one
+  schedule phrase parsed against a closed grammar (`at 2pm`,
+  `on monday at 2pm`, `every 2 days at 2pm`, `on the last day of the month at
+  2pm`, …); the schedule option autocompletes the accepted phrasings. Monthly
+  reminders take a fixed day (clamped in short months) or days before the
+  month's end. Each post carries Mark completed and Snooze 1 hour buttons (2h
+  lifetime); snoozes repost an hour later via the database. Reminders missed
+  while offline post if at most 24h late.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -121,7 +132,7 @@ bot/
                            ReviewEntry, ReviewSetting, IntroQuestion,
                            IntroSetting, IntroPost, BookRelease, ReleaseSetting,
                            ReleaseEditDraft, StreakGoal, Streak, StreakLog,
-                           StreakSetting, BotSetting)
+                           StreakSetting, BotSetting, Reminder, ReminderSnooze)
   notifications.py         level-up + streak-closed announcements
   commands/
     booster.py             /booster root group
@@ -133,6 +144,7 @@ bot/
     releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
     streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
+    reminders.py           /reminder group + add/edit/remove/list + complete/snooze buttons
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
     bot_react.py           /bot react (add an emoji reaction to a message)
@@ -155,6 +167,8 @@ bot/
     releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
+    reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
+    timezones.py           IANA timezone search/validation shared by streaks and reminders
     settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite

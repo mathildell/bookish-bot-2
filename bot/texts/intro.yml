@@ -9,7 +9,7 @@ intro:
       description: "Set the channel where introductions are posted"
       param_channel: "Channel for member introductions"
       success: "Introductions will be posted in %{channel}."
-      failed: "I couldn't post the sticky message in %{channel}. Check I can send messages and view the channel."
+      failed: "I couldn’t post the sticky message in %{channel}. Check I can send messages and view the channel."
   sticky:
     description: "Repost the sticky introduction message"
     reposted: "Reposted the sticky introduction message."
@@ -22,32 +22,32 @@ intro:
     formatting_text: "You can use the same [markdown as Discord messages](<https://support.discord.com/hc/en-us/articles/210298617-Markdown-Text-101-Chat-Formatting-Bold-Italic-Underline>) :arrow_upper_right:. You can also use emojis in the [`<:EmojiName:EmojiID>` format](https://discord.com/channels/1405910078342565979/1406127543051882547/1418014744236916796) (eg. `<a:aDuckLove:1407031079327760424>`), but they must come from our own emoji list (outside emojis won’t work, even for Nitro users)"
   refresh:
     button_emoji: "🔄"
-    not_found: "I couldn't find the introduction for this post."
+    not_found: "I couldn’t find the introduction for this post."
   delete:
     button_emoji: "🗑️"
-    confirm: "Are you sure you want to delete your introduction? This can't be undone. Then you'll have to re-introduce yourself and it might be awkward. But it's your choice of course. This is a judgement-free zone."
+    confirm: "Are you sure you want to delete your introduction? This can’t be undone. Then you’ll have to re-introduce yourself and it might be awkward. But it’s your choice of course. This is a judgement-free zone."
     confirm_button: "Delete"
     cancel_button: "Cancel"
     done: "You chose the awkwardness, I respect that."
-    cancelled: "You just wanted to test that button, didn't you? :beetle: "
-    failed: "I couldn't delete your introduction. Please try again later."
+    cancelled: "You just wanted to test that button, didn’t you? :beetle: "
+    failed: "I couldn’t delete your introduction. Please try again later."
     not_author: "Nice try, but only the author of this post can delete it."
-    not_found: "I couldn't find the introduction for this post."
+    not_found: "I couldn’t find the introduction for this post."
   questions:
     group_description: "Manage the questions asked in the intro form"
     select_placeholder: "Choose a question"
     add:
       description: "Add a question to the intro form"
-      param_content: "The question's text"
-      param_placeholder: "Text's helper to help the member answer"
+      param_content: "The question’s text"
+      param_placeholder: "Text’s helper to help the member answer"
       param_active: "Whether the question is active"
       success: "Added question #%{position}:\n**%{content}**"
       success_placeholder: "Added question #%{position}:\n**%{content}**\n-# %{placeholder}"
     edit:
       modal_title: "Edit question"
       success: "Saved the question."
-      param_content: "The question's text"
-      param_placeholder: "Text's helper to help the member answer (leave empty to clear)"
+      param_content: "The question’s text"
+      param_placeholder: "Text’s helper to help the member answer (leave empty to clear)"
     list:
       description: "List and manage the questions in the intro form"
       title: "Questions from the intro form"
@@ -61,7 +61,7 @@ intro:
       not_posted: "Not shown"
     remove:
       success: "Removed the question."
-    disabled_now: "That question is now inactive and won't be shown in the form."
+    disabled_now: "That question is now inactive and won’t be shown in the form."
     disabled_active: "That question is now active."
     button:
       edit: "Edit"
@@ -76,7 +76,7 @@ intro:
   post:
     created: "Welcome! How nice to finally meet you \\*checks notes\\* ...human. You can edit your introduction at any time with the sticky button."
     edited: "Your introduction was updated."
-    failed: "I couldn't post your introduction. Please try again later."
+    failed: "I couldn’t post your introduction. Please try again later."
   errors:
     no_channel: "No introduction channel is set up yet."
     no_questions: "The introduction form has no questions yet."

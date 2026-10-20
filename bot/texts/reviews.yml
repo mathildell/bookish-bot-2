@@ -1,19 +1,19 @@
 # Texts for the Goodreads review sharing feature.
 reviews:
-  group_description: "Share members' new Goodreads reviews"
+  group_description: "Share members’ new Goodreads reviews"
   feed:
-    group_description: "Manage a member's Goodreads reviews feed"
+    group_description: "Manage a member’s Goodreads reviews feed"
     add:
       description: "Link a Goodreads reviews RSS feed"
       param_url: "Goodreads 'list_rss' reviews feed URL"
       param_user: "Member to set the feed for (admins only; defaults to you)"
-      success: "Saved %{user}'s Goodreads feed."
-      success_reset: "Saved %{user}'s Goodreads feed. Existing reviews won't be posted, only new ones."
-      invalid_url: "That doesn't look like a Goodreads reviews RSS feed. Go to My Books, then get the shelf's RSS link by clicking on the little icon under the table, then grab the URL and paste it here."
+      success: "Saved %{user}’s Goodreads feed."
+      success_reset: "Saved %{user}’s Goodreads feed. Existing reviews won’t be posted, only new ones."
+      invalid_url: "That doesn’t look like a Goodreads reviews RSS feed. Go to My Books, then get the shelf’s RSS link by clicking on the little icon under the table, then grab the URL and paste it here."
     remove:
       description: "Unlink a Goodreads reviews RSS feed"
       param_user: "Member whose feed to remove (admins only; defaults to you)"
-      success: "Removed %{user}'s Goodreads feed."
+      success: "Removed %{user}’s Goodreads feed."
       not_found: "%{user} has no Goodreads feed registered."
     list:
       description: "List every registered Goodreads reviews feed"
@@ -29,9 +29,9 @@ reviews:
     description: "Force the bot to repost a review"
     param_entry: "Goodreads review URL or review id"
     param_user: "Member whose review to repost (admins only; defaults to you)"
-    success: "Reposted %{user}'s review %{entry}."
+    success: "Reposted %{user}’s review %{entry}."
     not_found: "No posted review matching %{entry} was found."
-    no_channel: "No review channel is set, so entry %{entry} can't be reposted."
+    no_channel: "No review channel is set, so entry %{entry} can’t be reposted."
   embed:
     untitled_book: "Untitled"
     unknown_shelf: "Goodreads"

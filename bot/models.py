@@ -611,3 +611,72 @@ class BotSetting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class Reminder(Base):
+    """A member's personal reminder, posted in the channel it was created in."""
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    # The reminder text; doubles as the embed title, so it stays short.
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # IANA zone the schedule is interpreted in (wall-clock semantics).
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # "once", "daily", "weekly", "monthly" or "interval"
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    # Local hour (0-23); reminders always fire on the hour.
+    hour: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Python weekday (0-6); weekly only.
+    weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Day of month (1-31); monthly only, clamped in short months.
+    day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Days before the month's last day (0 = the last day); monthly only.
+    month_end_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Days between runs; interval only.
+    interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Local date of the single run; once only.
+    run_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    # Next fire time as naive UTC, polled every few minutes.
+    next_run_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_reminders_guild_next_run", "guild_id", "next_run_at"),
+        Index("ix_reminders_guild_user", "guild_id", "user_id"),
+    )
+
+
+class ReminderSnooze(Base):
+    """A one-off repost of a reminder, pushed an hour by the snooze button."""
+
+    __tablename__ = "reminder_snoozes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # The reminder the snooze came from; null if it has since been removed.
+    source_reminder_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # When to repost, as naive UTC.
+    due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

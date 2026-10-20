@@ -17,8 +17,8 @@ read/write database work.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
-from zoneinfo import ZoneInfo, available_timezones
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import delete, select
 
@@ -26,6 +26,7 @@ from ..db import session_scope
 from ..models import Streak, StreakGoal, StreakLog, StreakSetting
 from . import level as level_service
 from .level import utcnow
+from .timezones import local_now, search_timezones, valid_timezone
 
 LEVEL_THRESHOLD = 5
 XP_CAP = 3000
@@ -51,34 +52,6 @@ REMINDERS = ("none", "custom", "last_chance", "both")
 
 STATUS_ONGOING = "ongoing"
 STATUS_CLOSED = "closed"
-
-POPULAR_TIMEZONES = (
-    "America/Toronto",
-    "America/New_York",
-    "America/Chicago",
-    "America/Denver",
-    "America/Los_Angeles",
-    "America/Vancouver",
-    "America/Sao_Paulo",
-    "Europe/London",
-    "Europe/Paris",
-    "Europe/Berlin",
-    "Europe/Madrid",
-    "Europe/Rome",
-    "Europe/Amsterdam",
-    "Europe/Stockholm",
-    "Africa/Cairo",
-    "Africa/Johannesburg",
-    "Asia/Dubai",
-    "Asia/Kolkata",
-    "Asia/Singapore",
-    "Asia/Tokyo",
-    "Asia/Shanghai",
-    "Australia/Sydney",
-    "Australia/Perth",
-    "Pacific/Auckland",
-    "UTC",
-)
 
 
 class StreakError(Exception):
@@ -174,11 +147,6 @@ def parse_amount(raw: str, current: int = 0) -> int:
         return max(0, int(value))
     except ValueError as exc:
         raise InvalidAmount(raw=raw) from exc
-
-
-def local_now(now_utc: datetime, tz_name: str) -> datetime:
-    """Interpret a naive UTC timestamp in the given timezone."""
-    return now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz_name))
 
 
 def local_date(now_utc: datetime, tz_name: str) -> date:
@@ -287,62 +255,6 @@ def window_slots(
         )
         for index in range(LEVEL_THRESHOLD)
     ]
-
-
-def search_timezones(
-    query: str, *, now_utc: datetime | None = None, limit: int = 25
-) -> list[tuple[str, str]]:
-    """Searchable timezone choices as ``(value, label)`` pairs."""
-    now = now_utc or utcnow()
-    needle = (query or "").strip().lower().replace(" ", "").replace("_", "")
-    zones = available_timezones()
-
-    if not needle:
-        candidates = [zone for zone in POPULAR_TIMEZONES if zone in zones]
-    else:
-        scored: list[tuple[int, int, str]] = []
-        for zone in zones:
-            normal = zone.lower().replace(" ", "").replace("_", "")
-            city = normal.rsplit("/", 1)[-1]
-            if city == needle:
-                score = 0
-            elif city.startswith(needle):
-                score = 1
-            elif normal.startswith(needle):
-                score = 2
-            elif needle in normal:
-                score = 3
-            else:
-                continue
-            scored.append((score, len(zone), zone))
-        scored.sort()
-        candidates = [zone for _, _, zone in scored]
-        candidates = candidates[:limit]
-
-    return [(zone, _timezone_label(zone, now)) for zone in candidates[:limit]]
-
-
-def _timezone_label(zone: str, now_utc: datetime) -> str:
-    try:
-        offset = local_now(now_utc, zone).utcoffset() or timedelta(0)
-    except Exception:
-        return zone.replace("_", " ")
-    total_minutes = int(offset.total_seconds() // 60)
-    sign = "+" if total_minutes >= 0 else "-"
-    hours, minutes = divmod(abs(total_minutes), 60)
-    return f"{zone.replace('_', ' ')} (UTC{sign}{hours:02d}:{minutes:02d})"
-
-
-def valid_timezone(name: str) -> str | None:
-    """Return the canonical zone name for ``name``, or ``None`` if unknown."""
-    candidate = (name or "").strip()
-    if not candidate:
-        return None
-    try:
-        ZoneInfo(candidate)
-    except Exception:
-        return None
-    return candidate
 
 
 # --------------------------------------------------------------- result types

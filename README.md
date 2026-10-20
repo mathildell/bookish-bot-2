@@ -41,6 +41,8 @@ Remove a booster's react registration.
 **Permissions:** 🔒 Admin
 Paginated list of every registered booster react.
 
+***
+
 ## Booster roles
 
 An admin links a Discord role to a booster; the booster may then rename and
@@ -76,6 +78,8 @@ channel.
 ```
 **Permissions:** 🔒 Admin
 Paginated list of every linked booster role.
+
+***
 
 ## Levels
 
@@ -154,6 +158,8 @@ Show every level and its reward role.
 **Permissions:** 🔒 Admin
 Reapply reward roles so they match every member's current level.
 
+***
+
 ## Book reviews
 
 Members link their Goodreads reviews RSS feed; the bot polls the feeds every
@@ -191,6 +197,8 @@ Set the channel where review updates are posted.
 **Permissions:** 🔒 Admin
 Force the bot to repost a review immediately, even if the Goodreads feed entry
 has not changed.
+
+***
 
 ## Book releases
 
@@ -270,6 +278,8 @@ Post today's release announcement right now, even for books already announced.
 **Permissions:** 🔒 Admin
 Post this month's release overview right now, even if it was already posted.
 
+***
+
 ## Introductions
 
 Admins configure an intro channel and the questions for the intro form. A
@@ -305,6 +315,8 @@ Add a question to the intro form.
 **Permissions:** 🔒 Admin
 List and manage the questions: select one to edit, toggle it active, reorder it,
 or remove it. Only the first 5 active questions are shown in the form.
+
+***
 
 ## Streaks
 
@@ -390,6 +402,64 @@ Turn XP gain from streaks `on` or `off`. While off, streaks, levels and rescues
 still progress, but members earn no XP — the log and view show what they would
 have earned and note that it did not reach their pool.
 
+***
+
+## Reminders
+
+Set one-off or recurring reminders; when one fires, the bot pings you in the
+channel where the reminder was created. Every fire comes with **Mark completed**
+and **Snooze 1 hour** buttons usable only by you; they disappear after two
+hours. Completing strikes the reminder title through and closes the buttons
+early; snoozing reposts the same ping an hour later (snoozes survive bot
+restarts). Reminders missed while the bot was offline post if they are at most
+24 hours late.
+
+A reminder is a message, a repeat kind and one schedule phrase. Schedules are
+read in the reminder's timezone, which defaults to your streak timezone (or UTC
+if you have none). Only the phrasings below are accepted, and the schedule
+option autocompletes them:
+
+| repeat | schedule examples |
+|---|---|
+| `once` | `2026-10-29 at 14:00`, `thursday at 2pm`, `tomorrow at 9am` |
+| `daily` | `at 2pm`, `every day at 2pm` |
+| `weekly` | `on monday at 2pm`, `every monday at 2pm` |
+| `monthly` | `on the 15th at 2pm`, `on the last day of the month at 2pm`, `2 days before the end of the month at 2pm` |
+| `interval` | `every 2 days at 2pm` |
+
+Times are on the hour, written as `2pm` or `14:00`. A fixed monthly day uses
+the real month length (the 30th fires on the 28th/29th in February); month-end
+offsets count back from the last day, so `2 days before the end` is the 29th in
+a 31-day month.
+
+```
+/reminder add message: schedule: [repeat:] [timezone:]
+```
+**Permissions:** Everyone
+Create a reminder in the current channel. `repeat` is `once` (default),
+`daily`, `weekly`, `monthly` or `interval`.
+
+```
+/reminder edit reminder: [message:] [schedule:] [repeat:] [timezone:]
+```
+**Permissions:** Admin (anyone) / Members (self only)
+Change a reminder; giving a schedule reschedules it from the moment of the
+edit. Changing `repeat` requires a new schedule.
+
+```
+/reminder remove reminder:
+```
+**Permissions:** Admin (anyone) / Members (self only)
+Delete one of your reminders.
+
+```
+/reminder list [user:]
+```
+**Permissions:** 🔒 Admin
+List your reminders with their schedules and next run times.
+
+***
+
 ## Admin tools
 
 Fun tools for admins.
@@ -457,6 +527,8 @@ View and edit the bot's runtime settings.
   `/streak`) work regardless of their configured channel.
 - `coupon_fallback_image` — image shown on a streak coupon when it cannot be
   rendered or uploaded (defaults to a GIF).
+
+***
 
 ## Utility
 

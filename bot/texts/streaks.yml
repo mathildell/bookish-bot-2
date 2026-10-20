@@ -37,16 +37,16 @@ streaks:
       ### %{last_emoji} ‎ Last Chance Reminder
       > Get notified one hour before your streak closes (11PM local time) **if** you haven’t logged on that day
       ### %{both_emoji} ‎ Both
-      > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven't logged)
+      > Receive both a daily reminder at the hour of your choosing and a last chance alert (if you haven’t logged)
 
   register:
     description: "Set or rewrite your daily reading goal"
     param_amount: "How many (pages, minutes, chapters...)"
     param_unit: "Unit (pages, minutes, chapters...)"
     param_timezone: "Your timezone (start typing to search)"
-    step_title: "Let's register that goal!"
+    step_title: "Let’s register that goal!"
     step_description: |
-      You've taken the first step to register your daily goal! I will mark you down for **%{amount} %{unit}**, in the **%{timezone}** timezone. To finish the registration, please complete the following process.
+      You’ve taken the first step to register your daily goal! I will mark you down for **%{amount} %{unit}**, in the **%{timezone}** timezone. To finish the registration, please complete the following process.
           
       Once your goal has been saved, you can edit it at any time without losing your progress. To adjust notifications or revisit this menu later, you can run the following command:
       ```
@@ -55,15 +55,15 @@ streaks:
       ## Pick your reminder option:
       %{options}
     custom_title: "Pick your hour"
-    custom_description: "Pick any hour from 1AM to 10PM\n-# **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren't selectable options."
+    custom_description: "Pick any hour from 1AM to 10PM\n-# **Note:** 11PM is covered by Last Chance Reminder and midnight are when the streaks close, so they aren’t selectable options."
     custom_placeholder: "Reminder hour"
     confirmed_title: "Goal set"
-    confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I'll keep my eye on you <@%{mention}>... :eyes:"
+    confirmed_description: "All set-up! You can edit this at any time using `/streak edit`. I’ll keep my eye on you <@%{mention}>... :eyes:"
 
   edit:
     description: "Change your daily goal or your reminders"
     title: "Editing your streak"
-    menu_description: "What would you like to change? Your streak's progress will stay untouched."
+    menu_description: "What would you like to change? Your streak’s progress will stay untouched."
     amount_unit_button_emoji: "📙"
     amount_unit_button: "Amount & unit"
     timezone_button_emoji: "🌍"
@@ -97,16 +97,16 @@ streaks:
     amount_value: "%{amount} %{unit}"
     level_up_title: "Level cleared"
     level_up_content: |
-      You’ve logged your progress every day for **%{days} days!** You’ve reached **💫 ‎ Level %{level}**, earned a **%{rescue_emoji} ‎ Streak Rescue** and are now eligible for a **`%{xp}` XP** reward. Here is a coupon to show off your progress!
+      You’ve logged your progress every day for **%{days} days!** You’ve reached **💫 ‎ Level %{level}**, earned a **%{rescue_emoji} ‎ Streak Rescue** and are now eligible for a **`%{xp}` XP** reward. It has been automatically added to your XP pool, but here’s a coupon to show off your progress!
     level_up_50th: |
-      Wow, you've also earned a **%{rescue_emoji} Golden Streak Rescue**. It'll be useful if you ever miss the repair window!
-    level_up_anniversary: " This is your ***Streanniversary!*** 🎉🎂 ‎ I've added **a little extra XP** (2x) and a **%{rescue_emoji} Golden Streak Rescue** to celebrate. Good job!"
+      Wow, you’ve also earned a **%{rescue_emoji} Golden Streak Rescue** for 50 levels cleared! It’ll be useful if you ever miss the repair window!
+    level_up_anniversary: " This is your ***Streanniversary!*** 🎉🎂 ‎ I’ve **doubled your XP** and added a **%{rescue_emoji} Golden Streak Rescue** to celebrate. Good job!"
     achievement_field: "Daily achievement"
     achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
-    achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."
-    dry_run: "We're just testing the bot, so that **`%{xp}` XP** wasn't actually added to your XP total yet."
+    achievement_failure_value: "Not quite there yet. It’s okay, there’s always tomorrow."
+    dry_run: "We’re just testing the bot, so that **`%{xp}` XP** wasn’t actually added to your XP total yet."
     top_up_title: "Goal reached"
-    top_up_content: "You already received XP for finishing your level earlier, but you deserve **a little more for completing today.** Here's the **`%{xp}` XP** you are owed!"
+    top_up_content: "You already received XP for finishing your level earlier, but you deserve **a little more for completing today.** Here’s the **`%{xp}` XP** you are owed!"
 
   coupon:
     title: "Streak coupon"
@@ -119,18 +119,18 @@ streaks:
   today:
     description: "Have you logged today?"
     "yes": "✅ ‎ All good! Logged **%{amount} %{unit}** on %{date}."
-    no_first: "❌ ‎ Oops, no. Looks like you haven't logged anything yet."
+    no_first: "❌ ‎ Oops, no. Looks like you haven’t logged anything yet."
     this: "this"
     these: "these"
     hurry: "Better get to %{this} %{amount} %{unit} quickly, your streak closes %{closes}."
-    not_registered: "I can't find a goal for you. You should run `/streak register` first!"
+    not_registered: "I can’t find a goal for you. You should run `/streak register` first!"
 
   view:
     description: "Inspect a streak"
     param_user: "Whose streak (defaults to you)"
-    title: "%{user}'s streak"
-    no_streak: "No streak yet: you haven't logged a single day. Run `/streak log` to log your daily amount and get started!"
-    streak_gone: "This streak is over and can no longer be saved. It will be missed... Whenever you're ready, log a day to start over."
+    title: "%{user}’s streak"
+    no_streak: "No streak yet: you haven’t logged a single day. Run `/streak log` to log your daily amount and get started!"
+    streak_gone: "This streak is over and can no longer be saved. It will be missed... Whenever you’re ready, log a day to start over."
 
   info:
     closed_field: "Closed"
@@ -196,35 +196,35 @@ streaks:
     dryrun:
       description: "Turn XP gain from streaks on or off"
       param_state: "Whether streak XP reaches members"
-      "on": "Dry run enabled. Streak XP is now a rehearsal; nobody's pool changes."
+      "on": "Dry run enabled. Streak XP is now a rehearsal; nobody’s pool changes."
       "off": "Dry run disabled. Streak XP counts for real again."
 
   errors:
-    generic: "Something went sideways. Don't look at me like that, I'm trying my best!"
+    generic: "Something went sideways. Don’t look at me like that, I’m trying my best!"
     not_registered: "No streak goal found. Run `/streak register`!"
-    invalid_amount: "`%{raw}` doesn't appear to be a number I can log. Try `30`, `+10` or `-5`."
-    amount_positive: "That's some big brain strategy :brain: but your goal has to be more than zero."
-    invalid_timezone: "`%{timezone}` isn't a timezone I recognise; please try looking up a metropolis near you instead."
-    invalid_date: "`%{raw}` isn't a date I can work with, please use `YYYY-MM-DD`."
-    wrong_channel: "Oops, this isn't the streak channel! Try there instead: %{channel}."
+    invalid_amount: "`%{raw}` doesn’t appear to be a number I can log. Try `30`, `+10` or `-5`."
+    amount_positive: "That’s some big brain strategy :brain: but your goal has to be more than zero."
+    invalid_timezone: "`%{timezone}` isn’t a timezone I recognise; please try looking up a metropolis near you instead."
+    invalid_date: "`%{raw}` isn’t a date I can work with, please use `YYYY-MM-DD`."
+    wrong_channel: "Oops, this isn’t the streak channel! Try there instead: %{channel}."
     already_registered: "You already have a streak going. Use `/streak edit` to change it instead."
-    cant_rescue: "That streak can't be rescued anymore. It had a good run. We will remember it fondly."
+    cant_rescue: "That streak can’t be rescued anymore. It had a good run. We will remember it fondly."
 
   reminders:
     title: "Streak reminder"
     content:
       - "Oye, oye %{mentions}, your streak would like a word with you!"
       - "%{mentions}: daily reminder to stay hydrated... and log your daily achievement!"
-      - "Nudge for %{mentions}; it's time to log your streak!"
+      - "Nudge for %{mentions}; it’s time to log your streak!"
       - "Hello %{mentions}! Have you made any progress on your current reads today?"
       - "What have you been reading lately? %{mentions}, time to log your streak!"
-      - "%{mentions}, we heard you're the best at reading; prove it!"
+      - "%{mentions}, we heard you’re the best at reading; prove it!"
     last_chance_title: "Last chance"
     last_chance_content:
-      - "Tick tock %{mentions}, there's only one hour left until midnight!"
+      - "Tick tock %{mentions}, there’s only one hour left until midnight!"
       - "%{mentions}, you still have a chance to log before you streak closes!"
       - "Your streak is about to close %{mentions} <a:aBunnyPanic:1494097440503103508>"
-      - "%{mentions}, we're reaching threat level midnight!"
+      - "%{mentions}, we’re reaching threat level midnight!"
     footer: "Use /streak log to log your daily progress"
     unknown_member: "unknown member"
 

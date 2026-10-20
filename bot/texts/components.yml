@@ -14,4 +14,4 @@ components:
     placement_3: "🥉"
     placement_other: "%{place}."
   permissions:
-    no_permission: "Can't fault you for trying, but you really can't do that. :eyes: "
+    no_permission: "Can’t fault you for trying, but you really can’t do that. :eyes: "

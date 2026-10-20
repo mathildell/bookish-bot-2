@@ -134,7 +134,12 @@ class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
 
         async def generate(self, **kwargs):
             self.calls.append(kwargs)
-            return SimpleNamespace(url=f"https://example.com/{kwargs['level']}.png")
+            return coupons.Coupon(
+                level=kwargs["level"],
+                xp=kwargs["xp"],
+                on_date=kwargs["on_date"],
+                url=f"https://example.com/{kwargs['level']}.png",
+            )
 
     def _interaction(self) -> SimpleNamespace:
         self.service = self.Coupons()
@@ -162,7 +167,7 @@ class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
         values.update(kwargs)
         return streaks.LevelProgress(**values)
 
-    async def _generate(self, progress) -> list[str]:
+    async def _generate(self, progress) -> list[coupons.Coupon]:
         return await command_streaks._generate_coupons(
             self._interaction(),
             SimpleNamespace(display_name="Alice"),
@@ -171,10 +176,10 @@ class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_generates_one_coupon_for_each_award(self) -> None:
-        urls = await self._generate(self._progress())
+        generated = await self._generate(self._progress())
 
         self.assertEqual(
-            urls,
+            [coupon.url for coupon in generated],
             ["https://example.com/1.png", "https://example.com/2.png"],
         )
         self.assertEqual([call["level"] for call in self.service.calls], [1, 2])
@@ -186,22 +191,22 @@ class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_generates_even_in_a_dry_run(self) -> None:
-        urls = await self._generate(self._progress(dry_run=True))
-        self.assertEqual(len(urls), 2)
+        generated = await self._generate(self._progress(dry_run=True))
+        self.assertEqual(len(generated), 2)
 
     async def test_generates_when_a_level_cleared_without_recorded_awards(self) -> None:
-        urls = await self._generate(
+        generated = await self._generate(
             self._progress(level=1, xp_awarded=250, awards=[])
         )
 
-        self.assertEqual(urls, ["https://example.com/1.png"])
+        self.assertEqual([coupon.url for coupon in generated], ["https://example.com/1.png"])
         self.assertEqual(self.service.calls[0]["level"], 1)
         self.assertEqual(self.service.calls[0]["xp"], 250)
 
 
 class CouponRenderTests(unittest.TestCase):
     def test_renders_a_600x360_image_and_returns_a_temp_file(self) -> None:
-        path = coupons.render_coupon(
+        path, color = coupons.render_coupon(
             display_name="A Very Long Reader Name That Has To Shrink",
             level=123,
             on_date=date(2026, 10, 19),
@@ -209,6 +214,7 @@ class CouponRenderTests(unittest.TestCase):
         )
         try:
             self.assertTrue(path.exists())
+            self.assertIsInstance(color, int)
             with coupons.Image.open(path) as image:
                 self.assertEqual(image.size, (600, 360))
                 self.assertEqual(image.mode, "RGBA")
@@ -219,7 +225,7 @@ class CouponRenderTests(unittest.TestCase):
 
 class CouponFallbackTests(unittest.IsolatedAsyncioTestCase):
     async def test_falls_back_and_deletes_the_local_file(self) -> None:
-        path = coupons.render_coupon(
+        path, _color = coupons.render_coupon(
             display_name="Alice",
             level=1,
             on_date=date(2026, 10, 19),
@@ -234,7 +240,9 @@ class CouponFallbackTests(unittest.IsolatedAsyncioTestCase):
                 raise coupons.CouponUploadError("tmpfiles down")
 
         service = Failing("key")
-        with patch("bot.services.coupons.render_coupon", return_value=path):
+        with patch(
+            "bot.services.coupons.render_coupon", return_value=(path, None)
+        ):
             coupon = await service.generate(
                 display_name="Alice",
                 level=1,
