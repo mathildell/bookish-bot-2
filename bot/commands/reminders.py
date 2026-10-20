@@ -79,7 +79,7 @@ def _format_run(moment: datetime) -> str:
 
 
 def schedule_summary(reminder: Reminder) -> str:
-    """Human-readable schedule, used in confirmations and embed footers."""
+    """Human-readable schedule, used in confirmations and posted reminders."""
     hour = _hour_value(reminder.hour)
     if reminder.kind == KIND_ONCE:
         return t(
@@ -119,20 +119,20 @@ def schedule_summary(reminder: Reminder) -> str:
     return t(key, days=days, hour=hour)
 
 
-def schedule_footer(reminder: Reminder) -> str | None:
-    """Footer for a posted reminder; one-offs carry none."""
+def schedule_description(reminder: Reminder) -> str | None:
+    """Description for a posted reminder; one-offs carry none."""
     if reminder.kind == KIND_ONCE:
         return None
     return schedule_summary(reminder)
 
 
 def reminder_embed(
-    client: discord.Client, task_text: str, *, footer: str | None = None
+    client: discord.Client, task_text: str, *, description: str | None = None
 ) -> discord.Embed:
     embed = new_embed(client)
     embed.title = task_text
-    if footer:
-        embed.set_footer(text=footer)
+    if description:
+        embed.description = description
     set_transparent_image(embed, client)
     return embed
 
@@ -142,7 +142,7 @@ def completed_embed(client: discord.Client, task_text: str) -> discord.Embed:
         client, t("reminders.post.completed_title", task=task_text)
     )
     embed.colour = discord.Colour.green()
-    embed.set_footer(text=t("reminders.post.completed_footer"))
+    embed.description = t("reminders.post.completed_description")
     return embed
 
 
@@ -151,7 +151,9 @@ def snoozed_embed(
 ) -> discord.Embed:
     when = discord.utils.format_dt(snoozed_until.replace(tzinfo=timezone.utc), "t")
     return reminder_embed(
-        client, task_text, footer=t("reminders.post.snoozed_footer", time=when)
+        client,
+        task_text,
+        description=t("reminders.post.snoozed_description", time=when),
     )
 
 

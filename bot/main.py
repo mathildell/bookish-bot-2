@@ -33,7 +33,7 @@ from .commands.reminders import (
     ReminderActionsView,
     reminder_embed,
     reminders_group,
-    schedule_footer,
+    schedule_description,
 )
 from .commands.releases import releases_group
 from .commands.reviews import reviews_group
@@ -478,7 +478,7 @@ async def run() -> None:
         *,
         user_id: int,
         task_text: str,
-        footer: str | None,
+        description: str | None,
         reminder_id: int | None,
         role_id: int | None = None,
     ) -> discord.Message | None:
@@ -492,7 +492,7 @@ async def run() -> None:
         try:
             message = await channel.send(
                 content=content,
-                embed=reminder_embed(bot, task_text, footer=footer),
+                embed=reminder_embed(bot, task_text, description=description),
                 view=view,
             )
         except discord.HTTPException:
@@ -521,7 +521,7 @@ async def run() -> None:
                     bot,
                     user_id=reminder.user_id,
                     task_text=reminder.message,
-                    footer=schedule_footer(reminder),
+                    description=schedule_description(reminder),
                     reminder_id=reminder.id,
                     role_id=reminder.role_id,
                 )
@@ -539,7 +539,7 @@ async def run() -> None:
                     bot,
                     user_id=snooze.user_id,
                     task_text=snooze.message,
-                    footer=None,
+                    description=None,
                     reminder_id=snooze.source_reminder_id,
                     role_id=snooze.role_id,
                 )

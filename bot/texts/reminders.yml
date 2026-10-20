@@ -73,8 +73,8 @@ reminders:
 
   post:
     completed_title: "✅ ~~%{task}~~"
-    completed_footer: "Completed"
-    snoozed_footer: "Snoozed until %{time}"
+    completed_description: "Completed"
+    snoozed_description: "Snoozed until %{time}"
   buttons:
     complete: "Mark completed"
     complete_emoji: "✅"

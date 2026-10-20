@@ -553,11 +553,13 @@ class ScheduleSummaryTests(unittest.TestCase):
             ),
         )
 
-    def test_footer_is_empty_for_one_offs_only(self) -> None:
+    def test_description_is_empty_for_one_offs_only(self) -> None:
         self.assertIsNone(
-            reminder_cmds.schedule_footer(reminder(kind=reminder_service.KIND_ONCE))
+            reminder_cmds.schedule_description(
+                reminder(kind=reminder_service.KIND_ONCE)
+            )
         )
-        self.assertIsNotNone(reminder_cmds.schedule_footer(reminder()))
+        self.assertIsNotNone(reminder_cmds.schedule_description(reminder()))
 
 
 class EmbedTests(unittest.TestCase):
@@ -570,11 +572,12 @@ class EmbedTests(unittest.TestCase):
         self.assertEqual(embed.title, "Water the plants")
         self.assertIsNone(embed.footer.text)
 
-    def test_reminder_embed_keeps_the_schedule_footer(self) -> None:
+    def test_reminder_embed_keeps_the_schedule_description(self) -> None:
         embed = reminder_cmds.reminder_embed(
-            self.Client(), "Water", footer="Every day"
+            self.Client(), "Water", description="Every day"
         )
-        self.assertEqual(embed.footer.text, "Every day")
+        self.assertEqual(embed.description, "Every day")
+        self.assertIsNone(embed.footer.text)
 
     def test_confirmation_has_no_id_footer(self) -> None:
         embed = reminder_cmds._confirmation_embed(
@@ -597,7 +600,10 @@ class EmbedTests(unittest.TestCase):
         self.assertEqual(
             embed.title, t("reminders.post.completed_title", task="Water the plants")
         )
-        self.assertEqual(embed.footer.text, t("reminders.post.completed_footer"))
+        self.assertEqual(
+            embed.description, t("reminders.post.completed_description")
+        )
+        self.assertIsNone(embed.footer.text)
         self.assertEqual(embed.colour, discord.Colour.green())
 
     def test_snoozed_embed_reports_the_repost_time(self) -> None:
@@ -605,12 +611,13 @@ class EmbedTests(unittest.TestCase):
         embed = reminder_cmds.snoozed_embed(self.Client(), "Water", when)
         self.assertEqual(embed.title, "Water")
         self.assertEqual(
-            embed.footer.text,
+            embed.description,
             t(
-                "reminders.post.snoozed_footer",
+                "reminders.post.snoozed_description",
                 time=discord.utils.format_dt(when, "t"),
             ),
         )
+        self.assertIsNone(embed.footer.text)
 
 
 class ReminderActionsViewTests(unittest.TestCase):
