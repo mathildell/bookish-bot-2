@@ -355,7 +355,7 @@ class OpenTicketView(discord.ui.View):
     @discord.ui.button(
         label=t("tickets.sticky.button"),
         emoji=t("tickets.sticky.button_emoji"),
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         custom_id=OPEN_CUSTOM_ID,
     )
     async def open_ticket(
