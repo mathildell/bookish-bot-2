@@ -82,7 +82,7 @@ def sticky_embed(client: discord.Client) -> discord.Embed:
         description=t("tickets.sticky.description"),
         colour=getattr(client, "default_embed_color", None),
     )
-    _apply_transparent_image(embed, client)
+    # _apply_transparent_image(embed, client)
     return embed
 
 
