@@ -390,7 +390,7 @@ class TicketReopenView(discord.ui.View):
 
     @discord.ui.button(
         label=t("tickets.embed.reopen_button"),
-        label=t("tickets.embed.reopen_button_emoji"),
+        emoji=t("tickets.embed.reopen_button_emoji"),
         style=discord.ButtonStyle.success,
         custom_id=REOPEN_CUSTOM_ID,
     )
