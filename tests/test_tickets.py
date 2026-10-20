@@ -130,7 +130,7 @@ class TicketEmbedTests(unittest.TestCase):
         self.assertEqual(embed.title, t("tickets.sticky.title"))
         self.assertEqual(embed.description, t("tickets.sticky.description"))
         self.assertEqual(embed.colour, FakeClient.default_embed_color)
-        self.assertEqual(embed.image.url, FakeClient.transparent_embed_image)
+        self.assertIsNone(embed.image.url)
 
     def test_ticket_embed(self) -> None:
         embed = ticket_service.ticket_embed(FakeClient(), 7)
@@ -209,6 +209,8 @@ class FakeMessage:
 class FakeThread(discord.Thread):
     def __init__(self) -> None:
         self.id = 900
+        self.archived = False
+        self.locked = False
         self.added = []
         self.sent = []
         self.message = FakeMessage()
@@ -225,6 +227,10 @@ class FakeThread(discord.Thread):
 
     async def edit(self, **kwargs) -> None:
         self.edits.append(kwargs)
+        if "archived" in kwargs:
+            self.archived = kwargs["archived"]
+        if "locked" in kwargs:
+            self.locked = kwargs["locked"]
 
     async def fetch_message(self, message_id: int) -> FakeMessage:
         return self.message
@@ -286,6 +292,11 @@ class FakeTicketService:
     async def get_by_thread(self, thread_id: int):
         return self.ticket
 
+    async def close(self, ticket_id: int, now):
+        self.ticket.status = ticket_service.STATUS_CLOSED
+        self.ticket.closed_at = now
+        return self.ticket
+
     async def reopen(self, ticket_id: int):
         self.ticket.status = ticket_service.STATUS_OPEN
         self.ticket.closed_at = None
@@ -308,6 +319,7 @@ class ReopenTicketTests(unittest.IsolatedAsyncioTestCase):
         service = FakeTicketService(ticket)
         thread = FakeThread()
         interaction = SimpleNamespace(
+            type=discord.InteractionType.component,
             channel=thread,
             user=SimpleNamespace(id=42, roles=[]),
             permissions=SimpleNamespace(manage_guild=False),
@@ -340,10 +352,48 @@ class ReopenTicketTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(
             thread.message.views[-1], ticket_cmds.TicketCloseView
         )
-        self.assertEqual(
-            interaction.followup.messages[-1]["message"],
-            t("tickets.reopen.success"),
+        self.assertEqual(interaction.followup.messages, [])
+
+
+class CloseTicketTests(unittest.IsolatedAsyncioTestCase):
+    async def test_close_works_after_reopen(self) -> None:
+        closed_at = ticket_service.utcnow() - timedelta(minutes=5)
+        ticket = SimpleNamespace(
+            id=1,
+            number=3,
+            name="Alice's ticket #3",
+            status=ticket_service.STATUS_CLOSED,
+            closed_at=closed_at,
+            button_removed=False,
+            opener_id=42,
+            message_id=777,
         )
+        service = FakeTicketService(ticket)
+        thread = FakeThread()
+        thread.archived = True
+        interaction = SimpleNamespace(
+            type=discord.InteractionType.component,
+            channel=thread,
+            guild=None,
+            user=SimpleNamespace(id=42, roles=[]),
+            permissions=SimpleNamespace(manage_guild=False),
+            client=SimpleNamespace(tickets=service),
+            response=FakeResponse(),
+            followup=FakeFollowup(),
+        )
+
+        await ticket_cmds._handle_reopen(
+            interaction, allow_opener=True, from_button=True
+        )
+        await ticket_cmds._handle_close(interaction, allow_opener=True)
+
+        self.assertEqual(thread.edits[-1]["archived"], True)
+        self.assertEqual(ticket.status, ticket_service.STATUS_CLOSED)
+        self.assertIsNotNone(ticket.closed_at)
+        self.assertIsInstance(
+            thread.message.views[-1], ticket_cmds.TicketReopenView
+        )
+        self.assertEqual(interaction.followup.messages, [])
 
 
 class OpenTicketTests(unittest.IsolatedAsyncioTestCase):

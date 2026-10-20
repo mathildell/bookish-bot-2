@@ -20,7 +20,6 @@ tickets:
     already_closed: "This ticket is already closed."
   reopen:
     description: "Reopen this ticket (admins only)"
-    success: "Ticket reopened."
     failed: "I couldn’t reopen this ticket. Please try again later."
     already_open: "This ticket is already open."
     expired: "The Reopen button has expired. Ask an admin to run `/tickets reopen` in this thread."

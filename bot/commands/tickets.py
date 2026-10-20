@@ -257,6 +257,7 @@ async def _handle_close(
     if thread is None:
         await _respond(interaction, t("tickets.errors.not_thread"))
         return
+    await _defer(interaction)
     ticket = await service.get_by_thread(thread.id)
     if ticket is None:
         await _respond(interaction, t("tickets.errors.not_ticket"))
@@ -267,11 +268,10 @@ async def _handle_close(
     if not allowed:
         await _respond(interaction, t("tickets.errors.no_permission"))
         return
-    if ticket.status == STATUS_CLOSED:
+    if ticket.status == STATUS_CLOSED and thread.archived:
         await _respond(interaction, t("tickets.close.already_closed"))
         return
 
-    await _defer(interaction)
     reason = t("tickets.audit.close", number=ticket.number)
     try:
         await thread.edit(
@@ -307,6 +307,7 @@ async def _handle_reopen(
     if thread is None:
         await _respond(interaction, t("tickets.errors.not_thread"))
         return
+    await _defer(interaction)
     ticket = await service.get_by_thread(thread.id)
     if ticket is None:
         await _respond(interaction, t("tickets.errors.not_ticket"))
@@ -324,7 +325,6 @@ async def _handle_reopen(
         await _respond(interaction, t("tickets.reopen.expired"))
         return
 
-    await _defer(interaction)
     reason = t("tickets.audit.reopen", number=ticket.number)
     try:
         await thread.edit(archived=False, reason=reason)
@@ -343,7 +343,7 @@ async def _handle_reopen(
         )
         return
     await _refresh_ticket_message(thread, updated, TicketCloseView())
-    await interaction.followup.send(t("tickets.reopen.success"), ephemeral=True)
+    await _clear_command_progress(interaction)
 
 
 class OpenTicketView(discord.ui.View):
