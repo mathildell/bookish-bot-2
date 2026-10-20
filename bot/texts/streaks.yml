@@ -100,7 +100,7 @@ streaks:
       You’ve logged your progress every day for **%{days} days!** You’ve reached **💫 ‎ Level %{level}**, earned a **%{rescue_emoji} ‎ Streak Rescue** and are now eligible for a **`%{xp}` XP** reward. Here is a coupon to show off your progress!
     level_up_50th: |
       Wow, you've also earned a **%{rescue_emoji} Golden Streak Rescue**. It'll be useful if you ever miss the repair window!
-    level_up_anniversary: " This is your ***Streanniversary!*** 🎉🎂 ‎ I've added a little extra XP to celebrate. Good job!"
+    level_up_anniversary: " This is your ***Streanniversary!*** 🎉🎂 ‎ I've added **a little extra XP** (2x) and a **%{rescue_emoji} Golden Streak Rescue** to celebrate. Good job!"
     achievement_field: "Daily achievement"
     achievement_success_value: "You reached **%{percent}%** of your goal of %{amount} %{unit} today!"
     achievement_failure_value: "Not quite there yet. It's okay, there's always tomorrow."

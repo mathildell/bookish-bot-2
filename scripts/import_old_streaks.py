@@ -648,6 +648,7 @@ def prepare(
                 )
 
             level = max(0, old_streak.days_logged // streak_service.LEVEL_THRESHOLD)
+            golden_available = (level // 50) + (level // 73)
             prepared_goal.streaks.append(
                 PreparedStreak(
                     start_date=start_date,
@@ -658,7 +659,7 @@ def prepare(
                     days_logged=old_streak.days_logged,
                     rescues_available=old_streak.rescues_available,
                     rescues_used=old_streak.rescues_used,
-                    golden_available=level // 50,
+                    golden_available=golden_available,
                     logs=prepared_logs,
                     created_at=_naive_utc(old_streak.created_at),
                     updated_at=_naive_utc(old_streak.updated_at),

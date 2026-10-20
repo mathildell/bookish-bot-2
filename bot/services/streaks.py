@@ -529,7 +529,10 @@ async def _apply_level_progress(
             progress.awards.append(LevelAward(level=level, xp=award))
             streak.rescues_available += 1
             progress.rescues_granted += 1
-            if anniversary or level % 50 == 0:
+            if anniversary:
+                streak.golden_available += 1
+                progress.golden_granted += 1
+            if level % 50 == 0:
                 streak.golden_available += 1
                 progress.golden_granted += 1
             progress.level = level

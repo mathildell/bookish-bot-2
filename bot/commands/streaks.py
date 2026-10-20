@@ -399,8 +399,9 @@ def _log_embed(
         )
 
         if result.progress.anniversary:
-            content += t("streaks.log.level_up_anniversary")
-        elif result.progress.golden_granted > 0:
+            content += t("streaks.log.level_up_anniversary", rescue_emoji=t("streaks.icons.golden"))
+        
+        if result.progress.golden_granted >= 1:
             content += t("streaks.log.level_up_50th", rescue_emoji=t("streaks.icons.golden"))
 
         embed.add_field(
