@@ -632,7 +632,7 @@ class Reminder(Base):
 
     # "once", "daily", "weekly", "monthly" or "interval"
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    # Local hour (0-23); reminders always fire on the hour.
+    # Local hour (0-23); recurring reminders always fire on the hour.
     hour: Mapped[int] = mapped_column(Integer, nullable=False)
     # Python weekday (0-6); weekly only.
     weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -644,6 +644,10 @@ class Reminder(Base):
     interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Local date of the single run; once only.
     run_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Exact naive-UTC fire time for "in x minutes" one-offs.
+    run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Role pinged alongside the owner; admins only.
+    role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # Next fire time as naive UTC, polled every few minutes.
     next_run_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
@@ -675,6 +679,7 @@ class ReminderSnooze(Base):
     user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # When to repost, as naive UTC.
     due_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)

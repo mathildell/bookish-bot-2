@@ -176,6 +176,12 @@ def _confirmation_embed(
         value=f"<#{reminder.channel_id}>",
         inline=True,
     )
+    if reminder.role_id is not None:
+        embed.add_field(
+            name=t("reminders.shared.role_field"),
+            value=f"<@&{reminder.role_id}>",
+            inline=True,
+        )
     return embed
 
 
@@ -219,12 +225,14 @@ class ReminderActionsView(ExpiringView):
         owner_id: int,
         task_text: str,
         *,
+        role_id: int | None = None,
         timeout: float = BUTTON_LIFETIME_SECONDS,
     ) -> None:
         super().__init__(timeout=timeout)
         self.reminder_id = reminder_id
         self.owner_id = owner_id
         self.task_text = task_text
+        self.role_id = role_id
         self.add_item(_CompleteButton())
         self.add_item(_SnoozeButton())
 
@@ -250,6 +258,7 @@ class ReminderActionsView(ExpiringView):
             user_id=self.owner_id,
             channel_id=interaction.channel_id or 0,
             message=self.task_text,
+            role_id=self.role_id,
             now=now,
         )
         self.stop()
@@ -273,6 +282,7 @@ SCHEDULE_EXAMPLES = {
         "2026-10-29 at 14:00",
         "thursday at 2pm",
         "tomorrow at 9am",
+        "in 30 minutes",
     ),
     KIND_DAILY: ("at 2pm", "every day at 2pm"),
     KIND_WEEKLY: ("on monday at 2pm", "every monday at 2pm"),
@@ -355,6 +365,8 @@ async def _reminder_autocomplete(
     schedule=t("reminders.shared.param_schedule"),
     repeat=t("reminders.shared.param_repeat"),
     timezone=t("reminders.shared.param_timezone"),
+    channel=t("reminders.shared.param_channel"),
+    role=t("reminders.shared.param_role"),
 )
 @app_commands.choices(repeat=REPEAT_CHOICES)
 @app_commands.autocomplete(schedule=schedule_autocomplete)
@@ -364,7 +376,19 @@ async def add(
     schedule: str,
     repeat: str = KIND_ONCE,
     timezone: str | None = None,
+    channel: discord.TextChannel | None = None,
+    role: discord.Role | None = None,
 ) -> None:
+    if channel is not None and not is_admin(interaction):
+        await interaction.response.send_message(
+            t("reminders.errors.admin_only_channel"), ephemeral=True
+        )
+        return
+    if role is not None and not is_admin(interaction):
+        await interaction.response.send_message(
+            t("reminders.errors.admin_only_role"), ephemeral=True
+        )
+        return
     service = _service(interaction)
     zone = timezone or await service.default_timezone(interaction.user.id)
     try:
@@ -373,7 +397,11 @@ async def add(
         )
         reminder = await service.add(
             user_id=interaction.user.id,
-            channel_id=interaction.channel_id or 0,
+            channel_id=(
+                channel.id
+                if channel is not None
+                else interaction.channel_id or 0
+            ),
             message=message,
             timezone=zone,
             kind=repeat,
@@ -385,6 +413,10 @@ async def add(
             date_raw=(
                 parsed.run_date.isoformat() if parsed.run_date else None
             ),
+            run_at_raw=(
+                parsed.run_at.isoformat() if parsed.run_at else None
+            ),
+            role_id=role.id if role is not None else None,
         )
     except reminder_service.ReminderError as exc:
         await interaction.response.send_message(
@@ -407,6 +439,8 @@ async def add(
     schedule=t("reminders.shared.param_schedule"),
     repeat=t("reminders.shared.param_repeat"),
     timezone=t("reminders.shared.param_timezone"),
+    channel=t("reminders.shared.param_channel"),
+    role=t("reminders.shared.param_role"),
 )
 @app_commands.choices(repeat=REPEAT_CHOICES)
 @app_commands.autocomplete(schedule=schedule_autocomplete)
@@ -417,6 +451,8 @@ async def edit(
     schedule: str | None = None,
     repeat: str | None = None,
     timezone: str | None = None,
+    channel: discord.TextChannel | None = None,
+    role: discord.Role | None = None,
 ) -> None:
     service = _service(interaction)
     existing = await service.get(reminder)
@@ -428,6 +464,16 @@ async def edit(
     if existing.user_id != interaction.user.id and not is_admin(interaction):
         await interaction.response.send_message(
             t("components.permissions.no_permission"), ephemeral=True
+        )
+        return
+    if channel is not None and not is_admin(interaction):
+        await interaction.response.send_message(
+            t("reminders.errors.admin_only_channel"), ephemeral=True
+        )
+        return
+    if role is not None and not is_admin(interaction):
+        await interaction.response.send_message(
+            t("reminders.errors.admin_only_role"), ephemeral=True
         )
         return
 
@@ -455,6 +501,13 @@ async def edit(
                 if parsed and parsed.run_date
                 else None
             ),
+            run_at_raw=(
+                parsed.run_at.isoformat()
+                if parsed and parsed.run_at
+                else None
+            ),
+            role_id=role.id if role is not None else None,
+            channel_id=channel.id if channel is not None else None,
         )
     except reminder_service.ReminderError as exc:
         await interaction.response.send_message(
@@ -524,6 +577,12 @@ def _list_embed(
         value=f"<#{reminder.channel_id}>",
         inline=True,
     )
+    if reminder.role_id is not None:
+        embed.add_field(
+            name=t("reminders.shared.role_field"),
+            value=f"<@&{reminder.role_id}>",
+            inline=True,
+        )
     return embed
 
 

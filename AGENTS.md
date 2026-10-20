@@ -52,16 +52,18 @@ Implemented features:
   read forum channel + reference message link. This is the home for values that
   used to live in `config.yaml`.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
-  add|edit|remove|list`) that fire on the hour in a chosen timezone (defaulting
-  to the streak timezone, then UTC) and are posted in the channel they were
-  created in, pinging the owner. A reminder is a message, a repeat kind and one
+  add|edit|remove|list`) that fire in a chosen timezone (defaulting to the
+  streak timezone, then UTC) and are posted in the channel they were created
+  in, pinging the owner. A reminder is a message, a repeat kind and one
   schedule phrase parsed against a closed grammar (`at 2pm`,
   `on monday at 2pm`, `every 2 days at 2pm`, `on the last day of the month at
-  2pm`, …); the schedule option autocompletes the accepted phrasings. Monthly
+  2pm`, …); the schedule option autocompletes the accepted phrasings. One-off
+  reminders also accept `in x minutes` (polled every five minutes). Monthly
   reminders take a fixed day (clamped in short months) or days before the
-  month's end. Each post carries Mark completed and Snooze 1 hour buttons (2h
-  lifetime); snoozes repost an hour later via the database. Reminders missed
-  while offline post if at most 24h late.
+  month's end. Admins can post a reminder in another channel and ping a role
+  alongside its owner. Each post carries Mark completed and Snooze 1 hour
+  buttons (2h lifetime); snoozes repost an hour later via the database.
+  Reminders missed while offline post if at most 24h late.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.

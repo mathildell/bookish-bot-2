@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import discord
@@ -39,6 +39,8 @@ def reminder(**kwargs) -> SimpleNamespace:
         month_end_offset=None,
         interval_days=None,
         run_date=None,
+        run_at=None,
+        role_id=None,
         next_run_at=utc(2026, 10, 20, 15),
     )
     defaults.update(kwargs)
@@ -285,6 +287,19 @@ class ComputeNextRunTests(unittest.TestCase):
         self.assertEqual(
             reminder_service.compute_next_run(row, utc(2026, 10, 20, 16)),
             utc(2026, 10, 22, 15),
+        )
+
+    def test_once_with_a_minute_precise_time(self) -> None:
+        row = reminder(
+            kind=reminder_service.KIND_ONCE,
+            run_at=utc(2026, 10, 20, 16, 30),
+        )
+        self.assertEqual(
+            reminder_service.compute_next_run(row, utc(2026, 10, 20, 16)),
+            utc(2026, 10, 20, 16, 30),
+        )
+        self.assertIsNone(
+            reminder_service.compute_next_run(row, utc(2026, 10, 20, 16, 30))
         )
 
     def test_daily_advances_from_now_not_from_the_run(self) -> None:
@@ -676,6 +691,48 @@ class ParseScheduleTests(unittest.TestCase):
         with self.assertRaises(reminder_service.PastDate):
             self._parse(reminder_service.KIND_ONCE, "2026-10-19 at 14:00")
 
+    def test_once_in_minutes(self) -> None:
+        parsed = self._parse(reminder_service.KIND_ONCE, "in 30 minutes")
+        self.assertEqual(
+            parsed.run_at, self.NOW + timedelta(minutes=30)
+        )
+        self.assertEqual(parsed.hour, 9)
+        self.assertEqual(parsed.run_date, date(2026, 10, 20))
+
+    def test_once_in_one_minute(self) -> None:
+        parsed = self._parse(reminder_service.KIND_ONCE, "in 1 minute")
+        self.assertEqual(
+            parsed.run_at, self.NOW + timedelta(minutes=1)
+        )
+
+    def test_once_minutes_must_be_within_the_allowed_range(self) -> None:
+        for text in (
+            "in 0 minutes",
+            f"in {reminder_service.MINUTES_MAX + 1} minutes",
+        ):
+            with self.subTest(text=text), self.assertRaises(
+                reminder_service.InvalidMinutes
+            ):
+                self._parse(reminder_service.KIND_ONCE, text)
+        self.assertIsNotNone(
+            self._parse(
+                reminder_service.KIND_ONCE,
+                f"in {reminder_service.MINUTES_MAX} minutes",
+            ).run_at
+        )
+
+    def test_minutes_are_only_accepted_for_once(self) -> None:
+        for kind in (
+            reminder_service.KIND_DAILY,
+            reminder_service.KIND_WEEKLY,
+            reminder_service.KIND_MONTHLY,
+            reminder_service.KIND_INTERVAL,
+        ):
+            with self.subTest(kind=kind), self.assertRaises(
+                reminder_service.InvalidSchedule
+            ):
+                self._parse(kind, "in 30 minutes")
+
     def test_daily(self) -> None:
         self.assertEqual(
             self._parse(reminder_service.KIND_DAILY, "at 2pm").hour, 14
@@ -862,6 +919,7 @@ class TextKeyTests(unittest.TestCase):
             reminder_service.MissingSchedule,
             reminder_service.InvalidSchedule,
             reminder_service.InvalidTime,
+            reminder_service.InvalidMinutes,
             reminder_service.MissingInterval,
             reminder_service.InvalidInterval,
             reminder_service.ReminderNotFound,

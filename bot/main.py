@@ -480,12 +480,18 @@ async def run() -> None:
         task_text: str,
         footer: str | None,
         reminder_id: int | None,
+        role_id: int | None = None,
     ) -> discord.Message | None:
         """Ping the owner in ``channel`` with the reminder embed and buttons."""
-        view = ReminderActionsView(reminder_id, user_id, task_text)
+        view = ReminderActionsView(
+            reminder_id, user_id, task_text, role_id=role_id
+        )
+        content = f"<@{user_id}>"
+        if role_id is not None:
+            content = f"{content} <@&{role_id}>"
         try:
             message = await channel.send(
-                content=f"<@{user_id}>",
+                content=content,
                 embed=reminder_embed(bot, task_text, footer=footer),
                 view=view,
             )
@@ -517,6 +523,7 @@ async def run() -> None:
                     task_text=reminder.message,
                     footer=schedule_footer(reminder),
                     reminder_id=reminder.id,
+                    role_id=reminder.role_id,
                 )
             await reminders.mark_done(reminder, now)
 
@@ -534,6 +541,7 @@ async def run() -> None:
                     task_text=snooze.message,
                     footer=None,
                     reminder_id=snooze.source_reminder_id,
+                    role_id=snooze.role_id,
                 )
             await reminders.discard_snooze(snooze)
 

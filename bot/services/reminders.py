@@ -28,6 +28,8 @@ KINDS = (KIND_ONCE, KIND_DAILY, KIND_WEEKLY, KIND_MONTHLY, KIND_INTERVAL)
 
 MESSAGE_MAX_LENGTH = 240
 INTERVAL_MAX_DAYS = 365
+# "in x minutes" one-offs may be scheduled up to a year ahead.
+MINUTES_MAX = 365 * 24 * 60
 # Keeps the target day at 1 or later even in the shortest February.
 MONTH_END_MAX_OFFSET = 27
 
@@ -53,6 +55,9 @@ _WEEKDAY_PATTERN = "|".join(
     )
 )
 _TIME_PATTERN = r"(?P<time>\d{1,2}(?::\d{2})?\s*(?:am|pm)?)"
+_MINUTES_PATTERN = re.compile(
+    r"^in\s+(?P<minutes>\d+)\s+minutes?$", re.IGNORECASE
+)
 _ONCE_PATTERN = re.compile(
     rf"^(?:on\s+)?"
     rf"(?P<date>\d{{4}}-\d{{2}}-\d{{2}}|today|tomorrow|{_WEEKDAY_PATTERN})"
@@ -185,6 +190,10 @@ class InvalidTime(ReminderError):
     key = "reminders.errors.invalid_time"
 
 
+class InvalidMinutes(ReminderError):
+    key = "reminders.errors.invalid_minutes"
+
+
 class MissingInterval(ReminderError):
     key = "reminders.errors.missing_interval"
 
@@ -290,6 +299,17 @@ def _occurrence_utc(day: date, hour: int, timezone: str) -> datetime:
     return to_utc(datetime.combine(day, time(hour), ZoneInfo(timezone)))
 
 
+def _parse_run_at(raw: str) -> datetime:
+    """Parse the naive-UTC ISO timestamp of an "in x minutes" run."""
+    try:
+        moment = datetime.fromisoformat(raw)
+    except ValueError as exc:
+        raise InvalidDate(date=raw) from exc
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    return moment
+
+
 def parse_time(raw: str) -> int:
     """Parse an on-the-hour time: ``2pm``, ``2:00 pm`` or ``14:00``.
 
@@ -330,6 +350,7 @@ class ParsedSchedule:
     month_end_offset: int | None = None
     interval_days: int | None = None
     run_date: date | None = None
+    run_at: datetime | None = None
 
 
 def parse_schedule(
@@ -348,6 +369,16 @@ def parse_schedule(
     now = now or utcnow()
 
     if kind == KIND_ONCE:
+        match = _MINUTES_PATTERN.fullmatch(text)
+        if match is not None:
+            minutes = int(match["minutes"])
+            if not 1 <= minutes <= MINUTES_MAX:
+                raise InvalidMinutes(minutes=minutes, maximum=MINUTES_MAX)
+            run_at = now + timedelta(minutes=minutes)
+            local = local_now(run_at, timezone)
+            return ParsedSchedule(
+                hour=local.hour, run_date=local.date(), run_at=run_at
+            )
         match = _ONCE_PATTERN.fullmatch(text)
         if match is None:
             raise InvalidSchedule(kind=kind)
@@ -470,6 +501,8 @@ def compute_next_run(
     timezone = reminder.timezone
     kind = reminder.kind
     if kind == KIND_ONCE:
+        if reminder.run_at is not None:
+            return reminder.run_at if reminder.run_at > after else None
         if reminder.run_date is None:
             return None
         candidate = _occurrence_utc(reminder.run_date, hour, timezone)
@@ -552,6 +585,8 @@ class ReminderService:
         month_end_offset: int | None = None,
         interval_days: int | None = None,
         date_raw: str | None = None,
+        run_at_raw: str | None = None,
+        role_id: int | None = None,
         now: datetime | None = None,
     ) -> Reminder:
         now = now or utcnow()
@@ -564,12 +599,20 @@ class ReminderService:
             raise InvalidKind(kind=kind)
 
         run_date: date | None = None
+        run_at: datetime | None = None
         if kind == KIND_ONCE:
-            if not date_raw:
+            if run_at_raw is not None:
+                run_at = _parse_run_at(run_at_raw)
+                if run_at <= now:
+                    raise PastDate(date=run_at.isoformat())
+                local = local_now(run_at, zone)
+                run_date, hour = local.date(), local.hour
+            elif not date_raw:
                 raise MissingDate()
-            run_date = parse_one_off_date(
-                date_raw, hour=hour, timezone=zone, now_utc=now
-            )
+            else:
+                run_date = parse_one_off_date(
+                    date_raw, hour=hour, timezone=zone, now_utc=now
+                )
         elif kind == KIND_WEEKLY:
             if weekday is None:
                 raise MissingWeekday()
@@ -586,7 +629,11 @@ class ReminderService:
                 raise InvalidInterval(days=interval_days)
 
         if kind == KIND_ONCE:
-            next_run_at = _occurrence_utc(run_date, hour, zone)
+            next_run_at = (
+                run_at
+                if run_at is not None
+                else _occurrence_utc(run_date, hour, zone)
+            )
         elif kind == KIND_DAILY:
             next_run_at = next_daily(now, hour, zone)
         elif kind == KIND_WEEKLY:
@@ -617,6 +664,8 @@ class ReminderService:
             ),
             interval_days=interval_days if kind == KIND_INTERVAL else None,
             run_date=run_date,
+            run_at=run_at,
+            role_id=role_id,
             next_run_at=next_run_at,
         )
         async with session_scope() as session:
@@ -642,6 +691,9 @@ class ReminderService:
         month_end_offset: int | None = None,
         interval_days: int | None = None,
         date_raw: str | None = None,
+        run_at_raw: str | None = None,
+        role_id: int | None = None,
+        channel_id: int | None = None,
         now: datetime | None = None,
     ) -> Reminder:
         """Apply the given fields on top of an existing reminder."""
@@ -697,19 +749,30 @@ class ReminderService:
                 if not 1 <= merged_interval <= INTERVAL_MAX_DAYS:
                     raise InvalidInterval(days=merged_interval)
 
+            run_at = reminder.run_at
             run_date = reminder.run_date
             if merged_kind == KIND_ONCE:
-                if date_raw is None and run_date is None:
-                    raise MissingDate()
-                if date_raw is not None:
+                if run_at_raw is not None:
+                    run_at = _parse_run_at(run_at_raw)
+                    local = local_now(run_at, merged_zone)
+                    merged_hour, run_date = local.hour, local.date()
+                elif date_raw is not None:
+                    run_at = None
                     run_date = parse_one_off_date(
                         date_raw,
                         hour=merged_hour,
                         timezone=merged_zone,
                         now_utc=now,
                     )
+                elif run_at is None and run_date is None:
+                    raise MissingDate()
+                if run_at is not None:
+                    if run_at <= now:
+                        raise PastDate(date=run_at.isoformat())
                 elif _occurrence_utc(run_date, merged_hour, merged_zone) <= now:
                     raise PastDate(date=run_date.isoformat())
+            else:
+                run_at = None
 
             reminder.message = merged_message
             reminder.timezone = merged_zone
@@ -728,6 +791,11 @@ class ReminderService:
                 merged_interval if merged_kind == KIND_INTERVAL else None
             )
             reminder.run_date = run_date if merged_kind == KIND_ONCE else None
+            reminder.run_at = run_at if merged_kind == KIND_ONCE else None
+            if channel_id is not None:
+                reminder.channel_id = channel_id
+            if role_id is not None:
+                reminder.role_id = role_id
 
             scheduled = Reminder(
                 guild_id=reminder.guild_id,
@@ -742,11 +810,16 @@ class ReminderService:
                 month_end_offset=reminder.month_end_offset,
                 interval_days=reminder.interval_days,
                 run_date=reminder.run_date,
+                run_at=reminder.run_at,
                 next_run_at=reminder.next_run_at,
             )
             if merged_kind == KIND_ONCE:
-                next_run = _occurrence_utc(
-                    reminder.run_date, reminder.hour, reminder.timezone
+                next_run = (
+                    reminder.run_at
+                    if reminder.run_at is not None
+                    else _occurrence_utc(
+                        reminder.run_date, reminder.hour, reminder.timezone
+                    )
                 )
             elif merged_kind == KIND_INTERVAL:
                 next_run = next_daily(
@@ -825,6 +898,7 @@ class ReminderService:
         user_id: int,
         channel_id: int,
         message: str,
+        role_id: int | None = None,
         now: datetime | None = None,
     ) -> ReminderSnooze:
         now = now or utcnow()
@@ -834,6 +908,7 @@ class ReminderService:
             user_id=user_id,
             channel_id=channel_id,
             message=message,
+            role_id=role_id,
             due_at=snooze_due_at(now),
         )
         async with session_scope() as session:
