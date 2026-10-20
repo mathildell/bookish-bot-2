@@ -561,6 +561,22 @@ class EmbedTests(unittest.TestCase):
         )
         self.assertEqual(embed.footer.text, "Every day")
 
+    def test_confirmation_has_no_id_footer(self) -> None:
+        embed = reminder_cmds._confirmation_embed(
+            self.Client(), reminder(), "Saved"
+        )
+        self.assertIsNone(embed.footer.text)
+
+    def test_list_entry_has_no_id_footer(self) -> None:
+        member = SimpleNamespace(
+            display_name="Alice",
+            display_avatar=SimpleNamespace(url="https://example.com/a.png"),
+        )
+        embed = reminder_cmds._list_embed(
+            self.Client(), reminder(), member
+        )
+        self.assertIsNone(embed.footer.text)
+
     def test_completed_embed_crosses_out_the_task(self) -> None:
         embed = reminder_cmds.completed_embed(self.Client(), "Water the plants")
         self.assertEqual(

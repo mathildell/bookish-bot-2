@@ -6,6 +6,7 @@ Admins can point the feature at a channel and backfill missed days.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Awaitable, Callable
 from datetime import date as _date, datetime, timedelta
 from typing import Literal
@@ -36,6 +37,8 @@ from .listing import new_embed, placement, set_author, set_transparent_image
 from .views import ExpiringView
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
+
+logger = logging.getLogger(__name__)
 
 streaks_group = app_commands.Group(
     name="streak",
@@ -435,7 +438,11 @@ def _log_embed(
 
 
 async def _perform_log(
-    interaction: discord.Interaction, amount: str, *, ephemeral: bool = False
+    interaction: discord.Interaction,
+    amount: str,
+    *,
+    ephemeral: bool = False,
+    reply_to: discord.Message | None = None,
 ) -> None:
     try:
         result = await _service(interaction).log_daily(
@@ -456,7 +463,13 @@ async def _perform_log(
         )
         view = StreakRescueView(kind or streak_service.RESCUE_NORMAL)
     generating = _will_generate_coupons(interaction, result.progress)
-    if generating:
+    as_new_message = (
+        reply_to is not None
+        or interaction.type is discord.InteractionType.modal_submit
+    )
+    if as_new_message:
+        await interaction.response.defer(thinking=True, ephemeral=True)
+    elif generating:
         await interaction.response.defer(ephemeral=ephemeral)
     coupons = await _generate_coupons(
         interaction, interaction.user, result.goal, result.progress
@@ -468,7 +481,9 @@ async def _perform_log(
         result,
         coupon_url=coupon_url,
     )
-    if generating:
+    if as_new_message:
+        await _reply_to_alert(interaction, reply_to, embed, view)
+    elif generating:
         await interaction.edit_original_response(embed=embed, view=view)
     else:
         await interaction.response.send_message(
@@ -492,6 +507,43 @@ async def _perform_log(
             closed=[result.closed],
             colour=getattr(interaction.client, "default_embed_color", None),
         )
+
+
+async def _reply_to_alert(
+    interaction: discord.Interaction,
+    alert: discord.Message | None,
+    embed: discord.Embed,
+    view: discord.ui.View | None,
+) -> None:
+    """Post the log as a reply so the alert message is left untouched."""
+    message = None
+    if alert is not None:
+        try:
+            message = await interaction.channel.send(
+                embed=embed,
+                view=view,
+                reference=alert,
+                mention_author=False,
+            )
+        except discord.HTTPException:
+            logger.warning("Could not reply to a streak alert", exc_info=True)
+    if message is None:
+        try:
+            message = await interaction.channel.send(embed=embed, view=view)
+        except discord.HTTPException:
+            logger.warning("Could not post a streak log", exc_info=True)
+            message = await interaction.edit_original_response(
+                embed=embed, view=view
+            )
+            if view is not None:
+                view.message = message
+            return
+    if view is not None:
+        view.message = message
+    try:
+        await interaction.delete_original_response()
+    except discord.HTTPException:
+        logger.debug("Could not clear a deferred streak log", exc_info=True)
 
 
 def _view_embed(
@@ -1185,8 +1237,9 @@ class StreakRescueView(discord.ui.View):
 
 
 class _LogModal(discord.ui.Modal):
-    def __init__(self) -> None:
+    def __init__(self, *, reply_to: discord.Message | None = None) -> None:
         super().__init__(title=t("streaks.log.modal_title"))
+        self.reply_to = reply_to
         self.amount = discord.ui.TextInput(
             label=t("streaks.log.modal_amount"),
             placeholder=t("streaks.log.modal_placeholder"),
@@ -1194,7 +1247,11 @@ class _LogModal(discord.ui.Modal):
         self.add_item(self.amount)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
-        await _perform_log(interaction, str(self.amount.value))
+        await _perform_log(
+            interaction,
+            str(self.amount.value),
+            reply_to=self.reply_to or interaction.message,
+        )
 
 
 class _LogButton(discord.ui.Button):
@@ -1206,7 +1263,9 @@ class _LogButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_modal(_LogModal())
+        await interaction.response.send_modal(
+            _LogModal(reply_to=interaction.message)
+        )
 
 
 class StreakLogView(ExpiringView):

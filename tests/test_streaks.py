@@ -12,7 +12,9 @@ from __future__ import annotations
 import unittest
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
+
+import discord
 
 from bot.commands import streaks as command_streaks
 from bot.services import coupons
@@ -575,6 +577,186 @@ class ModalLimitTests(unittest.TestCase):
             self.assertLessEqual(len(modal.title), 45, modal.title)
             for item in modal.children:
                 self.assertLessEqual(len(item.label), 45, item.label)
+
+
+class LogReplyTests(unittest.IsolatedAsyncioTestCase):
+    def _interaction(self) -> SimpleNamespace:
+        class Response:
+            def __init__(self) -> None:
+                self.deferred = None
+                self.sent = None
+
+            async def defer(self, **kwargs) -> None:
+                self.deferred = kwargs
+
+            async def send_message(self, **kwargs) -> None:
+                self.sent = kwargs
+
+        class Channel:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def send(self, **kwargs):
+                self.calls.append(kwargs)
+                return SimpleNamespace(id=99)
+
+        interaction = SimpleNamespace(
+            user=SimpleNamespace(id=2, display_name="Alice"),
+            client=SimpleNamespace(default_embed_color=None),
+            channel=Channel(),
+            response=Response(),
+            message=SimpleNamespace(id=1),
+            edit_original_response=AsyncMock(),
+            delete_original_response=AsyncMock(),
+            followup=SimpleNamespace(send=AsyncMock()),
+            guild=None,
+        )
+        result = SimpleNamespace(
+            rescuable=None,
+            closed=None,
+            goal=SimpleNamespace(
+                timezone="UTC", unit="pages", amount=30
+            ),
+            progress=SimpleNamespace(),
+        )
+
+        class Service:
+            async def log_daily(self, *, user_id, amount_raw):
+                return result
+
+        interaction.client.streaks = Service()
+        return interaction
+
+    async def test_modal_log_replies_to_the_alert(self) -> None:
+        modal = command_streaks._LogModal()
+        modal.amount._value = "42"
+        interaction = SimpleNamespace(message=SimpleNamespace(id=7))
+
+        with patch.object(
+            command_streaks, "_perform_log", new_callable=AsyncMock
+        ) as perform:
+            await modal.on_submit(interaction)
+
+        perform.assert_awaited_once_with(
+            interaction, "42", reply_to=interaction.message
+        )
+
+    async def test_log_button_hands_the_alert_to_the_modal(self) -> None:
+        class Response:
+            def __init__(self) -> None:
+                self.modal = None
+
+            async def send_modal(self, modal) -> None:
+                self.modal = modal
+
+        interaction = SimpleNamespace(
+            message=SimpleNamespace(id=7), response=Response()
+        )
+
+        await command_streaks._LogButton().callback(interaction)
+
+        self.assertIs(interaction.response.modal.reply_to, interaction.message)
+
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_modal_submit_never_edits_the_alert(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = []
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction()
+        interaction.type = discord.InteractionType.modal_submit
+
+        await command_streaks._perform_log(interaction, "30")
+
+        self.assertEqual(len(interaction.channel.calls), 1)
+        self.assertNotIn("reference", interaction.channel.calls[0])
+        interaction.edit_original_response.assert_not_awaited()
+        interaction.delete_original_response.assert_awaited_once()
+
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_reply_leaves_the_alert_untouched(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = []
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction()
+        alert = SimpleNamespace(id=55)
+
+        await command_streaks._perform_log(
+            interaction, "30", reply_to=alert
+        )
+
+        self.assertEqual(
+            interaction.response.deferred, {"thinking": True, "ephemeral": True}
+        )
+        self.assertEqual(len(interaction.channel.calls), 1)
+        self.assertIs(interaction.channel.calls[0]["reference"], alert)
+        self.assertFalse(interaction.channel.calls[0]["mention_author"])
+        interaction.edit_original_response.assert_not_awaited()
+        interaction.delete_original_response.assert_awaited_once()
+
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_reply_falls_back_when_the_alert_is_gone(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = []
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction()
+
+        async def send(**kwargs):
+            if "reference" in kwargs:
+                raise discord.HTTPException.__new__(discord.HTTPException)
+            interaction.channel.calls.append(kwargs)
+            return SimpleNamespace(id=100)
+
+        interaction.channel.send = send
+
+        await command_streaks._perform_log(
+            interaction, "30", reply_to=SimpleNamespace(id=55)
+        )
+
+        self.assertNotIn("reference", interaction.channel.calls[0])
+        interaction.edit_original_response.assert_not_awaited()
+        interaction.delete_original_response.assert_awaited_once()
 
 
 class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):

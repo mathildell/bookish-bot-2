@@ -12,7 +12,6 @@ reminders:
     summary_field: "Schedule"
     next_field: "Next run"
     channel_field: "Channel"
-    id_value: "`%{id}`"
     hour_value_am: "%{hour}:00 AM"
     hour_value_pm: "%{hour}:00 PM"
     weekday:

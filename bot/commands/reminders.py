@@ -176,9 +176,6 @@ def _confirmation_embed(
         value=f"<#{reminder.channel_id}>",
         inline=True,
     )
-    embed.set_footer(
-        text=t("reminders.shared.id_value", id=reminder.id)
-    )
     return embed
 
 
@@ -398,7 +395,6 @@ async def add(
         embed=_confirmation_embed(
             interaction.client, reminder, t("reminders.add.title")
         ),
-        ephemeral=True,
     )
 
 
@@ -469,7 +465,6 @@ async def edit(
         embed=_confirmation_embed(
             interaction.client, updated, t("reminders.edit.title")
         ),
-        ephemeral=True,
     )
 
 
@@ -511,9 +506,7 @@ def _list_embed(
     reminder: Reminder,
     member: discord.Member | None,
 ) -> discord.Embed:
-    embed = reminder_embed(
-        client, reminder.message, footer=t("reminders.shared.id_value", id=reminder.id)
-    )
+    embed = reminder_embed(client, reminder.message)
     name = member.display_name if member is not None else str(reminder.user_id)
     set_author(embed, member, name)
     embed.add_field(
