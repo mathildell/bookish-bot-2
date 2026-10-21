@@ -16,6 +16,7 @@ read/write database work.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -29,9 +30,10 @@ from .level import utcnow
 from .timezones import local_now, search_timezones, valid_timezone
 
 LEVEL_THRESHOLD = 5
-XP_CAP = 3000
-XP_BASE = 250
-XP_EXPONENT = 0.73
+XP_BASE = 200
+XP_CAP = 2500
+XP_PLATEAU_LEVEL = 30
+XP_EXPONENT = math.log(XP_CAP / XP_BASE) / math.log(XP_PLATEAU_LEVEL)
 
 RESCUE_NORMAL = "normal"
 RESCUE_GOLDEN = "golden"
@@ -80,7 +82,7 @@ class InvalidTimezone(StreakError):
 
 
 def level_xp(level: int) -> int:
-    """XP paid for completing ``level`` (capped, decelerating growth)."""
+    """XP paid for completing ``level`` (decelerating growth, capped at 30)."""
     if level <= 0:
         return 0
     return min(XP_CAP, round(XP_BASE * level**XP_EXPONENT))
@@ -281,7 +283,43 @@ class LevelProgress:
     top_up: bool = False
     xp_old_level: int | None = None
     xp_new_level: int | None = None
+    xp_progress_start: int | None = None
+    xp_progress_end: int | None = None
+    xp_needed: int | None = None
     awards: list[LevelAward] = field(default_factory=list)
+
+
+def _record_level_change(
+    progress: LevelProgress, change: level_service.LevelChangeResult
+) -> None:
+    """Keep the normal-level progress bought by a streak reward for the embed."""
+    progress.xp_old_level = change.old_level
+    progress.xp_new_level = change.new_level
+    progress.xp_progress_start = (
+        change.old_total_xp - level_service.total_xp_for_level(change.old_level)
+    )
+    progress.xp_progress_end = (
+        change.new_total_xp - level_service.total_xp_for_level(change.new_level)
+    )
+    progress.xp_needed = level_service.xp_increment_to_reach_level(change.new_level)
+
+
+async def _award_streak_xp(
+    session, *, guild_id: int, user_id: int, amount: int, dry_run: bool
+) -> level_service.LevelChangeResult:
+    """Add the XP, or project the change without storing it in a dry run."""
+    if not dry_run:
+        return await level_service.add_xp(
+            session, guild_id=guild_id, user_id=user_id, amount=amount
+        )
+    user_xp = await level_service.get_user_xp(
+        session, guild_id=guild_id, user_id=user_id
+    )
+    return level_service.preview_level_change(
+        user_xp.level if user_xp else 0,
+        user_xp.total_xp if user_xp else 0,
+        amount,
+    )
 
 
 @dataclass
@@ -459,12 +497,14 @@ async def _apply_level_progress(
             streak.last_xp_amount = last_award
             streak.total_xp_awarded += total_award
             streak.last_xp_at = now
-            if not dry_run:
-                change = await level_service.add_xp(
-                    session, guild_id=guild_id, user_id=user_id, amount=total_award
-                )
-                progress.xp_old_level = change.old_level
-                progress.xp_new_level = change.new_level
+            change = await _award_streak_xp(
+                session,
+                guild_id=guild_id,
+                user_id=user_id,
+                amount=total_award,
+                dry_run=dry_run,
+            )
+            _record_level_change(progress, change)
         return progress
 
     # No new level was crossed: the window may have just been completed earlier
@@ -492,12 +532,14 @@ async def _apply_level_progress(
             progress.awards.append(
                 LevelAward(level=streak.level, xp=difference)
             )
-            if not dry_run:
-                change = await level_service.add_xp(
-                    session, guild_id=guild_id, user_id=user_id, amount=difference
-                )
-                progress.xp_old_level = change.old_level
-                progress.xp_new_level = change.new_level
+            change = await _award_streak_xp(
+                session,
+                guild_id=guild_id,
+                user_id=user_id,
+                amount=difference,
+                dry_run=dry_run,
+            )
+            _record_level_change(progress, change)
     return progress
 
 

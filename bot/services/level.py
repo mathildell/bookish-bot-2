@@ -73,14 +73,29 @@ def random_xp_gain() -> int:
 class LevelChangeResult:
     old_level: int
     new_level: int
+    old_total_xp: int
+    new_total_xp: int
+
+
+def preview_level_change(
+    level: int, total_xp: int, amount: int
+) -> LevelChangeResult:
+    """The change an XP award would produce, without storing it."""
+    old_total_xp = max(0, total_xp)
+    new_total_xp = max(0, old_total_xp + amount)
+    return LevelChangeResult(
+        old_level=level,
+        new_level=level_from_total_xp(new_total_xp),
+        old_total_xp=old_total_xp,
+        new_total_xp=new_total_xp,
+    )
 
 
 def _apply_total_xp(user_xp: UserXP, amount: int) -> LevelChangeResult:
-    old_level = user_xp.level
-    user_xp.total_xp = max(0, user_xp.total_xp + amount)
-    new_level = level_from_total_xp(user_xp.total_xp)
-    user_xp.level = new_level
-    return LevelChangeResult(old_level=old_level, new_level=new_level)
+    result = preview_level_change(user_xp.level, user_xp.total_xp, amount)
+    user_xp.total_xp = result.new_total_xp
+    user_xp.level = result.new_level
+    return result
 
 
 async def _get_or_create(session, *, guild_id: int, user_id: int) -> UserXP:

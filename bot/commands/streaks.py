@@ -254,7 +254,8 @@ async def _handle_progress(
         embed.set_image(url=t_choice("streaks.anniversary.images"))
         await interaction.followup.send(embed=embed)
     if (
-        progress.xp_new_level is not None
+        not progress.dry_run
+        and progress.xp_new_level is not None
         and progress.xp_new_level != progress.xp_old_level
         and interaction.guild is not None
     ):
@@ -354,6 +355,35 @@ def _hour_embed(client: discord.Client) -> discord.Embed:
     return embed
 
 
+def _level_progress_text(progress: streak_service.LevelProgress) -> str:
+    """Describe how the streak XP moved the member's normal level."""
+    if (
+        progress.xp_old_level is None
+        or progress.xp_new_level is None
+        or progress.xp_progress_start is None
+        or progress.xp_progress_end is None
+        or progress.xp_needed is None
+    ):
+        return ""
+    if progress.xp_old_level == progress.xp_new_level:
+        return t(
+            "level.xp.leaderboard.weekly_details_progress",
+            xp=progress.xp_awarded,
+            n1=progress.xp_progress_start,
+            n2=progress.xp_progress_end,
+            needed=progress.xp_needed,
+        ).removeprefix("> ")
+    return t(
+        "level.xp.leaderboard.weekly_details_levels",
+        xp=progress.xp_awarded,
+        l1=progress.xp_old_level,
+        l2=progress.xp_new_level,
+        n1=progress.xp_progress_start,
+        n2=progress.xp_progress_end,
+        needed=progress.xp_needed,
+    ).removeprefix("> ")
+
+
 def _log_embed(
     client: discord.Client,
     member: discord.abc.User,
@@ -402,6 +432,7 @@ def _log_embed(
         inline=False,
     )
 
+    level_progress = _level_progress_text(result.progress)
     if result.progress.leveled:
         content = t(
             "streaks.log.level_up_content",
@@ -410,11 +441,16 @@ def _log_embed(
             level_emoji=t("streaks.icons.level_emoji"),
             rescue_emoji=t("streaks.icons.rescue"),
             xp=result.progress.xp_awarded,
+            level_progress=level_progress,
         )
 
         if result.progress.anniversary:
-            content += t("streaks.log.level_up_anniversary", rescue_emoji=t("streaks.icons.golden"))
-        
+            content += t(
+                "streaks.log.level_up_anniversary",
+                rescue_emoji=t("streaks.icons.golden"),
+                level_progress=level_progress,
+            )
+
         if result.progress.golden_granted >= 1:
             content += t("streaks.log.level_up_50th", rescue_emoji=t("streaks.icons.golden"))
 
@@ -424,7 +460,11 @@ def _log_embed(
     if result.progress.top_up and result.progress.xp_awarded > 0:
         embed.add_field(
             name=t("streaks.log.top_up_title"),
-            value=t("streaks.log.top_up_content", xp=result.progress.xp_awarded),
+            value=t(
+                "streaks.log.top_up_content",
+                xp=result.progress.xp_awarded,
+                level_progress=level_progress,
+            ),
             inline=False,
         )
     if result.progress.dry_run and result.progress.xp_awarded > 0:

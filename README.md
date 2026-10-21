@@ -369,8 +369,9 @@ image showing the member's display name, the finished level, the date and the
 XP earned. Every fifty levels
 also grants a golden rescue, and every 365 days celebrates with a channel post,
 double XP for that window and a golden rescue. XP is binary per day — a day
-either reached the goal or it did not — and the payout per level caps at 3000
-XP. Streak commands belong to the channel set with `/streak channel set`
+either reached the goal or it did not — and the payout starts at 200 XP for the
+first level, grows more slowly each level and plateaus at 2500 XP from level 30
+onwards. Streak commands belong to the channel set with `/streak channel set`
 (reminders are posted there too). Daily logs are purged after 90 days; the
 streak's totals and rank are kept.
 

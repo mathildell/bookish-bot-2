@@ -53,17 +53,18 @@ class LevelXpTests(unittest.TestCase):
         self.assertEqual(streaks.level_xp(0), 0)
         self.assertEqual(streaks.level_xp(-3), 0)
 
-    def test_first_level_pays_250(self) -> None:
-        self.assertEqual(streaks.level_xp(1), 250)
+    def test_first_level_pays_200(self) -> None:
+        self.assertEqual(streaks.level_xp(1), 200)
 
     def test_growth_is_monotonic_until_cap(self) -> None:
         values = [streaks.level_xp(level) for level in range(1, 31)]
         self.assertEqual(values, sorted(values))
 
-    def test_caps_at_3000_around_level_30(self) -> None:
-        self.assertLess(streaks.level_xp(29), 3000)
-        self.assertEqual(streaks.level_xp(31), 3000)
-        self.assertEqual(streaks.level_xp(200), 3000)
+    def test_caps_at_2500_from_level_30(self) -> None:
+        self.assertLess(streaks.level_xp(29), 2500)
+        self.assertEqual(streaks.level_xp(30), 2500)
+        self.assertEqual(streaks.level_xp(31), 2500)
+        self.assertEqual(streaks.level_xp(200), 2500)
 
 
 class DisplayLevelTests(unittest.TestCase):
@@ -82,14 +83,14 @@ class DisplayLevelTests(unittest.TestCase):
 
 class WindowXpTests(unittest.TestCase):
     def test_full_window_pays_level_xp(self) -> None:
-        self.assertEqual(streaks.window_xp(1, 5), 250)
+        self.assertEqual(streaks.window_xp(1, 5), 200)
 
     def test_failed_days_are_worth_nothing(self) -> None:
         self.assertEqual(streaks.window_xp(1, 0), 0)
-        self.assertEqual(streaks.window_xp(1, 2), 100)
+        self.assertEqual(streaks.window_xp(1, 2), 80)
 
     def test_successes_are_clamped(self) -> None:
-        self.assertEqual(streaks.window_xp(1, 9), 250)
+        self.assertEqual(streaks.window_xp(1, 9), 200)
 
     def test_on_track_targets_the_next_level(self) -> None:
         self.assertEqual(streaks.on_track_xp(0, 2, 2), streaks.window_xp(1, 5))
@@ -105,6 +106,107 @@ class WindowXpTests(unittest.TestCase):
     def test_on_track_new_window_after_completion(self) -> None:
         self.assertEqual(
             streaks.on_track_xp(1, 5, 0), streaks.window_xp(2, 5)
+        )
+
+
+class LogLevelProgressTests(unittest.TestCase):
+    def _progress(self, **kwargs) -> streaks.LevelProgress:
+        values = dict(
+            previous_level=0,
+            level=1,
+            leveled=True,
+            xp_awarded=200,
+            rescues_granted=1,
+            golden_granted=0,
+            anniversary=False,
+            xp_old_level=0,
+            xp_new_level=1,
+            xp_progress_start=0,
+            xp_progress_end=125,
+            xp_needed=175,
+        )
+        values.update(kwargs)
+        return streaks.LevelProgress(**values)
+
+    def test_crossing_a_level_reports_both_levels(self) -> None:
+        expected = t(
+            "level.xp.leaderboard.weekly_details_levels",
+            xp=200,
+            l1=0,
+            l2=1,
+            n1=0,
+            n2=125,
+            needed=175,
+        ).removeprefix("> ")
+        self.assertEqual(
+            command_streaks._level_progress_text(self._progress()), expected
+        )
+
+    def test_staying_in_a_level_reports_the_progress_only(self) -> None:
+        progress = self._progress(
+            level=1,
+            leveled=False,
+            top_up=True,
+            xp_awarded=50,
+            xp_old_level=1,
+            xp_new_level=1,
+            xp_progress_start=100,
+            xp_progress_end=150,
+        )
+        expected = t(
+            "level.xp.leaderboard.weekly_details_progress",
+            xp=50,
+            n1=100,
+            n2=150,
+            needed=175,
+        ).removeprefix("> ")
+        self.assertEqual(
+            command_streaks._level_progress_text(progress), expected
+        )
+
+    def test_missing_level_change_is_blank(self) -> None:
+        progress = self._progress(xp_old_level=None)
+        self.assertEqual(command_streaks._level_progress_text(progress), "")
+
+    def test_log_embed_shows_the_progress_in_the_level_field(self) -> None:
+        result = SimpleNamespace(
+            goal=SimpleNamespace(amount=30, unit="pages", timezone="UTC"),
+            log=SimpleNamespace(
+                log_date=date(2026, 10, 19),
+                amount=30,
+                outcome="success",
+                percent=100,
+            ),
+            streak=SimpleNamespace(days_logged=5),
+            logs=[],
+            progress=self._progress(),
+        )
+        member = SimpleNamespace(
+            display_name="Alice",
+            display_avatar=SimpleNamespace(url="https://example.com/a.png"),
+        )
+        client = SimpleNamespace(
+            default_embed_color=None, transparent_embed_image=None
+        )
+
+        embed = command_streaks._log_embed(client, member, result)
+
+        field = next(
+            entry
+            for entry in embed.fields
+            if entry.name == t("streaks.log.level_up_title")
+        )
+        self.assertIn(
+            t(
+                "level.xp.leaderboard.weekly_details_levels",
+                xp=200,
+                l1=0,
+                l2=1,
+                n1=0,
+                n2=125,
+                needed=175,
+            ).removeprefix("> "),
+            field.value,
         )
 
 
