@@ -130,14 +130,13 @@ class LogLevelProgressTests(unittest.TestCase):
 
     def test_crossing_a_level_reports_both_levels(self) -> None:
         expected = t(
-            "level.xp.leaderboard.weekly_details_levels",
-            xp=200,
+            "streaks.shared.level_progress_up",
             l1=0,
             l2=1,
             n1=0,
             n2=125,
             needed=175,
-        ).removeprefix("> ")
+        )
         self.assertEqual(
             command_streaks._level_progress_text(self._progress()), expected
         )
@@ -154,12 +153,11 @@ class LogLevelProgressTests(unittest.TestCase):
             xp_progress_end=150,
         )
         expected = t(
-            "level.xp.leaderboard.weekly_details_progress",
-            xp=50,
+            "streaks.shared.level_progress",
             n1=100,
             n2=150,
             needed=175,
-        ).removeprefix("> ")
+        )
         self.assertEqual(
             command_streaks._level_progress_text(progress), expected
         )
@@ -168,8 +166,8 @@ class LogLevelProgressTests(unittest.TestCase):
         progress = self._progress(xp_old_level=None)
         self.assertEqual(command_streaks._level_progress_text(progress), "")
 
-    def test_log_embed_shows_the_progress_in_the_level_field(self) -> None:
-        result = SimpleNamespace(
+    def _result(self) -> SimpleNamespace:
+        return SimpleNamespace(
             goal=SimpleNamespace(amount=30, unit="pages", timezone="UTC"),
             log=SimpleNamespace(
                 log_date=date(2026, 10, 19),
@@ -181,15 +179,24 @@ class LogLevelProgressTests(unittest.TestCase):
             logs=[],
             progress=self._progress(),
         )
-        member = SimpleNamespace(
+
+    def _member(self) -> SimpleNamespace:
+        return SimpleNamespace(
             display_name="Alice",
             display_avatar=SimpleNamespace(url="https://example.com/a.png"),
         )
-        client = SimpleNamespace(
+
+    def _client(self) -> SimpleNamespace:
+        return SimpleNamespace(
             default_embed_color=None, transparent_embed_image=None
         )
 
-        embed = command_streaks._log_embed(client, member, result)
+    def test_log_embed_shows_the_progress_in_the_level_field(self) -> None:
+        result = self._result()
+
+        embed = command_streaks._log_embed(
+            self._client(), self._member(), result
+        )
 
         field = next(
             entry
@@ -198,16 +205,25 @@ class LogLevelProgressTests(unittest.TestCase):
         )
         self.assertIn(
             t(
-                "level.xp.leaderboard.weekly_details_levels",
-                xp=200,
+                "streaks.shared.level_progress_up",
                 l1=0,
                 l2=1,
                 n1=0,
                 n2=125,
                 needed=175,
-            ).removeprefix("> "),
+            ),
             field.value,
         )
+
+    def test_log_embed_uses_the_coupon_colour(self) -> None:
+        embed = command_streaks._log_embed(
+            self._client(),
+            self._member(),
+            self._result(),
+            coupon_url="https://example.com/1.png",
+            coupon_color=0x9EA93F,
+        )
+        self.assertEqual(embed.colour.value, 0x9EA93F)
 
 
 class CouponDateTests(unittest.TestCase):
@@ -928,6 +944,35 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(message.reactions, [])
 
 
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_coupon_colour_is_forwarded_to_the_embed(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = [
+            SimpleNamespace(url="https://example.com/1.png", color=0x9EA93F)
+        ]
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction()
+        interaction.type = discord.InteractionType.application_command
+
+        await command_streaks._perform_log(interaction, "30")
+
+        self.assertEqual(log_embed.call_args.kwargs["coupon_color"], 0x9EA93F)
+
+
 class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):
     def _result(
         self,
@@ -1004,6 +1049,25 @@ class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(field.inline)
         self.assertIn("Level 51", field.value)
         self.assertIn("150 XP", field.value)
+
+    def test_embedded_coupon_colours_the_embed(self) -> None:
+        result = self._result()
+        embed = command_streaks._view_embed(
+            SimpleNamespace(
+                default_embed_color=None, transparent_embed_image=None
+            ),
+            SimpleNamespace(
+                display_name="Alice",
+                display_avatar=SimpleNamespace(url="https://example.com/a.png"),
+            ),
+            result.goal,
+            result.streak,
+            result.logs,
+            rescued=result,
+            coupon_url="https://example.com/1.png",
+            coupon_color=0x9EA93F,
+        )
+        self.assertEqual(embed.colour.value, 0x9EA93F)
 
     def test_omitted_when_the_rescue_completes_no_level(self) -> None:
         embed = self._embed(leveled=False)

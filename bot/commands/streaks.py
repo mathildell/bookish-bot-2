@@ -387,6 +387,7 @@ def _log_embed(
     member: discord.abc.User,
     result: streak_service.LogResult,
     coupon_url: str | None = None,
+    coupon_color: int | None = None,
 ) -> discord.Embed:
     goal = result.goal
     log = result.log
@@ -473,6 +474,8 @@ def _log_embed(
         )
     if coupon_url:
         embed.set_image(url=coupon_url)
+        if coupon_color is not None:
+            embed.colour = discord.Colour(coupon_color)
     elif result.progress.anniversary:
         embed.set_image(url=t_choice("streaks.anniversary.images"))
     else:
@@ -523,6 +526,7 @@ async def _perform_log(
         interaction.user,
         result,
         coupon_url=coupon_url,
+        coupon_color=getattr(coupons[0], "color", None) if coupons else None,
     )
     if as_new_message:
         message = await _reply_to_alert(interaction, reply_to, embed, view)
@@ -616,6 +620,7 @@ def _view_embed(
     rescuable: bool = False,
     rescued: streak_service.ReviveResult | None = None,
     coupon_url: str | None = None,
+    coupon_color: int | None = None,
 ) -> discord.Embed:
     embed = new_embed(client)
     set_author(embed, member, member.display_name)
@@ -826,6 +831,8 @@ def _view_embed(
             )
     if coupon_url:
         embed.set_image(url=coupon_url)
+        if coupon_color is not None:
+            embed.colour = discord.Colour(coupon_color)
     else:
         set_transparent_image(embed, client)
     return embed
@@ -1247,6 +1254,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         rescuable=False,
         rescued=result,
         coupon_url=coupons[0].url if coupons else None,
+        coupon_color=getattr(coupons[0], "color", None) if coupons else None,
     )
     view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
