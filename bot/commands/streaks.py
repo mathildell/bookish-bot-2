@@ -378,7 +378,11 @@ def _log_embed(
     )
     embed.add_field(
         name=t("streaks.shared.level_field"),
-        value=t("streaks.shared.level_value", level=str(display_level(result.streak.days_logged))),
+        value=t(
+            "streaks.shared.level_value", 
+            level=str(display_level(result.streak.days_logged)), 
+            emoji=t("streaks.icons.level_emoji")
+        ),
         inline=True,
     )
 
@@ -403,6 +407,7 @@ def _log_embed(
             "streaks.log.level_up_content",
             days=result.streak.days_logged,
             level=result.progress.level,
+            level_emoji=t("streaks.icons.level_emoji"),
             rescue_emoji=t("streaks.icons.rescue"),
             xp=result.progress.xp_awarded,
         )
@@ -638,6 +643,7 @@ def _view_embed(
             value=t(
                 "streaks.shared.level_value",
                 level=str(display_level(streak.days_logged)),
+                emoji=t("streaks.icons.level_emoji")
             ),
             inline=True,
         )
@@ -711,7 +717,11 @@ def _view_embed(
 
     embed.add_field(
         name=t("streaks.shared.level_field"),
-        value=t("streaks.shared.level_value", level=str(display_level(streak.days_logged))),
+        value=t(
+            "streaks.shared.level_value", 
+            level=str(display_level(streak.days_logged)), 
+            emoji=t("streaks.icons.level_emoji")
+        ),
         inline=True,
     )
     if streak.last_xp_at is not None:
@@ -765,6 +775,7 @@ def _view_embed(
                 emoji=emoji,
                 days=rescued.patched_days,
                 level=rescued.progress.level,
+                level_emoji=t("streaks.icons.level_emoji"),
                 xp=rescued.progress.xp_awarded,
             ),
             inline=False,
