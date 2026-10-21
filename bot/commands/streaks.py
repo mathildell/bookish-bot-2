@@ -482,13 +482,15 @@ async def _perform_log(
         coupon_url=coupon_url,
     )
     if as_new_message:
-        await _reply_to_alert(interaction, reply_to, embed, view)
+        message = await _reply_to_alert(interaction, reply_to, embed, view)
     elif generating:
-        await interaction.edit_original_response(embed=embed, view=view)
+        message = await interaction.edit_original_response(embed=embed, view=view)
     else:
-        await interaction.response.send_message(
+        message = await interaction.response.send_message(
             embed=embed, view=view, ephemeral=ephemeral
         )
+    if result.progress.leveled:
+        await _react_level_cleared(message)
     await _handle_progress(
         interaction,
         result.progress,
@@ -514,7 +516,7 @@ async def _reply_to_alert(
     alert: discord.Message | None,
     embed: discord.Embed,
     view: discord.ui.View | None,
-) -> None:
+) -> discord.Message | None:
     """Post the log as a reply so the alert message is left untouched."""
     message = None
     if alert is not None:
@@ -537,13 +539,28 @@ async def _reply_to_alert(
             )
             if view is not None:
                 view.message = message
-            return
+            return message
     if view is not None:
         view.message = message
     try:
         await interaction.delete_original_response()
     except discord.HTTPException:
         logger.debug("Could not clear a deferred streak log", exc_info=True)
+    return message
+
+
+async def _react_level_cleared(message: discord.Message | None) -> None:
+    """Acknowledge the single log that announced a completed streak level."""
+    if message is None:
+        return
+    for emoji in (
+        t("streaks.icons.level_cleared_clap"),
+        t("streaks.icons.level_cleared_check"),
+    ):
+        try:
+            await message.add_reaction(emoji)
+        except discord.HTTPException:
+            logger.warning("Could not react to a streak log", exc_info=True)
 
 
 def _view_embed(

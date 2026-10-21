@@ -580,7 +580,7 @@ class ModalLimitTests(unittest.TestCase):
 
 
 class LogReplyTests(unittest.IsolatedAsyncioTestCase):
-    def _interaction(self) -> SimpleNamespace:
+    def _interaction(self, *, leveled: bool = False) -> SimpleNamespace:
         class Response:
             def __init__(self) -> None:
                 self.deferred = None
@@ -592,13 +592,24 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
             async def send_message(self, **kwargs) -> None:
                 self.sent = kwargs
 
+        class Message(SimpleNamespace):
+            def __init__(self) -> None:
+                super().__init__(id=99)
+                self.reactions = []
+
+            async def add_reaction(self, emoji) -> None:
+                self.reactions.append(emoji)
+
         class Channel:
             def __init__(self) -> None:
                 self.calls = []
+                self.messages = []
 
             async def send(self, **kwargs):
                 self.calls.append(kwargs)
-                return SimpleNamespace(id=99)
+                message = Message()
+                self.messages.append(message)
+                return message
 
         interaction = SimpleNamespace(
             user=SimpleNamespace(id=2, display_name="Alice"),
@@ -617,7 +628,7 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
             goal=SimpleNamespace(
                 timezone="UTC", unit="pages", amount=30
             ),
-            progress=SimpleNamespace(),
+            progress=SimpleNamespace(leveled=leveled),
         )
 
         class Service:
@@ -757,6 +768,62 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("reference", interaction.channel.calls[0])
         interaction.edit_original_response.assert_not_awaited()
         interaction.delete_original_response.assert_awaited_once()
+
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_level_cleared_log_gets_reactions(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = []
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction(leveled=True)
+
+        await command_streaks._perform_log(
+            interaction, "30", reply_to=SimpleNamespace(id=55)
+        )
+
+        message = interaction.channel.messages[0]
+        self.assertEqual(message.reactions, ["👏", "✅"])
+
+    @patch.object(
+        command_streaks, "_handle_progress", new_callable=AsyncMock
+    )
+    @patch.object(command_streaks, "_log_embed")
+    @patch.object(
+        command_streaks, "_generate_coupons", new_callable=AsyncMock
+    )
+    @patch.object(
+        command_streaks, "_will_generate_coupons", return_value=False
+    )
+    async def test_top_up_log_gets_no_reactions(
+        self,
+        _will_generate,
+        generate_coupons,
+        log_embed,
+        _handle_progress,
+    ) -> None:
+        generate_coupons.return_value = []
+        log_embed.return_value = SimpleNamespace()
+        interaction = self._interaction(leveled=False)
+
+        await command_streaks._perform_log(
+            interaction, "30", reply_to=SimpleNamespace(id=55)
+        )
+
+        message = interaction.channel.messages[0]
+        self.assertEqual(message.reactions, [])
 
 
 class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):

@@ -9,6 +9,8 @@ streaks:
     zero: "<:strzero:1561071579855716422>"
     rescue: "<:rescue:1561068364263198750>"
     golden: "<a:golden:1561080719881801939>"
+    level_cleared_clap: "👏"
+    level_cleared_check: "✅"
 
   shared:
     goal_field: "Daily goal"
