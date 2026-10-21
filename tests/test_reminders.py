@@ -470,7 +470,7 @@ class ScheduleSummaryTests(unittest.TestCase):
             text,
             t(
                 "reminders.schedule.weekly",
-                weekday=t("reminders.shared.weekday.sunday"),
+                weekday=t("components.weekday.sunday"),
                 hour=t("reminders.shared.hour_value_am", hour=9),
             ),
         )

@@ -58,6 +58,7 @@ Implemented features:
   background, the default embed colour, the coupon fallback image and the buddy
   read forum channel + reference message link. This is the home for values that
   used to live in `config.yaml`.
+- **Weekly reading prompts** — admins maintain a deck of reading cards; each week the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). Cards retire once posted and the deck resets when empty; missed runs are skipped. `/weekly-reading force` posts one now (consuming a card without affecting the schedule). CSV import with duplicate protection.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
   add|edit|remove|list`) that fire in a chosen timezone (defaulting to the
   streak timezone, then UTC) and are posted in the channel they were created
@@ -142,6 +143,7 @@ bot/
                            IntroSetting, IntroPost, TicketSetting, Ticket,
                            BookRelease, ReleaseSetting, ReleaseEditDraft,
                            StreakGoal, Streak, StreakLog, StreakSetting,
+                           WeeklyReadingCard, WeeklyReadingSetting,
                            BotSetting, Reminder, ReminderSnooze)
   notifications.py         level-up + streak-closed announcements
   commands/
@@ -179,6 +181,7 @@ bot/
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
     reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
+    weekly_reading.py       weekly prompt deck/schedule/due-post helpers + CSV helpers
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry
     timezones.py           IANA timezone search/validation shared by streaks and reminders
     settings.py            bot-wide settings (updates channel, embed image/colour)

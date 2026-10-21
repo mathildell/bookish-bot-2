@@ -17,6 +17,7 @@ from ..db import session_scope
 from ..models import Reminder, ReminderSnooze, StreakGoal
 from .level import utcnow
 from .timezones import local_now, to_utc, valid_timezone
+from .weekdays import WEEKDAY_NAMES
 
 KIND_ONCE = "once"
 KIND_DAILY = "daily"
@@ -36,16 +37,6 @@ MONTH_END_MAX_OFFSET = 27
 # Snoozed/missed reminders older than this are dropped instead of posted.
 STALE_AFTER = timedelta(hours=24)
 SNOOZE_DELAY = timedelta(hours=1)
-
-WEEKDAY_NAMES = (
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-)
 
 _WEEKDAY_PATTERN = "|".join(
     sorted(

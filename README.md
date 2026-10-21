@@ -518,6 +518,34 @@ break.
 `react` makes the bot add `emoji` (custom or default) as a reaction to the
 message at the given jump `link` (right-click a message → Copy Message Link).
 
+## Weekly reading prompts
+
+```
+/weekly-reading channel set
+/weekly-reading role set
+/weekly-reading role remove
+/weekly-reading schedule set
+/weekly-reading pause
+/weekly-reading resume
+/weekly-reading force
+/weekly-reading status
+/weekly-reading cards add
+/weekly-reading cards edit
+/weekly-reading cards remove
+/weekly-reading cards list
+```
+**Permissions:** Admins only (Manage Server).
+
+A weekly prompt is drawn at random from an admin-maintained deck and posted
+in the configured channel at a fixed UTC weekday and hour. The post pings an
+optional role. Once a card has been posted it is retired until every card in
+the deck has been sent, at which point the deck resets and cards can be posted
+again. If the bot is offline when a scheduled run is due it is skipped (admins
+can post one manually with `/weekly-reading force`), and a manual post
+consumes a card without changing the schedule marker. Card titles are
+deduplicated without case, accents or extra whitespace. Commands accept a
+card by its numeric id or by selecting it from the autocomplete list.
+
 ## Settings
 
 View and edit the bot's runtime settings.

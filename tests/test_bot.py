@@ -2468,6 +2468,18 @@ class ReleaseEmbedTests(unittest.TestCase):
         self.assertIn(t("releases.sources.goodreads"), embed.footer.text)
         self.assertIn("(id: the-book)", embed.footer.text)
 
+    def test_release_date_is_plain_text(self) -> None:
+        embed = release_service.build_book_embed(
+            self._Book(), FakeMember(), FakeClient()
+        )
+        field = next(
+            entry
+            for entry in embed.fields
+            if entry.name == t("releases.embed.release_date_field")
+        )
+        self.assertEqual(field.value, "October 13, 2026")
+        self.assertNotIn("<t:", field.value)
+
     def test_embed_prefers_stored_reference(self) -> None:
         embed = release_service.build_book_embed(
             self._Book(reference="custom-handle"), FakeMember(), FakeClient()
@@ -3048,7 +3060,7 @@ class ReleaseSearchHelpersTests(unittest.TestCase):
     def test_format_plain_date(self) -> None:
         self.assertEqual(
             release_service.format_plain_date(datetime.date(2026, 10, 16)),
-            "October 16th, 2026",
+            "October 16, 2026",
         )
 
 

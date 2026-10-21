@@ -20,7 +20,7 @@ import re
 import secrets
 import string
 from collections.abc import Container
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, timedelta
 
 import discord
 from sqlalchemy import delete, func, select, update
@@ -193,14 +193,6 @@ def unique_reference(title: str, taken: Container[str]) -> str:
             return suffixed
 
 
-def format_release_date(value: date) -> str:
-    """Render a date as a Discord date stamp (day precision)."""
-    timestamp = int(
-        datetime.combine(value, time.min, tzinfo=timezone.utc).timestamp()
-    )
-    return f"<t:{timestamp}:D>"
-
-
 def source_label(source: str) -> str:
     return t(f"releases.sources.{source}")
 
@@ -225,19 +217,19 @@ def parse_user_id(value: str) -> int | None:
 
 
 def format_plain_date(value: date, year=True) -> str:
-    """Render a date as plain text, without a Discord timestamp."""
+    """Render a date as plain text (``October 13, 2026``)."""
     if year:
         return t(
             "releases.date.plain",
             month=t(f"releases.months.{value.month}"),
-            day=_ordinal(value.day),
+            day=value.day,
             year=value.year
         )
     else:
         return t(
             "releases.date.plain_without_year",
             month=t(f"releases.months.{value.month}"),
-            day=_ordinal(value.day)
+            day=value.day
         )
 
 
@@ -273,7 +265,7 @@ def build_book_embed(
     )
     embed.add_field(
         name=t("releases.embed.release_date_field"),
-        value=format_release_date(book.release_date),
+        value=format_plain_date(book.release_date),
         inline=True,
     )
     tags = getattr(book, "tags", None) or []

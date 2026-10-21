@@ -17,14 +17,6 @@ reminders:
     role_field: "Role"
     hour_value_am: "%{hour}:00 AM"
     hour_value_pm: "%{hour}:00 PM"
-    weekday:
-      monday: "Monday"
-      tuesday: "Tuesday"
-      wednesday: "Wednesday"
-      thursday: "Thursday"
-      friday: "Friday"
-      saturday: "Saturday"
-      sunday: "Sunday"
     suffix:
       st: "st"
       nd: "nd"

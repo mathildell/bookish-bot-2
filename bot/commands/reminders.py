@@ -21,12 +21,12 @@ from ..services.reminders import (
     KIND_WEEKLY,
     KINDS,
     SNOOZE_DELAY,
-    WEEKDAY_NAMES,
     Reminder,
     ReminderService,
     utcnow,
 )
 from ..services.timezones import search_timezones
+from ..services.weekdays import WEEKDAY_NAMES
 from ..texts import t
 from .checks import is_admin, require_admin
 from .listing import (
@@ -71,7 +71,7 @@ def _ordinal(day: int) -> str:
 
 
 def _weekday_name(weekday: int) -> str:
-    return t(f"reminders.shared.weekday.{WEEKDAY_NAMES[weekday]}")
+    return t(f"components.weekday.{WEEKDAY_NAMES[weekday]}")
 
 
 def _format_run(moment: datetime) -> str:

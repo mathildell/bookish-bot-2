@@ -15,3 +15,12 @@ components:
     placement_other: "%{place}."
   permissions:
     no_permission: "Can’t fault you for trying, but you really can’t do that. :eyes: "
+  # Day names, in Python's weekday order (Monday first).
+  weekday:
+    monday: "Monday"
+    tuesday: "Tuesday"
+    wednesday: "Wednesday"
+    thursday: "Thursday"
+    friday: "Friday"
+    saturday: "Saturday"
+    sunday: "Sunday"
