@@ -534,7 +534,7 @@ message at the given jump `link` (right-click a message → Copy Message Link).
 /weekly-reading cards remove
 /weekly-reading cards list
 ```
-**Permissions:** Admins only (Manage Server).
+**Permissions:** 🔒 Admin
 
 A weekly prompt is drawn at random from an admin-maintained deck and posted
 in the configured channel at a fixed UTC weekday and hour. The post pings an

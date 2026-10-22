@@ -1045,8 +1045,6 @@ class StreakService:
             ).all()
             for streak, goal in rows:
                 today = local_date(now, goal.timezone)
-                if streak.last_log_date == today:
-                    continue
                 hour = local_hour(now, goal.timezone)
                 if (
                     goal.reminder in ("custom", "both")
@@ -1056,7 +1054,8 @@ class StreakService:
                 ):
                     due.append(Reminder(streak=streak, goal=goal, kind="custom"))
                 elif (
-                    goal.reminder in ("last_chance", "both")
+                    streak.last_log_date != today
+                    and goal.reminder in ("last_chance", "both")
                     and hour == LAST_CHANCE_HOUR
                     and streak.last_lastchance_reminder_on != today
                 ):

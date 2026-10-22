@@ -10,6 +10,7 @@ No network, database or Discord connection is required.
 from __future__ import annotations
 
 import unittest
+from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -1126,6 +1127,69 @@ class RescueEmbedTests(unittest.IsolatedAsyncioTestCase):
 
         names = [entry.name for entry in interaction.response.embed.fields]
         self.assertIn(t("streaks.rescue.title"), names)
+
+
+class ReminderDueTests(unittest.IsolatedAsyncioTestCase):
+    now = datetime(2026, 10, 22, 14)
+    today = date(2026, 10, 22)
+
+    async def _due(self, streak, goal, now=None):
+        class Result:
+            def all(self):
+                return [(streak, goal)]
+
+        class Session:
+            async def execute(self, statement):
+                return Result()
+
+        @asynccontextmanager
+        async def session_scope():
+            yield Session()
+
+        with patch.object(streaks, "session_scope", new=session_scope):
+            return await streaks.StreakService(1).due_reminders(
+                now or self.now
+            )
+
+    def goal(self, reminder, custom_hour=14):
+        return SimpleNamespace(
+            timezone="UTC", reminder=reminder, custom_hour=custom_hour
+        )
+
+    def streak(self, *, last_log_date=None, custom_sent=None, lastchance_sent=None):
+        return SimpleNamespace(
+            last_log_date=last_log_date,
+            last_custom_reminder_on=custom_sent,
+            last_lastchance_reminder_on=lastchance_sent,
+        )
+
+    async def test_custom_reminder_sends_even_after_logging(self) -> None:
+        due = await self._due(
+            self.streak(last_log_date=self.today), self.goal("custom")
+        )
+        self.assertEqual([reminder.kind for reminder in due], ["custom"])
+
+    async def test_custom_reminder_sends_once_per_day(self) -> None:
+        due = await self._due(
+            self.streak(custom_sent=self.today), self.goal("custom")
+        )
+        self.assertEqual(due, [])
+
+    async def test_last_chance_is_skipped_after_logging(self) -> None:
+        due = await self._due(
+            self.streak(last_log_date=self.today),
+            self.goal("last_chance"),
+            now=datetime(2026, 10, 22, 23),
+        )
+        self.assertEqual(due, [])
+
+    async def test_last_chance_sends_when_not_logged(self) -> None:
+        due = await self._due(
+            self.streak(),
+            self.goal("last_chance"),
+            now=datetime(2026, 10, 22, 23),
+        )
+        self.assertEqual([reminder.kind for reminder in due], ["last_chance"])
 
 
 class ExpiringViewTests(unittest.IsolatedAsyncioTestCase):

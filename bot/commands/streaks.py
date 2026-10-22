@@ -532,6 +532,10 @@ async def _perform_log(
         message = await _reply_to_alert(interaction, reply_to, embed, view)
     elif generating:
         message = await interaction.edit_original_response(embed=embed, view=view)
+    elif view is None:
+        message = await interaction.response.send_message(
+            embed=embed, ephemeral=ephemeral
+        )
     else:
         message = await interaction.response.send_message(
             embed=embed, view=view, ephemeral=ephemeral
