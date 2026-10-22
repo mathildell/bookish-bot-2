@@ -47,10 +47,14 @@ from .commands.tickets import (
     resolve_ticket_channel,
     tickets_group,
 )
-from .commands.weekly_reading import weekly_reading_group
+from .commands.biweekly_theme import biweekly_theme_group
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
-from .notifications import announce_level_up, announce_streak_closed
+from .notifications import (
+    announce_level_up,
+    announce_streak_closed,
+    announce_theme_failed,
+)
 from .services import level as level_service
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
@@ -67,7 +71,8 @@ from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
 from .services.streaks import Reminder, StreakService
 from .services.tickets import TicketService
-from .services.weekly_reading import WeeklyReadingService
+from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
+from .services.image_hosting import ImageHost
 from .texts import interpolate, t, t_choice, t_choice_template
 
 logger = logging.getLogger("bh2")
@@ -221,7 +226,8 @@ async def run() -> None:
     reminders = ReminderService(int(config.guild_id))
     tickets = TicketService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
-    weekly_reading = WeeklyReadingService(int(config.guild_id))
+    image_host = ImageHost(config.get("imgbb_api_key"))
+    biweekly_theme = BiweeklyThemeService(int(config.guild_id), image_host)
     bot_settings = BotSettingsService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))
     release_scraper = ReleaseScraper()
@@ -241,7 +247,7 @@ async def run() -> None:
     bot.reminders = reminders
     bot.tickets = tickets
     bot.weekly = weekly
-    bot.weekly_reading = weekly_reading
+    bot.biweekly_theme = biweekly_theme
     bot.bot_settings = bot_settings
     bot.coupons = coupons
     bot.release_scraper = release_scraper
@@ -279,7 +285,7 @@ async def run() -> None:
     bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(settings_group, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
-    bot.tree.add_command(weekly_reading_group, guild=guild)
+    bot.tree.add_command(biweekly_theme_group, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event
@@ -653,36 +659,49 @@ async def run() -> None:
         except Exception:
             logger.exception("Weekly leaderboard catch-up failed")
 
-    # ---------------------- weekly reading prompts ----------------------
-    async def post_weekly_reading_now() -> None:
+    # ---------------------- bi-weekly theme posts ----------------------
+    async def post_biweekly_theme_now() -> None:
         now = level_service.utcnow()
-        if not weekly_reading.is_due(now):
+        if not biweekly_theme.is_due(now):
             return
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
             return
         channel = await resolve_notify_channel(
-            guild, weekly_reading.channel_id or 0
+            guild, biweekly_theme.channel_id or 0
         )
         if channel is None:
-            logger.warning("Reading prompt is due but no channel is set")
+            logger.warning("Theme is due but no channel is set")
             return
         try:
-            card = await weekly_reading.post_card(channel, bot)
+            card = await biweekly_theme.post_card(channel, bot)
+        except ThemeImageError as exc:
+            logger.warning("Could not create the theme image", exc_info=True)
+            updates = await resolve_notify_channel(
+                guild, bot.bot_updates_channel_id
+            )
+            await announce_theme_failed(
+                updates,
+                title=exc.card.title,
+                error=exc.cause,
+                colour=bot.default_embed_color,
+            )
+            await biweekly_theme.mark_attempted(now.date())
+            return
         except discord.HTTPException:
-            logger.warning("Could not post the reading prompt", exc_info=True)
+            logger.warning("Could not post the theme", exc_info=True)
             return
         if card is None:
-            logger.warning("Reading prompt is due but the deck is empty")
+            logger.warning("Theme is due but the deck is empty")
             return
-        await weekly_reading.mark_posted(now.date())
-        logger.info("Posted the weekly reading prompt")
+        await biweekly_theme.mark_posted(now.date())
+        logger.info("Posted the bi-weekly theme")
 
     @tasks.loop(time=HOURLY_TIMES)
-    async def post_weekly_reading() -> None:
+    async def post_biweekly_theme() -> None:
         # Runs hourly so the post hour can be changed at runtime; a run
         # missed while the bot was down is skipped, not made up.
-        await post_weekly_reading_now()
+        await post_biweekly_theme_now()
 
     # ------------------------- startup -------------------------
     @bot.event
@@ -754,12 +773,12 @@ async def run() -> None:
             weekly.post_hour,
         )
 
-        await weekly_reading.reload()
+        await biweekly_theme.reload()
         logger.info(
-            "Reading prompt channel: %s (weekday %s, %s UTC)",
-            weekly_reading.channel_id,
-            weekly_reading.weekday,
-            weekly_reading.hour,
+            "Bi-weekly theme channel: %s (weekday %s, %s UTC)",
+            biweekly_theme.channel_id,
+            biweekly_theme.weekday,
+            biweekly_theme.hour,
         )
 
         if not reconcile_boosters.is_running():
@@ -780,8 +799,8 @@ async def run() -> None:
             expire_ticket_buttons.start()
         if not post_weekly_leaderboard.is_running():
             post_weekly_leaderboard.start()
-        if not post_weekly_reading.is_running():
-            post_weekly_reading.start()
+        if not post_biweekly_theme.is_running():
+            post_biweekly_theme.start()
 
         guild = discord.Object(id=int(config.guild_id))
         try:

@@ -1,8 +1,8 @@
-"""Weekly reading prompts: a deck of cards, one posted per week.
+"""Bi-weekly themes: a deck of cards, one posted every two weeks as an image.
 
 The rules (validation, the schedule check, the deck handling) live as
 module-level functions so they can be tested without a database. The
-:class:`WeeklyReadingService` owns the guild's settings and the card CRUD.
+:class:`BiweeklyThemeService` owns the guild's settings and the card CRUD.
 """
 
 from __future__ import annotations
@@ -16,53 +16,71 @@ import discord
 from sqlalchemy import select, update
 
 from ..db import session_scope
-from ..models import WeeklyReadingCard, WeeklyReadingSetting
+from ..models import BiweeklyThemeCard, BiweeklyThemeSetting
 from ..texts import t
+from .image_hosting import ImageHost
 from .level import utcnow
+from .theme_images import (
+    THEME_IMGBB_EXPIRATION_SECONDS,
+    render_theme,
+    theme_period,
+)
 
 CARD_TITLE_MAX_LENGTH = 256
 CARD_DESCRIPTION_MAX_LENGTH = 2000
+POST_INTERVAL_DAYS = 14
 
-# The weekday and hour the prompt goes out on are both UTC.
+# The weekday and hour the theme goes out on are both UTC.
 DEFAULT_HOUR = 12
 
 
-class WeeklyReadingError(Exception):
+class BiweeklyThemeError(Exception):
     """Base class for user-facing problems (carries a text key)."""
 
-    key = "weekly_reading.errors.generic"
+    key = "biweekly_theme.errors.generic"
 
     def __init__(self, **variables) -> None:
         super().__init__(self.key)
         self.variables = variables
 
 
-class MissingTitle(WeeklyReadingError):
-    key = "weekly_reading.errors.missing_title"
+class MissingTitle(BiweeklyThemeError):
+    key = "biweekly_theme.errors.missing_title"
 
 
-class TitleTooLong(WeeklyReadingError):
-    key = "weekly_reading.errors.title_too_long"
+class TitleTooLong(BiweeklyThemeError):
+    key = "biweekly_theme.errors.title_too_long"
 
 
-class DescriptionTooLong(WeeklyReadingError):
-    key = "weekly_reading.errors.description_too_long"
+class DescriptionTooLong(BiweeklyThemeError):
+    key = "biweekly_theme.errors.description_too_long"
 
 
-class DuplicateCard(WeeklyReadingError):
-    key = "weekly_reading.errors.duplicate_card"
+class DuplicateCard(BiweeklyThemeError):
+    key = "biweekly_theme.errors.duplicate_card"
 
 
-class CardNotFound(WeeklyReadingError):
-    key = "weekly_reading.errors.card_not_found"
+class CardNotFound(BiweeklyThemeError):
+    key = "biweekly_theme.errors.card_not_found"
 
 
-class InvalidWeekday(WeeklyReadingError):
-    key = "weekly_reading.errors.invalid_weekday"
+class InvalidWeekday(BiweeklyThemeError):
+    key = "biweekly_theme.errors.invalid_weekday"
 
 
-class InvalidHour(WeeklyReadingError):
-    key = "weekly_reading.errors.invalid_hour"
+class InvalidHour(BiweeklyThemeError):
+    key = "biweekly_theme.errors.invalid_hour"
+
+
+class ThemeImageError(BiweeklyThemeError):
+    """Rendering or uploading a theme image failed; there is no fallback."""
+
+    key = "biweekly_theme.errors.image_failed"
+
+    def __init__(self, *, card: BiweeklyThemeCard, cause: Exception) -> None:
+        super().__init__(title=card.title, error=cause)
+        self.card = card
+        self.cause = cause
 
 
 # ----------------------------------------------------------------- pure rules
@@ -119,58 +137,65 @@ def is_post_due(
     hour: int | None,
     enabled: bool,
     last_posted_on: date | None,
+    last_attempted_on: date | None,
 ) -> bool:
-    """Whether the weekly prompt should be posted at ``now``.
+    """Whether the bi-weekly theme should be posted at ``now``.
 
     The check is deliberately exact: a run missed while the bot was down is
-    skipped rather than made up later, so admins post it by hand instead.
+    skipped rather than made up later. A failed attempt still advances the
+    cadence so the hourly loop cannot repeat the same alert all day.
     """
     if not enabled or weekday is None or hour is None:
         return False
-    return (
-        now.weekday() == weekday
-        and now.hour == hour
-        and last_posted_on != now.date()
-    )
+    if now.weekday() != weekday or now.hour != hour:
+        return False
+    if last_attempted_on == now.date():
+        return False
+    anchors = [
+        day
+        for day in (last_posted_on, last_attempted_on)
+        if day is not None
+    ]
+    if not anchors:
+        return True
+    return (now.date() - max(anchors)).days >= POST_INTERVAL_DAYS
 
 
 def format_posted_date(day: date) -> str:
-    """Render the date a prompt was last posted on."""
+    """Render the date a theme was last posted on."""
     return f"{day.strftime('%B')} {day.day}, {day.year}"
 
 
-def build_card_embed(
-    card: WeeklyReadingCard, client: discord.Client
+def build_theme_embed(
+    image_url: str, client: discord.Client
 ) -> discord.Embed:
-    """The embed a posted prompt shows: a fixed title and the card's text."""
+    """The embed a posted theme shows: a fixed title and the generated image."""
     embed = discord.Embed(
-        title=t("weekly_reading.post.embed_title"),
+        title=t("biweekly_theme.post.embed_title"),
         colour=getattr(client, "default_embed_color", None),
     )
-    description = f"### {card.title}"
-    if card.description:
-        description = f"{description}\n{card.description}"
-    embed.description = description
-    image = getattr(client, "transparent_embed_image", None)
-    if image:
-        embed.set_image(url=image)
+    embed.set_image(url=image_url)
     return embed
 
 
 # ------------------------------------------------------------------- service
 
 
-class WeeklyReadingService:
-    """Settings plus the card deck behind the weekly reading prompts."""
+class BiweeklyThemeService:
+    """Settings plus the card deck behind the bi-weekly theme posts."""
 
-    def __init__(self, guild_id: int) -> None:
+    def __init__(
+        self, guild_id: int, image_host: ImageHost | None = None
+    ) -> None:
         self.guild_id = guild_id
+        self._image_host = image_host or ImageHost()
         self._channel_id: int | None = None
         self._role_id: int | None = None
         self._weekday: int | None = None
         self._hour: int | None = None
         self._enabled = True
         self._last_posted_on: date | None = None
+        self._last_attempted_on: date | None = None
         # Serialises posts so a manual run cannot race the scheduled loop.
         self._post_lock = asyncio.Lock()
 
@@ -198,6 +223,10 @@ class WeeklyReadingService:
     def last_posted_on(self) -> date | None:
         return self._last_posted_on
 
+    @property
+    def last_attempted_on(self) -> date | None:
+        return self._last_attempted_on
+
     # ------------------------------------------------------------- settings
 
     async def reload(self) -> None:
@@ -209,6 +238,7 @@ class WeeklyReadingService:
         self._hour = row.hour if row else None
         self._enabled = bool(row.enabled) if row else True
         self._last_posted_on = row.last_posted_on if row else None
+        self._last_attempted_on = row.last_attempted_on if row else None
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -243,12 +273,22 @@ class WeeklyReadingService:
         self._enabled = enabled
 
     async def mark_posted(self, posted_on: date) -> None:
-        """Remember the date of the last scheduled prompt."""
+        """Remember a successful scheduled post."""
         async with session_scope() as session:
             row = await self._settings(session, create=True)
             row.last_posted_on = posted_on
+            row.last_attempted_on = posted_on
             await session.commit()
         self._last_posted_on = posted_on
+        self._last_attempted_on = posted_on
+
+    async def mark_attempted(self, attempted_on: date) -> None:
+        """Remember a failed scheduled run so it is not retried that day."""
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.last_attempted_on = attempted_on
+            await session.commit()
+        self._last_attempted_on = attempted_on
 
     def is_due(self, now: datetime | None = None) -> bool:
         now = now or utcnow()
@@ -258,48 +298,49 @@ class WeeklyReadingService:
             hour=self._hour,
             enabled=self._enabled,
             last_posted_on=self._last_posted_on,
+            last_attempted_on=self._last_attempted_on,
         )
 
     async def _settings(
         self, session, *, create: bool = False
-    ) -> WeeklyReadingSetting | None:
+    ) -> BiweeklyThemeSetting | None:
         row = (
             await session.execute(
-                select(WeeklyReadingSetting).where(
-                    WeeklyReadingSetting.guild_id == self.guild_id
+                select(BiweeklyThemeSetting).where(
+                    BiweeklyThemeSetting.guild_id == self.guild_id
                 )
             )
         ).scalar_one_or_none()
         if row is None and create:
-            row = WeeklyReadingSetting(guild_id=self.guild_id)
+            row = BiweeklyThemeSetting(guild_id=self.guild_id)
             session.add(row)
             await session.flush()
         return row
 
     # ---------------------------------------------------------------- cards
 
-    async def list_cards(self) -> list[WeeklyReadingCard]:
+    async def list_cards(self) -> list[BiweeklyThemeCard]:
         async with session_scope() as session:
             statement = (
-                select(WeeklyReadingCard)
-                .where(WeeklyReadingCard.guild_id == self.guild_id)
-                .order_by(WeeklyReadingCard.id)
+                select(BiweeklyThemeCard)
+                .where(BiweeklyThemeCard.guild_id == self.guild_id)
+                .order_by(BiweeklyThemeCard.id)
             )
             return list((await session.execute(statement)).scalars())
 
-    async def get_card(self, card_id: int) -> WeeklyReadingCard | None:
+    async def get_card(self, card_id: int) -> BiweeklyThemeCard | None:
         async with session_scope() as session:
             return await self._card(session, card_id)
 
     async def add_card(
         self, title: str, description: str | None = None
-    ) -> WeeklyReadingCard:
+    ) -> BiweeklyThemeCard:
         clean_title = validate_title(title)
         clean_description = validate_description(description)
         async with session_scope() as session:
             if await self._title_taken(session, clean_title):
                 raise DuplicateCard(title=clean_title)
-            card = WeeklyReadingCard(
+            card = BiweeklyThemeCard(
                 guild_id=self.guild_id,
                 title=clean_title,
                 description=clean_description,
@@ -315,7 +356,7 @@ class WeeklyReadingService:
         *,
         title: str | None = None,
         description: str | None = None,
-    ) -> WeeklyReadingCard:
+    ) -> BiweeklyThemeCard:
         """Apply the given fields on top of an existing card."""
         async with session_scope() as session:
             card = await self._card(session, card_id)
@@ -345,12 +386,12 @@ class WeeklyReadingService:
 
     async def _card(
         self, session, card_id: int
-    ) -> WeeklyReadingCard | None:
+    ) -> BiweeklyThemeCard | None:
         return (
             await session.execute(
-                select(WeeklyReadingCard).where(
-                    WeeklyReadingCard.guild_id == self.guild_id,
-                    WeeklyReadingCard.id == card_id,
+                select(BiweeklyThemeCard).where(
+                    BiweeklyThemeCard.guild_id == self.guild_id,
+                    BiweeklyThemeCard.id == card_id,
                 )
             )
         ).scalar_one_or_none()
@@ -362,8 +403,8 @@ class WeeklyReadingService:
         cards = list(
             (
                 await session.execute(
-                    select(WeeklyReadingCard).where(
-                        WeeklyReadingCard.guild_id == self.guild_id
+                    select(BiweeklyThemeCard).where(
+                        BiweeklyThemeCard.guild_id == self.guild_id
                     )
                 )
             ).scalars()
@@ -376,15 +417,15 @@ class WeeklyReadingService:
 
     # ----------------------------------------------------------------- deck
 
-    async def unsent_cards(self) -> list[WeeklyReadingCard]:
+    async def unsent_cards(self) -> list[BiweeklyThemeCard]:
         async with session_scope() as session:
             statement = (
-                select(WeeklyReadingCard)
+                select(BiweeklyThemeCard)
                 .where(
-                    WeeklyReadingCard.guild_id == self.guild_id,
-                    WeeklyReadingCard.sent.is_(False),
+                    BiweeklyThemeCard.guild_id == self.guild_id,
+                    BiweeklyThemeCard.sent.is_(False),
                 )
-                .order_by(WeeklyReadingCard.id)
+                .order_by(BiweeklyThemeCard.id)
             )
             return list((await session.execute(statement)).scalars())
 
@@ -392,17 +433,17 @@ class WeeklyReadingService:
         """Make every card available again; returns how many were reactivated."""
         async with session_scope() as session:
             result = await session.execute(
-                update(WeeklyReadingCard)
+                update(BiweeklyThemeCard)
                 .where(
-                    WeeklyReadingCard.guild_id == self.guild_id,
-                    WeeklyReadingCard.sent.is_(True),
+                    BiweeklyThemeCard.guild_id == self.guild_id,
+                    BiweeklyThemeCard.sent.is_(True),
                 )
                 .values(sent=False, sent_at=None)
             )
             await session.commit()
             return result.rowcount or 0
 
-    async def pick_card(self) -> WeeklyReadingCard | None:
+    async def pick_card(self) -> BiweeklyThemeCard | None:
         """Choose the card to post.
 
         A random card that has not been posted yet is used; once every card
@@ -434,19 +475,42 @@ class WeeklyReadingService:
         self,
         channel: discord.abc.Messageable,
         client: discord.Client,
-    ) -> WeeklyReadingCard | None:
-        """Post the next card; returns the card that was posted.
+        *,
+        posted_on: date | None = None,
+    ) -> BiweeklyThemeCard | None:
+        """Render and post the next theme; returns the card that was posted.
 
-        The card is only retired once Discord accepted the message, so a
-        failed post leaves the deck as it was.
+        The card is only retired once Discord accepted the message. A failed
+        render or upload raises :class:`ThemeImageError` without falling back
+        to a placeholder image.
         """
         async with self._post_lock:
             card = await self.pick_card()
             if card is None:
                 return None
+            posted_on = posted_on or utcnow().date()
+            start, end = theme_period(posted_on)
+            path = None
+            try:
+                path = render_theme(
+                    prompt=card.title,
+                    description=card.description,
+                    start=start,
+                    end=end,
+                )
+                url = await self._image_host.upload(
+                    path,
+                    expiration_seconds=THEME_IMGBB_EXPIRATION_SECONDS,
+                )
+            except Exception as exc:
+                raise ThemeImageError(card=card, cause=exc) from exc
+            finally:
+                if path is not None:
+                    path.unlink(missing_ok=True)
+
             content = f"<@&{self._role_id}>" if self._role_id else None
             await channel.send(
-                content=content, embed=build_card_embed(card, client)
+                content=content, embed=build_theme_embed(url, client)
             )
             await self.mark_card_sent(card.id)
             return card

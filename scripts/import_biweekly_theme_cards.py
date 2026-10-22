@@ -1,7 +1,7 @@
-"""Import reading prompts from a CSV file into the ``weekly_reading_cards`` table.
+"""Import theme cards from a CSV file into the ``weekly_reading_cards`` table.
 
 The CSV may carry a header row naming the columns (``title`` and, optionally,
-``description``); a file with a single column of prompts works too. Without a
+``description``); a file with a single column of themes works too. Without a
 header, the first column is the title and the second the description.
 
 Duplicate titles are skipped, comparing them without case, accents or repeated
@@ -10,8 +10,8 @@ earlier rows of the same file.
 
 Usage (from the repository root, with the production config.yaml present):
 
-    .venv/bin/python scripts/import_weekly_reading_cards.py prompts.csv --dry-run
-    .venv/bin/python scripts/import_weekly_reading_cards.py prompts.csv
+    .venv/bin/python scripts/import_biweekly_theme_cards.py themes.csv --dry-run
+    .venv/bin/python scripts/import_biweekly_theme_cards.py themes.csv
 """
 
 from __future__ import annotations
@@ -29,13 +29,13 @@ if str(ROOT) not in sys.path:
 
 from bot.config import load_config  # noqa: E402
 from bot.db import close_db, create_tables, init_db  # noqa: E402
-from bot.services.weekly_reading import (  # noqa: E402
-    WeeklyReadingError,
-    WeeklyReadingService,
+from bot.services.biweekly_theme import (  # noqa: E402
+    BiweeklyThemeError,
+    BiweeklyThemeService,
     normalize_title,
 )
 
-TITLE_HEADERS = {"title", "prompt", "card", "text", "question", "name"}
+TITLE_HEADERS = {"title", "prompt", "theme", "card", "text", "question", "name"}
 DESCRIPTION_HEADERS = {"description", "details", "body", "notes", "extra"}
 
 
@@ -98,17 +98,17 @@ async def run(args: argparse.Namespace) -> None:
 
     cards = parse_cards(Path(args.path))
     if not cards:
-        print(f"No reading prompts found in {args.path}")
+        print(f"No themes found in {args.path}")
         await close_db()
         return
 
-    service = WeeklyReadingService(guild_id)
+    service = BiweeklyThemeService(guild_id)
     seen = {
         normalize_title(card.title) for card in await service.list_cards()
     }
 
     print(f"Guild: {guild_id}")
-    print(f"Source: {args.path} ({len(cards)} prompt(s))")
+    print(f"Source: {args.path} ({len(cards)} theme(s))")
     print(f"Mode: {'dry-run' if args.dry_run else 'write'}\n")
 
     added = skipped = failed = 0
@@ -126,7 +126,7 @@ async def run(args: argparse.Namespace) -> None:
                 print(f"  added {card.title!r}")
             seen.add(key)
             added += 1
-        except WeeklyReadingError as exc:
+        except BiweeklyThemeError as exc:
             print(f"  fail {card.title!r}: {exc.key}")
             failed += 1
 
@@ -139,8 +139,8 @@ def main() -> None:
     parser.add_argument(
         "path",
         nargs="?",
-        default="prompts.csv",
-        help="CSV file with the reading prompts (default: prompts.csv)",
+        default="themes.csv",
+        help="CSV file with the themes (default: themes.csv)",
     )
     parser.add_argument(
         "--config", default=str(ROOT / "config.yaml"), help="Path to config.yaml"

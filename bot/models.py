@@ -748,18 +748,19 @@ class ReminderSnooze(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
-class WeeklyReadingCard(Base):
-    """A reading prompt card. A posted card retires until the deck resets."""
+class BiweeklyThemeCard(Base):
+    """A bi-weekly theme card. A posted card retires until the deck resets."""
 
+    # Legacy table name kept so existing decks survive without a migration.
     __tablename__ = "weekly_reading_cards"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
 
-    # The card's heading; shown as the first line of the posted embed.
+    # The main prompt shown large on the generated theme image.
     title: Mapped[str] = mapped_column(String(256), nullable=False)
-    # Optional body shown under the heading.
+    # Optional body shown below the title on the generated image.
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Set once the card has been posted; cleared when the deck is reset.
@@ -778,9 +779,10 @@ class WeeklyReadingCard(Base):
     )
 
 
-class WeeklyReadingSetting(Base):
-    """Per-guild settings for the weekly reading prompts feature."""
+class BiweeklyThemeSetting(Base):
+    """Per-guild settings for the bi-weekly themes feature."""
 
+    # Legacy table name kept so existing settings survive without a migration.
     __tablename__ = "weekly_reading_settings"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -791,14 +793,16 @@ class WeeklyReadingSetting(Base):
     channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # Role pinged in the message content; optional.
     role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    # Python weekday (0-6) and UTC hour the prompt is posted on; null until
+    # Python weekday (0-6) and UTC hour the theme is posted on; null until
     # an admin sets the schedule.
     weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # Whether the weekly schedule is running.
+    # Whether the bi-weekly schedule is running.
     enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
-    # UTC date the last scheduled prompt was posted (idempotency marker).
+    # UTC date the last scheduled prompt was posted (schedule anchor).
     last_posted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # UTC date the last scheduled run was attempted, successful or not.
+    last_attempted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

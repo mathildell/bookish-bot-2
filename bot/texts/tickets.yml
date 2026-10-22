@@ -33,7 +33,7 @@ tickets:
   sticky:
     title: "Talk to the team!"
     description: |
-      Click on the button below to open a support ticket. This will create a private thread where you can chat directly with the team, no one else included.
+      Click on the button below to open a support ticket. This will create a private thread where you can chat directly with mods, no one else included.
       **No request is too big or too small, we're always happy to help!**
     button: "Open a ticket"
     button_emoji: "🌿"

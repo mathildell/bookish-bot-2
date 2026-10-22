@@ -29,6 +29,31 @@ async def announce_level_up(
         logger.warning("Could not announce level up: %s", exc)
 
 
+async def announce_theme_failed(
+    channel: discord.abc.Messageable | None,
+    *,
+    title: str,
+    error: object,
+    colour: discord.Colour | None = None,
+) -> None:
+    """Tell the admins' updates channel that a theme image could not be made."""
+    if channel is None:
+        return
+    embed = discord.Embed(
+        title=t("biweekly_theme.post.failed_title"),
+        description=t(
+            "biweekly_theme.post.failed_description",
+            title=title,
+            error=error,
+        ),
+        colour=colour,
+    )
+    try:
+        await channel.send(embed=embed)
+    except discord.HTTPException as exc:
+        logger.warning("Could not announce the theme failure: %s", exc)
+
+
 async def announce_streak_closed(
     channel: discord.abc.Messageable | None,
     *,

@@ -20,6 +20,7 @@ import discord
 
 from bot.commands import streaks as command_streaks
 from bot.services import coupons
+from bot.services import image_hosting
 from bot.services import streaks
 from bot.texts import MissingText, t, t_choice
 
@@ -241,12 +242,14 @@ class TmpfilesDirectUrlTests(unittest.TestCase):
             'coupon.png">Download</a>'
         )
         self.assertEqual(
-            coupons._tmpfiles_direct_url(page),
+            image_hosting._tmpfiles_direct_url(page),
             "https://tmpfiles.org/dl/1792446954.token/id/coupon.png",
         )
 
     def test_returns_none_when_the_link_is_missing(self) -> None:
-        self.assertIsNone(coupons._tmpfiles_direct_url("<html></html>"))
+        self.assertIsNone(
+            image_hosting._tmpfiles_direct_url("<html></html>")
+        )
 
 
 class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
@@ -354,14 +357,12 @@ class CouponFallbackTests(unittest.IsolatedAsyncioTestCase):
             xp=250,
         )
 
-        class Failing(coupons.CouponService):
-            async def _upload_imgbb(self, http, path):
-                raise coupons.CouponUploadError("imgbb down")
+        class FailingHost:
+            async def upload(self, path, *, expiration_seconds):
+                raise coupons.CouponUploadError("both hosts down")
 
-            async def _upload_tmpfiles(self, http, path):
-                raise coupons.CouponUploadError("tmpfiles down")
-
-        service = Failing("key")
+        service = coupons.CouponService()
+        service._host = FailingHost()
         with patch(
             "bot.services.coupons.render_coupon", return_value=(path, None)
         ):
@@ -410,10 +411,10 @@ class CouponImageVerificationTests(unittest.IsolatedAsyncioTestCase):
         buffer = BytesIO()
         coupons.Image.new("RGB", (2, 2), "red").save(buffer, "PNG")
         self.image = buffer.getvalue()
-        self.service = coupons.CouponService(timeout=1)
+        self.service = image_hosting.ImageHost(timeout=1)
 
     async def _verify(self, **kwargs) -> None:
-        with patch.object(coupons, "IMAGE_VERIFY_ATTEMPTS", 1):
+        with patch.object(image_hosting, "IMAGE_VERIFY_ATTEMPTS", 1):
             await self.service._verify_image(
                 self.Http(self.Response(**kwargs)),
                 "https://example.com/coupon.png",

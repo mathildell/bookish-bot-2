@@ -58,7 +58,7 @@ Implemented features:
   background, the default embed colour, the coupon fallback image and the buddy
   read forum channel + reference message link. This is the home for values that
   used to live in `config.yaml`.
-- **Weekly reading prompts** — admins maintain a deck of reading cards; each week the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). Cards retire once posted and the deck resets when empty; missed runs are skipped. `/weekly-reading force` posts one now (consuming a card without affecting the schedule). CSV import with duplicate protection.
+- **Bi-weekly themes** — admins maintain a deck of theme cards; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is uploaded to imgbb with a three-month expiry (tmpfiles fallback). Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render/upload failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
   add|edit|remove|list`) that fire in a chosen timezone (defaulting to the
   streak timezone, then UTC) and are posted in the channel they were created
@@ -143,9 +143,9 @@ bot/
                            IntroSetting, IntroPost, TicketSetting, Ticket,
                            BookRelease, ReleaseSetting, ReleaseEditDraft,
                            StreakGoal, Streak, StreakLog, StreakSetting,
-                           WeeklyReadingCard, WeeklyReadingSetting,
+                           BiweeklyThemeCard, BiweeklyThemeSetting,
                            BotSetting, Reminder, ReminderSnooze)
-  notifications.py         level-up + streak-closed announcements
+  notifications.py         level-up, streak-closed and theme-failure announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...
@@ -161,6 +161,7 @@ bot/
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
     bot_react.py           /bot react (add an emoji reaction to a message)
+    biweekly_theme.py      /biweekly-theme group + cards/channel/role/schedule
     settings.py            /settings group + list/edit (typed bot settings)
     ping.py                /ping (is the bot awake?)
     checks.py              shared permission checks
@@ -169,7 +170,10 @@ bot/
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
-    coupons.py             streak coupon rendering + image hosting
+    coupons.py             streak coupon rendering
+    image_hosting.py       imgbb/tmpfiles uploads + image verification
+    image_text.py          shared image text fitting/wrapping
+    theme_images.py        bi-weekly theme rendering onto the template
     level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
     members.py             guild member resolution
@@ -181,7 +185,7 @@ bot/
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
     reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
-    weekly_reading.py       weekly prompt deck/schedule/due-post helpers + CSV helpers
+    biweekly_theme.py      theme deck/schedule/due-post helpers + validation
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry
     timezones.py           IANA timezone search/validation shared by streaks and reminders
     settings.py            bot-wide settings (updates channel, embed image/colour)
