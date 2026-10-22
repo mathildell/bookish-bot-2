@@ -183,11 +183,11 @@ def build_theme_embed(
         value=t("biweekly_theme.post.whatis_field_value"),
         inline=False,
     )
-    embed.add_field(
-        name=t("biweekly_theme.post.whatpick_field_title"),
-        value=t("biweekly_theme.post.whatpick_field_value"),
-        inline=False,
-    )
+    # embed.add_field(
+    #     name=t("biweekly_theme.post.whatpick_field_title"),
+    #     value=t("biweekly_theme.post.whatpick_field_value"),
+    #     inline=False,
+    # )
     embed.add_field(
         name=t("biweekly_theme.post.thisweek_field_title"),
         value=t(
