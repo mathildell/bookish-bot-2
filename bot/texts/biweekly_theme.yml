@@ -1,6 +1,6 @@
 # Texts for the bi-weekly theme feature.
 biweekly_theme:
-  group_description: "Post a themed reading prompt in your server every two weeks"
+  group_description: "Post a themed reading prompt in the server every two weeks"
 
   channel:
     group_description: "Where the bi-weekly theme is posted"
@@ -9,13 +9,13 @@ biweekly_theme:
       param_channel: "Channel to post the theme in"
       success: "Bi-weekly themes will be posted in %{channel}."
   role:
-    group_description: "Who gets pinged with the theme"
+    group_description: "Who gets pinged"
     set:
       description: "Set the role pinged when the theme is posted"
       param_role: "Role to ping when the theme is posted"
       success: "Bi-weekly themes will ping %{role}."
     remove:
-      description: "Stop pinging a role with the theme"
+      description: "Stop pinging a role"
       success: "Bi-weekly themes no longer ping a role."
   schedule:
     group_description: "When the bi-weekly theme is posted"
@@ -34,8 +34,8 @@ biweekly_theme:
     description: "Post a bi-weekly theme right now"
     no_channel: "No channel is set yet. Use `/biweekly-theme channel set` first."
     no_cards: "The deck is empty. Add a theme with `/biweekly-theme cards add`."
-    success: "Posted a bi-weekly theme in %{channel}."
-    failed: "I couldn’t post the theme: %{error}"
+    success: "Posted a theme card in %{channel}."
+    failed: "I couldn’t post the card: %{error}"
   status:
     description: "Show the current bi-weekly theme settings"
     title: "Bi-weekly themes"
@@ -43,7 +43,7 @@ biweekly_theme:
     role_field: "Role"
     schedule_field: "Schedule"
     schedule_unset: "Not set"
-    schedule_value: "Every other %{weekday} at %{hour}:00 UTC"
+    schedule_value: "Every second %{weekday} at %{hour}:00 UTC"
     state_field: "Status"
     state_active: "Active"
     state_paused: "Paused"
@@ -55,33 +55,36 @@ biweekly_theme:
     role_unset: "No role pinged"
 
   cards:
-    group_description: "The deck of themes the bi-weekly post draws from"
+    group_description: "The deck of cards the bi-weekly post draws from"
     add:
-      description: "Add a theme to the deck"
-      param_title: "The theme’s main prompt"
+      description: "Add a card to the deck"
+      param_title: "The card’s main prompt"
       param_description: "Extra text shown under the prompt (optional)"
-      success: "Added the theme “%{title}”."
+      success: "Added the card “%{title}”."
     edit:
-      description: "Change a theme in the deck"
-      param_card: "Which theme (start typing to search)"
+      description: "Change a card in the deck"
+      param_card: "Which card (start typing to search)"
       param_title: "A new main prompt"
       param_description: "New text under the prompt (optional)"
-      success: "Updated the theme “%{title}”."
+      success: "Updated the card “%{title}”."
     remove:
-      description: "Remove a theme from the deck"
-      param_card: "Which theme (start typing to search)"
-      success: "Removed the theme “%{title}”."
+      description: "Remove a card from the deck"
+      param_card: "Which card (start typing to search)"
+      success: "Removed the card “%{title}”."
     list:
-      description: "List the themes in the deck"
-      empty: "The deck is empty. Add a theme with `/biweekly-theme cards add`."
-      title: "Theme #%{id}"
+      description: "List the cards in the deck"
+      empty: "The deck is empty. Add a card with `/biweekly-theme cards add`."
+      title: "Card #%{id}"
       pending: "Waiting to be posted"
       posted: "Posted %{when}"
 
   post:
-    embed_title: "This fortnight’s reading theme"
+    embed_title: "Bi-weekly theme!"
+    embed_description: |
+      Every two weeks, let's challenge each other consume a piece of media (or art) themed around a specific prompt. It can be a book of course, or a movie, or a video game, or anything that could fit the given trope!
+      Need inspiration to sort-out your TBR? Try to pick something that could fit the suggested trope, even though there's no guarantee it ended up fitting the criteria. The fun is in the trying!
     failed_title: "Bi-weekly theme image failed"
-    failed_description: "I couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
+    failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
 
   errors:
     generic: "Something went wrong with that theme."

@@ -219,6 +219,7 @@ class BuildThemeEmbedTests(unittest.TestCase):
             "https://example.com/theme.png", FakeClient()
         )
         self.assertEqual(embed.title, t("biweekly_theme.post.embed_title"))
+        self.assertEqual(embed.description, t("biweekly_theme.post.embed_description"))
         self.assertEqual(embed.image.url, "https://example.com/theme.png")
 
 

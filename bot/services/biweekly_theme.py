@@ -172,6 +172,7 @@ def build_theme_embed(
     """The embed a posted theme shows: a fixed title and the generated image."""
     embed = discord.Embed(
         title=t("biweekly_theme.post.embed_title"),
+        description=t("biweekly_theme.post.embed_description"),
         colour=getattr(client, "default_embed_color", None),
     )
     embed.set_image(url=image_url)
