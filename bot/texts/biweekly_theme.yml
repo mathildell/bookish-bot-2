@@ -81,12 +81,17 @@ biweekly_theme:
       posted: "✅ ‎ Posted %{when}"
 
   post:
-    embed_title: "Bi-weekly theme"
-    whatis_field_title: What is the bi-weekly theme?
+    embed_title: "Bi-weekly theme!"
+    whatis_field_title: What’s this?
     whatis_field_value: |
       Every two weeks, let’s challenge each other to explore a piece of media (or art) based on a specific prompt. Pick a book, movie, video game, or anything else you think might fit the trope, sometimes using a bit of guesswork!
+    
+      If you want to, you can show us what you picked and how it went by using the attached image as a background in [this Canva template](<https://canva.link/o1c5eu0lborxhy6>) :arrow_upper_right: 
+    # howto_field_title: What’s this?
+    # howto_field_value: |
+    #   Every two weeks, let’s challenge each other to explore a piece of media (or art) based on a specific prompt. Pick a book, movie, video game, or anything else you think might fit the trope, sometimes using a bit of guesswork!
     thisweek_field_title: This week's theme
-    thisweek_field_value: "**From %{date_start}, to %{date_end}:** %{title}" 
+    thisweek_field_value: "From **%{date_start}**, to **%{date_end}:** %{title}" 
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
 
