@@ -47,6 +47,8 @@ biweekly_theme:
     state_field: "Status"
     state_active: "Active"
     state_paused: "Paused"
+    title_field: "Title"
+    description_field: "Description"
     deck_field: "Deck"
     deck_value: "%{pending} waiting, %{total} in total"
     last_posted_field: "Last posted"
@@ -79,10 +81,10 @@ biweekly_theme:
       posted: "Posted %{when}"
 
   post:
-    embed_title: "Bi-weekly theme!"
+    embed_title: "Bi-weekly theme"
     embed_description: |
-      Every two weeks, let's challenge each other consume a piece of media (or art) themed around a specific prompt. It can be a book of course, or a movie, or a video game, or anything that could fit the given trope!
-      Need inspiration to sort-out your TBR? Try to pick something that could fit the suggested trope, even though there's no guarantee it ended up fitting the criteria. The fun is in the trying!
+      -# Every two weeks, let's challenge each other consume a piece of media (or art) themed around a specific prompt. It can be a book of course, or a movie, or a video game, or anything that could fit the given trope!
+      -# Need inspiration to sort-out your TBR? Try to pick something that could fit the suggested trope, even though there's no guarantee it ended up fitting the criteria. The fun is in the trying!
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
 

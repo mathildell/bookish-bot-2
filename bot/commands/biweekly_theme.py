@@ -180,9 +180,19 @@ def _status_embed(
 def _card_embed(client: discord.Client, card) -> discord.Embed:
     embed = new_embed(client)
     embed.title = t("biweekly_theme.cards.list.title", id=card.id)
-    embed.description = f"### {card.title}"
+    
+    embed.add_field(
+        name=t("biweekly_theme.status.title_field"),
+        value=card.title,
+        inline=True
+    )
     if card.description:
-        embed.description += f"\n{card.description}"
+        embed.add_field(
+            name=t("biweekly_theme.status.description_field"),
+            value=card.description,
+            inline=True
+        )
+
     embed.add_field(
         name=t("biweekly_theme.status.state_field"),
         value=(
@@ -195,7 +205,7 @@ def _card_embed(client: discord.Client, card) -> discord.Embed:
                 else t("biweekly_theme.status.never_posted"),
             )
         ),
-        inline=True,
+        inline=False,
     )
     set_transparent_image(embed, client)
     return embed
