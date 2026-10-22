@@ -78,7 +78,7 @@ biweekly_theme:
       empty: "The deck is empty. Add a card with `/biweekly-theme cards add`."
       title: "Card #%{id}"
       pending: "Waiting to be posted"
-      posted: "Posted %{when}"
+      posted: "✅ ‎ Posted %{when}"
 
   post:
     embed_title: "Bi-weekly theme"
