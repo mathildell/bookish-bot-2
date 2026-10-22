@@ -87,12 +87,12 @@ biweekly_theme:
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
 
   errors:
-    generic: "Something went wrong with that theme."
-    missing_title: "The theme needs a main prompt."
+    generic: "Something went wrong with that card."
+    missing_title: "The card needs a main prompt."
     title_too_long: "That prompt is %{length} characters long; the max is %{maximum}."
     description_too_long: "That description is %{length} characters long; the max is %{maximum}."
-    duplicate_card: "A theme with the prompt “%{title}” is already in the deck."
-    card_not_found: "I couldn’t find a theme with id %{id}."
+    duplicate_card: "A card with the prompt “%{title}” is already in the deck."
+    card_not_found: "I couldn’t find a card with id %{id}."
     invalid_weekday: "That isn’t a day of the week I recognise."
     invalid_hour: "`%{hour}` isn’t a valid hour of the day (0-23)."
-    image_failed: "I couldn’t create the theme image for “%{title}”: %{error}"
+    image_failed: "I couldn’t create the card image for “%{title}”: %{error}"
