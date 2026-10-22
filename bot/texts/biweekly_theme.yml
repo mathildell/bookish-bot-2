@@ -82,9 +82,12 @@ biweekly_theme:
 
   post:
     embed_title: "Bi-weekly theme"
-    embed_description: |
-      -# Every two weeks, let's challenge each other consume a piece of media (or art) themed around a specific prompt. It can be a book of course, or a movie, or a video game, or anything that could fit the given trope!
-      -# Need inspiration to sort-out your TBR? Try to pick something that could fit the suggested trope, even though there's no guarantee it ended up fitting the criteria. The fun is in the trying!
+    whatis_field_title: What is the bi-weekly theme?
+    whatis_field_value: Every two weeks, let's challenge each other consume a piece of media (or art) themed around a specific prompt. It can be a book of course, or a movie, or a video game, or anything that could fit the given trope!
+    whatpick_field_title: What should I pick?
+    whatpick_field_value: Need inspiration to sort-out your TBR? Try to pick something that could fit the suggested trope, even though there's no guarantee it ended up fitting the criteria. The fun is in the trying!
+    thisweek_field_title: This week's theme
+    thisweek_field_value: "From %{date_start}, to %{date_end}: %{title}" 
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
 

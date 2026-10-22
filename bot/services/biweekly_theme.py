@@ -167,14 +167,38 @@ def format_posted_date(day: date) -> str:
 
 
 def build_theme_embed(
-    image_url: str, client: discord.Client
+    image_url: str, 
+    start: str, 
+    end: str, 
+    prompt: str, 
+    client: discord.Client
 ) -> discord.Embed:
     """The embed a posted theme shows: a fixed title and the generated image."""
     embed = discord.Embed(
         title=t("biweekly_theme.post.embed_title"),
-        description=t("biweekly_theme.post.embed_description"),
         colour=getattr(client, "default_embed_color", None),
     )
+    embed.add_field(
+        name=t("biweekly_theme.post.whatis_field_title"),
+        value=t("biweekly_theme.post.whatis_field_value"),
+        inline=False,
+    )
+    embed.add_field(
+        name=t("biweekly_theme.post.whatpick_field_title"),
+        value=t("biweekly_theme.post.whatpick_field_value"),
+        inline=False,
+    )
+    embed.add_field(
+        name=t("biweekly_theme.post.thisweek_field_title"),
+        value=t(
+            "biweekly_theme.post.thisweek_field_value",
+            date_start=start,
+            date_end=end,
+            title=prompt
+        ),
+        inline=False,
+    )
+
     embed.set_image(url=image_url)
     return embed
 
@@ -511,7 +535,7 @@ class BiweeklyThemeService:
 
             content = f"<@&{self._role_id}>" if self._role_id else None
             await channel.send(
-                content=content, embed=build_theme_embed(url, client)
+                content=content, embed=build_theme_embed(url, start, end, card.title, client)
             )
             await self.mark_card_sent(card.id)
             return card
