@@ -9,7 +9,9 @@ hosts fail the configured fallback image is used instead.
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import io
 import logging
 import os
 import random
@@ -36,6 +38,8 @@ IMGBB_URL = "https://api.imgbb.com/1/upload"
 TMPFILES_URL = "https://tmpfiles.org/api/v1/upload"
 TMPFILES_DIRECT_RE = re.compile(r'https://tmpfiles\.org/dl/[^"\'<>\s]+')
 IMGBB_EXPIRATION_SECONDS = 7 * 24 * 3600
+IMAGE_VERIFY_ATTEMPTS = 3
+IMAGE_VERIFY_DELAY = 1.0
 
 # Placement of each field on the 600x360 templates, tuned to the blank lines.
 # (Horizontal center, then placement from top)
@@ -159,6 +163,53 @@ class CouponService:
         self.imgbb_api_key = (imgbb_api_key or "").strip() or None
         self.timeout = timeout
 
+    async def _verify_image(self, http: aiohttp.ClientSession, url: str) -> None:
+        """Reject a host URL that does not actually serve the uploaded image.
+
+        The uploads can succeed while the host's CDN is down, serving an error
+        page, or briefly not exposing the new file yet. Discord then fetches
+        the URL too early and silently drops the image, so retry before
+        handing the link over.
+        """
+        error: Exception | None = None
+        for attempt in range(1, IMAGE_VERIFY_ATTEMPTS + 1):
+            if attempt > 1:
+                await asyncio.sleep(IMAGE_VERIFY_DELAY)
+            try:
+                await self._fetch_image(http, url)
+                return
+            except Exception as exc:
+                error = exc
+                logger.debug(
+                    "Coupon image not ready (attempt %d/%d): %s",
+                    attempt,
+                    IMAGE_VERIFY_ATTEMPTS,
+                    exc,
+                )
+        raise CouponUploadError(f"could not load {url}: {error}") from error
+
+    async def _fetch_image(
+        self, http: aiohttp.ClientSession, url: str
+    ) -> None:
+        async with http.get(url) as response:
+            response.raise_for_status()
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if content_type and not (
+                content_type.startswith("image/")
+                or content_type.startswith("application/octet-stream")
+            ):
+                raise CouponUploadError(
+                    f"host returned {content_type!r} instead of an image"
+                )
+            data = await response.read()
+        try:
+            with Image.open(io.BytesIO(data)) as image:
+                image.verify()
+        except Exception as exc:
+            raise CouponUploadError(
+                f"host returned an invalid image: {exc}"
+            ) from exc
+
     async def generate(
         self,
         *,
@@ -177,7 +228,10 @@ class CouponService:
             )
             url = await self._upload(path)
         except Exception:
-            logger.exception("Could not create the level %s coupon", level)
+            logger.exception(
+                "Could not create the level %s coupon; using the fallback image",
+                level,
+            )
             url = fallback_image or DEFAULT_FALLBACK_IMAGE
             color = None
         finally:
@@ -206,10 +260,13 @@ class CouponService:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         params = {"key": self.imgbb_api_key, "expiration": str(IMGBB_EXPIRATION_SECONDS)}
         async with http.post(IMGBB_URL, params=params, data={"image": encoded}) as response:
+            response.raise_for_status()
             payload = await response.json(content_type=None)
         if not payload.get("success"):
             raise CouponUploadError(f"imgbb: {payload.get('error')}")
-        return payload["data"]["url"]
+        url = payload["data"]["url"]
+        await self._verify_image(http, url)
+        return url
 
     async def _upload_tmpfiles(
         self, http: aiohttp.ClientSession, path: Path
@@ -220,13 +277,16 @@ class CouponService:
                 "file", handle, filename=path.name, content_type="image/png"
             )
             async with http.post(TMPFILES_URL, data=form) as response:
+                response.raise_for_status()
                 payload = await response.json(content_type=None)
         url = (payload.get("data") or {}).get("url")
         if not url:
             raise CouponUploadError(f"tmpfiles: {payload}")
         async with http.get(url) as response:
+            response.raise_for_status()
             page = await response.text()
         direct = _tmpfiles_direct_url(page)
         if direct is None:
             raise CouponUploadError("tmpfiles: direct download link not found")
+        await self._verify_image(http, direct)
         return direct

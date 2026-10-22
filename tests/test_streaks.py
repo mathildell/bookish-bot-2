@@ -12,6 +12,7 @@ from __future__ import annotations
 import unittest
 from contextlib import asynccontextmanager
 from datetime import date, datetime, timedelta
+from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -374,6 +375,64 @@ class CouponFallbackTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(coupon.url, "https://example.com/fallback.gif")
         self.assertFalse(path.exists())
+
+
+class CouponImageVerificationTests(unittest.IsolatedAsyncioTestCase):
+    class Response:
+        def __init__(
+            self, body=b"", status=200, content_type="image/png"
+        ) -> None:
+            self.body = body
+            self.status = status
+            self.headers = {"Content-Type": content_type}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            return False
+
+        def raise_for_status(self) -> None:
+            if self.status >= 400:
+                raise coupons.CouponUploadError(f"HTTP {self.status}")
+
+        async def read(self) -> bytes:
+            return self.body
+
+    class Http:
+        def __init__(self, response) -> None:
+            self.response = response
+
+        def get(self, url):
+            return self.response
+
+    def setUp(self) -> None:
+        buffer = BytesIO()
+        coupons.Image.new("RGB", (2, 2), "red").save(buffer, "PNG")
+        self.image = buffer.getvalue()
+        self.service = coupons.CouponService(timeout=1)
+
+    async def _verify(self, **kwargs) -> None:
+        with patch.object(coupons, "IMAGE_VERIFY_ATTEMPTS", 1):
+            await self.service._verify_image(
+                self.Http(self.Response(**kwargs)),
+                "https://example.com/coupon.png",
+            )
+
+    async def test_accepts_a_reachable_image(self) -> None:
+        await self._verify(body=self.image)
+
+    async def test_rejects_an_http_error(self) -> None:
+        with self.assertRaises(coupons.CouponUploadError):
+            await self._verify(body=self.image, status=503)
+
+    async def test_rejects_an_html_page(self) -> None:
+        with self.assertRaises(coupons.CouponUploadError):
+            await self._verify(body=b"<html></html>", content_type="text/html")
+
+    async def test_rejects_a_broken_image(self) -> None:
+        with self.assertRaises(coupons.CouponUploadError):
+            await self._verify(body=b"not an image")
 
 
 class OutcomeTests(unittest.TestCase):
