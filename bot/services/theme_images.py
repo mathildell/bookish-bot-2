@@ -37,17 +37,15 @@ PROMPT_SPACING = 1.12
 class ThemeRenderError(Exception):
     """Raised when the theme template or font cannot be rendered."""
 
-
-def theme_period(posted_on: date) -> tuple[date, date]:
-    """The inclusive period a theme covers: the next 14 days after posting."""
-    start = posted_on + timedelta(days=1)
-    return start, start + timedelta(days=13)
-
-
 def format_theme_date(day: date) -> str:
     """Render a theme date the way it appears on the card."""
     return f"{day.strftime('%b')} {day.day}, {day.year}"
 
+def theme_period(posted_on: date) -> tuple[date, date]:
+    """The inclusive period a theme covers: the next 14 days after posting."""
+    start = posted_on + timedelta(days=1)
+    end   = start + timedelta(days=13)
+    return format_theme_date(start), format_theme_date(end)
 
 def _draw_lines(
     draw: ImageDraw.ImageDraw,
@@ -74,8 +72,8 @@ def render_theme(
     *,
     prompt: str,
     description: str | None,
-    start: date,
-    end: date,
+    start: str,
+    end: str,
 ) -> Path:
     """Draw the theme card and return the temporary PNG path."""
     try:
@@ -84,8 +82,8 @@ def render_theme(
         draw = ImageDraw.Draw(image)
 
         for text, center, max_width in (
-            (format_theme_date(start), DATE_FROM_CENTER, DATE_FROM_MAX_WIDTH),
-            (format_theme_date(end), DATE_TO_CENTER, DATE_TO_MAX_WIDTH),
+            (start, DATE_FROM_CENTER, DATE_FROM_MAX_WIDTH),
+            (end, DATE_TO_CENTER, DATE_TO_MAX_WIDTH),
         ):
             font, fitted = fit_single_line(
                 draw,
@@ -151,7 +149,7 @@ def render_theme(
     except Exception as exc:
         raise ThemeRenderError(str(exc)) from exc
 
-    handle, path = tempfile.mkstemp(prefix="theme-", suffix=".png")
+    handle, path = tempfile.mkstemp(prefix="card-", suffix=".png")
     os.close(handle)
     image.save(path, "PNG")
     return Path(path)

@@ -129,7 +129,6 @@ def validate_hour(hour: int) -> int:
         raise InvalidHour(hour=hour)
     return hour
 
-
 def is_post_due(
     now: datetime,
     *,
@@ -177,28 +176,13 @@ def build_theme_embed(
     embed = discord.Embed(
         title=t("biweekly_theme.post.embed_title"),
         colour=getattr(client, "default_embed_color", None),
-    )
-    embed.add_field(
-        name=t("biweekly_theme.post.whatis_field_title"),
-        value=t("biweekly_theme.post.whatis_field_value"),
-        inline=False,
-    )
-    embed.add_field(
-        name=t("biweekly_theme.post.share_field_title"),
-        value=t("biweekly_theme.post.share_field_value"),
-        inline=False,
-    )
-    embed.add_field(
-        name=t("biweekly_theme.post.thisweek_field_title"),
-        value=t(
-            "biweekly_theme.post.thisweek_field_value",
+        description=t(
+            "biweekly_theme.post.embed_description",
             date_start=start,
             date_end=end,
             title=prompt
         ),
-        inline=False,
     )
-
     embed.set_image(url=image_url)
     return embed
 
