@@ -167,11 +167,11 @@ def format_posted_date(day: date) -> str:
 
 
 def build_theme_embed(
-    image_url: str, 
-    start: str, 
-    end: str, 
-    prompt: str, 
-    client: discord.Client
+    image_url: str,
+    start: str,
+    end: str,
+    prompt: str,
+    client: discord.Client,
 ) -> discord.Embed:
     """The embed a posted theme shows: a fixed title and the generated image."""
     embed = discord.Embed(

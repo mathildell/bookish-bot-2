@@ -3026,6 +3026,13 @@ class PostMonthlyTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(service.marked, ["2026-10"])
 
+    async def test_force_monthly_does_not_mark_posted(self) -> None:
+        service = self._Service([self._book()])
+        channel = FakeSendChannel()
+        await service.force_post_monthly(None, channel, FakeClient())
+        self.assertEqual(service.marked, [])
+        self.assertTrue(channel.messages)
+
 
 class MonthOptionsTests(unittest.TestCase):
     def test_spans_twelve_months(self) -> None:

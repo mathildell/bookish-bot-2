@@ -459,7 +459,7 @@ async def set_role(
 
 @tickets_group.command(name="close", description=t("tickets.close.description"))
 async def close_ticket(interaction: discord.Interaction) -> None:
-    await _handle_close(interaction, allow_opener=False)
+    await _handle_close(interaction, allow_opener=True)
 
 
 @tickets_group.command(

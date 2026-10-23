@@ -510,6 +510,7 @@ async def edit(
             ),
             role_id=role.id if role is not None else None,
             channel_id=channel.id if channel is not None else None,
+            reschedule=parsed is not None or timezone is not None,
         )
     except reminder_service.ReminderError as exc:
         await interaction.response.send_message(

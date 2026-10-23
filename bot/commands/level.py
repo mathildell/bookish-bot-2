@@ -79,10 +79,10 @@ def _progress_fields(
     role_id = service.role_for_level(current_level)
     role = guild.get_role(role_id) if guild and role_id else None
     progress = t(
-        "level.xp.level.progress", 
-        current=current, 
-        needed=needed, 
-        frozen=_frozen_marker(user_xp)
+        "level.xp.level.progress",
+        current=current,
+        needed=needed,
+        frozen=_frozen_marker(user_xp),
     )
 
     return [
@@ -170,13 +170,13 @@ def _leaderboard_embed(
             )
         )
     embed.description = "\n".join(lines)
-    
+
     if note is not None:
         embed.description += f"\n\n{note}"
-    
+
     if not rows:
         embed.description += f"\n{t('level.xp.leaderboard.weekly_empty')}"
-    
+
     set_transparent_image(embed, client)
     return embed
 

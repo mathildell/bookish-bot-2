@@ -685,6 +685,7 @@ class ReminderService:
         run_at_raw: str | None = None,
         role_id: int | None = None,
         channel_id: int | None = None,
+        reschedule: bool = True,
         now: datetime | None = None,
     ) -> Reminder:
         """Apply the given fields on top of an existing reminder."""
@@ -788,37 +789,38 @@ class ReminderService:
             if role_id is not None:
                 reminder.role_id = role_id
 
-            scheduled = Reminder(
-                guild_id=reminder.guild_id,
-                user_id=reminder.user_id,
-                channel_id=reminder.channel_id,
-                message=reminder.message,
-                timezone=reminder.timezone,
-                kind=reminder.kind,
-                hour=reminder.hour,
-                weekday=reminder.weekday,
-                day_of_month=reminder.day_of_month,
-                month_end_offset=reminder.month_end_offset,
-                interval_days=reminder.interval_days,
-                run_date=reminder.run_date,
-                run_at=reminder.run_at,
-                next_run_at=reminder.next_run_at,
-            )
-            if merged_kind == KIND_ONCE:
-                next_run = (
-                    reminder.run_at
-                    if reminder.run_at is not None
-                    else _occurrence_utc(
-                        reminder.run_date, reminder.hour, reminder.timezone
+            if reschedule:
+                scheduled = Reminder(
+                    guild_id=reminder.guild_id,
+                    user_id=reminder.user_id,
+                    channel_id=reminder.channel_id,
+                    message=reminder.message,
+                    timezone=reminder.timezone,
+                    kind=reminder.kind,
+                    hour=reminder.hour,
+                    weekday=reminder.weekday,
+                    day_of_month=reminder.day_of_month,
+                    month_end_offset=reminder.month_end_offset,
+                    interval_days=reminder.interval_days,
+                    run_date=reminder.run_date,
+                    run_at=reminder.run_at,
+                    next_run_at=reminder.next_run_at,
+                )
+                if merged_kind == KIND_ONCE:
+                    next_run = (
+                        reminder.run_at
+                        if reminder.run_at is not None
+                        else _occurrence_utc(
+                            reminder.run_date, reminder.hour, reminder.timezone
+                        )
                     )
-                )
-            elif merged_kind == KIND_INTERVAL:
-                next_run = next_daily(
-                    now, reminder.hour, reminder.timezone
-                )
-            else:
-                next_run = compute_next_run(scheduled, now)
-            reminder.next_run_at = next_run or reminder.next_run_at
+                elif merged_kind == KIND_INTERVAL:
+                    next_run = next_daily(
+                        now, reminder.hour, reminder.timezone
+                    )
+                else:
+                    next_run = compute_next_run(scheduled, now)
+                reminder.next_run_at = next_run or reminder.next_run_at
 
             await session.commit()
             await session.refresh(reminder)

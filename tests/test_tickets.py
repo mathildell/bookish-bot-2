@@ -356,6 +356,36 @@ class ReopenTicketTests(unittest.IsolatedAsyncioTestCase):
 
 
 class CloseTicketTests(unittest.IsolatedAsyncioTestCase):
+    async def test_close_command_lets_the_opener_close(self) -> None:
+        ticket = SimpleNamespace(
+            id=1,
+            number=3,
+            name="Alice's ticket #3",
+            status=ticket_service.STATUS_OPEN,
+            closed_at=None,
+            button_removed=False,
+            opener_id=42,
+            message_id=777,
+        )
+        service = FakeTicketService(ticket)
+        thread = FakeThread()
+        interaction = SimpleNamespace(
+            type=discord.InteractionType.component,
+            channel=thread,
+            guild=None,
+            user=SimpleNamespace(id=42, roles=[]),
+            permissions=SimpleNamespace(manage_guild=False),
+            client=SimpleNamespace(tickets=service),
+            response=FakeResponse(),
+            followup=FakeFollowup(),
+        )
+
+        await ticket_cmds.close_ticket.callback(interaction)
+
+        self.assertEqual(ticket.status, ticket_service.STATUS_CLOSED)
+        self.assertTrue(thread.archived)
+        self.assertTrue(thread.locked)
+
     async def test_close_works_after_reopen(self) -> None:
         closed_at = ticket_service.utcnow() - timedelta(minutes=5)
         ticket = SimpleNamespace(

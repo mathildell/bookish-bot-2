@@ -318,9 +318,20 @@ class IntroModal(discord.ui.Modal):
                 t("intro.post.failed"), ephemeral=True
             )
             return
-        await self.service.create_post(
-            interaction.user.id, sent.id, channel.id, answers, now
-        )
+        try:
+            await self.service.create_post(
+                interaction.user.id, sent.id, channel.id, answers, now
+            )
+        except Exception:
+            logger.exception("Could not store introduction")
+            try:
+                await sent.delete()
+            except discord.HTTPException:
+                pass
+            await interaction.followup.send(
+                t("intro.post.failed"), ephemeral=True
+            )
+            return
         await repost_sticky(interaction.client, channel)
         await interaction.followup.send(t("intro.post.created"), ephemeral=True)
 
@@ -337,7 +348,7 @@ class IntroModal(discord.ui.Modal):
         try:
             message = await channel.fetch_message(message_id)
             await message.edit(embed=embed, view=IntroRefreshView())
-        except discord.HTTPException:
+        except discord.NotFound:
             # The original post is gone: recreate it and remember the new id.
             try:
                 sent = await channel.send(embed=embed, view=IntroRefreshView())
@@ -349,6 +360,12 @@ class IntroModal(discord.ui.Modal):
                 return
             message_id = sent.id
             recreated = True
+        except discord.HTTPException:
+            logger.warning("Could not edit introduction", exc_info=True)
+            await interaction.followup.send(
+                t("intro.post.failed"), ephemeral=True
+            )
+            return
         await self.service.update_post(
             self.post.id, answers, now, message_id=message_id
         )

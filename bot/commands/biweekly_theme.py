@@ -180,11 +180,11 @@ def _status_embed(
 def _card_embed(client: discord.Client, card) -> discord.Embed:
     embed = new_embed(client)
     embed.title = t("biweekly_theme.cards.list.title", id=card.id)
-    
+
     embed.add_field(
         name=t("biweekly_theme.status.title_field"),
         value=card.title,
-        inline=True
+        inline=True,
     )
     if card.description:
         embed.add_field(

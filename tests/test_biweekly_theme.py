@@ -216,11 +216,19 @@ class ThemePeriodTests(unittest.TestCase):
 class BuildThemeEmbedTests(unittest.TestCase):
     def test_uses_the_generated_image(self) -> None:
         embed = theme_service.build_theme_embed(
-            "https://example.com/theme.png", FakeClient()
+            "https://example.com/theme.png",
+            "Oct 20, 2026",
+            "Nov 2, 2026",
+            "A prompt",
+            FakeClient(),
         )
         self.assertEqual(embed.title, t("biweekly_theme.post.embed_title"))
-        self.assertEqual(embed.description, t("biweekly_theme.post.embed_description"))
         self.assertEqual(embed.image.url, "https://example.com/theme.png")
+        fields = {field.name: field.value for field in embed.fields}
+        self.assertEqual(
+            fields[t("biweekly_theme.post.whatis_field_title")],
+            t("biweekly_theme.post.whatis_field_value"),
+        )
 
 
 class FormatPostedDateTests(unittest.TestCase):

@@ -408,9 +408,9 @@ def _log_embed(
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t(
-            "streaks.shared.level_value", 
-            level=str(display_level(result.streak.days_logged)), 
-            emoji=t("streaks.icons.level_emoji")
+            "streaks.shared.level_value",
+            level=str(display_level(result.streak.days_logged)),
+            emoji=t("streaks.icons.level_emoji"),
         ),
         inline=True,
     )
@@ -420,11 +420,11 @@ def _log_embed(
             "streaks.log.achievement_success_value",
             percent=log.percent,
             amount=goal.amount,
-            unit=goal.unit
+            unit=goal.unit,
         )
     else:
         achievement_value = t("streaks.log.achievement_failure_value")
-    
+
     embed.add_field(
         name=t("streaks.log.achievement_field"),
         value=achievement_value,
@@ -765,9 +765,9 @@ def _view_embed(
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t(
-            "streaks.shared.level_value", 
-            level=str(display_level(streak.days_logged)), 
-            emoji=t("streaks.icons.level_emoji")
+            "streaks.shared.level_value",
+            level=str(display_level(streak.days_logged)),
+            emoji=t("streaks.icons.level_emoji"),
         ),
         inline=True,
     )
@@ -941,7 +941,13 @@ class _HourSelectView(ExpiringView):
         return await _author_check(interaction, self.author_id)
 
     async def save(self, interaction: discord.Interaction, hour: int) -> None:
-        goal = await self.save_reminder(interaction, self.reminder, hour)
+        try:
+            goal = await self.save_reminder(interaction, self.reminder, hour)
+        except streak_service.StreakError as exc:
+            await interaction.response.send_message(
+                t(exc.key, **exc.variables), ephemeral=True
+            )
+            return
         self.stop()
         await self.on_saved(interaction, goal)
 
@@ -962,7 +968,13 @@ class _ReminderChoiceView(ExpiringView):
         return await _author_check(interaction, self.author_id)
 
     async def _save(self, interaction: discord.Interaction, reminder: str) -> None:
-        goal = await self.save_reminder(interaction, reminder, None)
+        try:
+            goal = await self.save_reminder(interaction, reminder, None)
+        except streak_service.StreakError as exc:
+            await interaction.response.send_message(
+                t(exc.key, **exc.variables), ephemeral=True
+            )
+            return
         self.stop()
         await self.on_saved(interaction, goal)
 
@@ -981,25 +993,37 @@ class _ReminderChoiceView(ExpiringView):
             embed=_hour_embed(interaction.client), view=view
         )
 
-    @discord.ui.button(emoji=t("streaks.shared.reminder_none_emoji"), style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        emoji=t("streaks.shared.reminder_none_emoji"),
+        style=discord.ButtonStyle.secondary,
+    )
     async def none(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await self._save(interaction, "none")
 
-    @discord.ui.button(emoji=t("streaks.shared.reminder_custom_emoji"), style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        emoji=t("streaks.shared.reminder_custom_emoji"),
+        style=discord.ButtonStyle.secondary,
+    )
     async def custom(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await self._show_hours(interaction, "custom")
 
-    @discord.ui.button(emoji=t("streaks.shared.reminder_last_emoji"), style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        emoji=t("streaks.shared.reminder_last_emoji"),
+        style=discord.ButtonStyle.secondary,
+    )
     async def last_chance(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         await self._save(interaction, "last_chance")
 
-    @discord.ui.button(emoji=t("streaks.shared.reminder_both_emoji"), style=discord.ButtonStyle.secondary)
+    @discord.ui.button(
+        emoji=t("streaks.shared.reminder_both_emoji"),
+        style=discord.ButtonStyle.secondary,
+    )
     async def both(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
@@ -1263,7 +1287,10 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
     view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
     extra = [
-        _coupon_embed(interaction.client, c.url, color=getattr(c, "color", None)) for c in coupons[1:]
+        _coupon_embed(
+            interaction.client, c.url, color=getattr(c, "color", None)
+        )
+        for c in coupons[1:]
     ]
     if generating:
         if extra:
@@ -1468,6 +1495,11 @@ async def register(
         )
         return
     clean_unit = unit.strip()
+    if not clean_unit:
+        await interaction.response.send_message(
+            t("streaks.errors.invalid_amount", raw=unit), ephemeral=True
+        )
+        return
 
     async def save_reminder(
         inner: discord.Interaction, reminder: str, custom_hour: int | None

@@ -840,24 +840,49 @@ class StreakService:
             today = local_date(now, goal.timezone)
             ongoing = await _ongoing_streak(session, goal_id=goal.id)
             moved = False
-            target = today
+            moved_count = 0
+            merge_until = today - timedelta(days=1)
+            ongoing_logs: list[StreakLog] = []
             if ongoing is not None and ongoing.id != streak.id:
-                moved_log = await _get_log(
-                    session, streak_id=ongoing.id, log_date=today
+                ongoing_logs = list(
+                    (
+                        await session.execute(
+                            select(StreakLog)
+                            .where(StreakLog.streak_id == ongoing.id)
+                            .order_by(StreakLog.log_date)
+                        )
+                    ).scalars()
                 )
-                if moved_log is not None:
-                    target = moved_log.log_date
-                    moved_log.streak_id = streak.id
-                    moved = True
-                else:
-                    await session.execute(
-                        delete(StreakLog).where(StreakLog.streak_id == ongoing.id)
-                    )
+                # A newer streak with earlier logs has already moved on; folding
+                # it into the old one would award those levels twice.
+                if any(entry.log_date != today for entry in ongoing_logs):
+                    raise NotRegistered()
+                if any(entry.log_date == today for entry in ongoing_logs):
+                    merge_until = today
                 await session.delete(ongoing)
 
             patched = 0
-            cursor = streak.last_log_date + timedelta(days=1)
-            while cursor < target:
+            cursor = (streak.last_log_date or streak.start_date) + timedelta(days=1)
+            for entry in ongoing_logs:
+                while cursor < entry.log_date:
+                    session.add(
+                        StreakLog(
+                            streak_id=streak.id,
+                            log_date=cursor,
+                            amount=0,
+                            percent=0,
+                            outcome=OUTCOME_ZERO,
+                            repair=True,
+                            rescue_type=kind,
+                        )
+                    )
+                    patched += 1
+                    cursor += timedelta(days=1)
+                entry.streak_id = streak.id
+                moved = True
+                moved_count += 1
+                cursor = max(cursor, entry.log_date + timedelta(days=1))
+            while cursor <= merge_until:
                 session.add(
                     StreakLog(
                         streak_id=streak.id,
@@ -872,12 +897,10 @@ class StreakService:
                 patched += 1
                 cursor += timedelta(days=1)
 
-            added = patched + (1 if moved else 0)
+            added = patched + moved_count
             if added:
                 streak.days_logged += added
-                streak.last_log_date = (
-                    target if moved else target - timedelta(days=1)
-                )
+                streak.last_log_date = merge_until
 
             if kind == RESCUE_NORMAL:
                 streak.rescues_available -= 1

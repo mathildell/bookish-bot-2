@@ -775,6 +775,10 @@ class ReleaseService:
             book = await session.get(BookRelease, book_id)
             if book is None or book.guild_id != self.guild_id:
                 return None
+            if data.title != book.title or not book.reference:
+                taken = await self._taken_references(session)
+                taken.discard(book.reference)
+                book.reference = unique_reference(data.title, taken)
             book.title = data.title
             book.authors = data.authors
             book.release_date = data.release_date
@@ -910,10 +914,10 @@ class ReleaseService:
         channel: discord.abc.Messageable,
         client: discord.Client,
     ) -> int:
-        """Post the current month's overview, ignoring the monthly marker."""
+        """Post the current month's overview without moving the monthly marker."""
         async with self._post_lock:
             return await self._post_monthly(
-                guild, channel, client, today_utc()
+                guild, channel, client, today_utc(), mark_posted=False
             )
 
     async def _today_releases(self, today: date) -> list[BookRelease]:
@@ -1017,6 +1021,8 @@ class ReleaseService:
         channel: discord.abc.Messageable,
         client: discord.Client,
         today: date,
+        *,
+        mark_posted: bool = True,
     ) -> int:
         period = today.strftime("%Y-%m")
         books = await self.month_releases(today.year, today.month)
@@ -1047,5 +1053,6 @@ class ReleaseService:
                 )
                 return len(books)
 
-        await self.mark_monthly_posted(period)
+        if mark_posted:
+            await self.mark_monthly_posted(period)
         return len(books)

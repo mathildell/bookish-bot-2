@@ -276,7 +276,8 @@ Post today's release announcement right now, even for books already announced.
 /releases force monthly
 ```
 **Permissions:** 🔒 Admin
-Post this month's release overview right now, even if it was already posted.
+Post this month's release overview right now, even if it was already posted,
+without changing the scheduled post for the month.
 
 ***
 
@@ -347,7 +348,7 @@ private tickets.
 ```
 /tickets close
 ```
-**Permissions:** 🔒 Admin
+**Permissions:** Opener / ticket admin
 Close the ticket in the current thread.
 
 ```
@@ -497,7 +498,8 @@ Delete one of your reminders.
 /reminder list [user:]
 ```
 **Permissions:** 🔒 Admin
-List your reminders with their schedules and next run times.
+List your reminders with their schedules and next run times, or another
+member's reminders.
 
 ***
 
