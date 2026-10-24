@@ -44,7 +44,7 @@ class BotSettingsService:
         return self._reference_forum_channel_id
 
     @property
-    def reference_forum_channel_id(self) -> int | None:
+    def gen_chat_channel_id(self) -> int | None:
         return self._gen_chat_channel_id
 
     @property
