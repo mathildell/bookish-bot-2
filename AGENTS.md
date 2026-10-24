@@ -14,7 +14,9 @@ Implemented features:
 - **Levels** — members earn XP from messages; each level grants the configured
   reward role. `/xp leaderboard` switches between all-time and the current
   Monday-to-Sunday week. A top-10 weekly leaderboard is posted on Sundays at
-  the configurable hour, and the weekly totals roll over for the next week.
+  the configurable hour, and the weekly totals roll over for the next week. Admins
+  can grant additive role- and channel/thread-based message XP boosts via
+  `/xp boosts`.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
@@ -147,7 +149,7 @@ bot/
   config.py                config.yaml loader
   db.py                    async engine/session helpers
     models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
-                           WeeklyXP, WeeklySetting, LevelReward, ReviewFeed,
+                           WeeklyXP, WeeklySetting, LevelReward, XpBoost, ReviewFeed,
                            ReviewEntry, ReviewSetting, IntroQuestion,
                            IntroSetting, IntroPost, TicketSetting, Ticket,
                            BookRelease, ReleaseSetting, ReleaseEditDraft,

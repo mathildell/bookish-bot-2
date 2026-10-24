@@ -75,6 +75,7 @@ from .services.streaks import Reminder, StreakService
 from .services.tickets import TicketService
 from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
 from .services.image_hosting import ImageHost
+from .services.xp_boosts import XpBoostService, apply_boost, boost_percent
 from .texts import interpolate, t, t_choice, t_choice_template
 
 logger = logging.getLogger("bh2")
@@ -115,6 +116,24 @@ async def _award_message_xp(
     user_id = message.author.id
     now = level_service.utcnow()
 
+    base_amount = level_service.random_xp_gain()
+    boosts = getattr(bot, "xp_boosts", None)
+    percent = 0
+    if boosts is not None:
+        channel = message.channel
+        channel_ids: list[int] = [channel.id]
+        parent_id = getattr(channel, "parent_id", None)
+        if parent_id:
+            channel_ids.append(parent_id)
+        role_ids = [role.id for role in getattr(message.author, "roles", [])]
+        percent = boost_percent(
+            boosts.role_boosts,
+            boosts.channel_boosts,
+            role_ids=role_ids,
+            channel_ids=channel_ids,
+        )
+    amount = apply_boost(base_amount, percent)
+
     async with session_scope() as session:
         user_xp = await level_service.get_user_xp(
             session, guild_id=guild_id, user_id=user_id
@@ -125,7 +144,7 @@ async def _award_message_xp(
             session,
             guild_id=guild_id,
             user_id=user_id,
-            amount=level_service.random_xp_gain(),
+            amount=amount,
         )
         await level_service.mark_xp_gained(
             session, guild_id=guild_id, user_id=user_id, now=now
@@ -221,6 +240,7 @@ async def run() -> None:
     reactor = BoosterReactService()
     booster_roles = BoosterRoleService()
     level_rewards = LevelRewardService(int(config.guild_id))
+    xp_boosts = XpBoostService(int(config.guild_id))
     reviews = ReviewService(int(config.guild_id))
     intros = IntroService(int(config.guild_id))
     releases = ReleaseService(int(config.guild_id))
@@ -243,6 +263,7 @@ async def run() -> None:
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
     bot.booster_roles = booster_roles
     bot.level_rewards = level_rewards
+    bot.xp_boosts = xp_boosts
     bot.reviews = reviews
     bot.intros = intros
     bot.releases = releases
@@ -782,6 +803,13 @@ async def run() -> None:
 
         await level_rewards.reload()
         logger.info("Loaded %d level reward(s)", len(level_rewards.rewards))
+
+        await xp_boosts.reload()
+        logger.info(
+            "Loaded %d role boost(s) and %d channel boost(s)",
+            len(xp_boosts.role_boosts),
+            len(xp_boosts.channel_boosts),
+        )
 
         await reviews.reload()
         logger.info("Review channel: %s", reviews.channel_id)

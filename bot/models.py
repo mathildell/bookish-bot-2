@@ -143,6 +143,36 @@ class LevelReward(Base):
     )
 
 
+class XpBoost(Base):
+    """A role or channel that multiplies the XP earned from messages."""
+
+    __tablename__ = "xp_boosts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    # "role" or "channel"
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    # Extra XP percentage: 5 means +5%.
+    percent: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_xp_boosts_guild_kind_target_unique",
+            "guild_id",
+            "kind",
+            "target_id",
+            unique=True,
+        ),
+    )
+
+
 class WeeklySetting(Base):
     """Per-guild settings for the weekly XP leaderboard."""
 

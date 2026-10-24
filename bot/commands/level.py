@@ -16,6 +16,7 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
+from .level_boosts import register_boosts_group
 from .listing import new_embed, placement, set_author, set_transparent_image
 from .views import ExpiringView
 
@@ -342,6 +343,7 @@ async def weekly_channel(
 
 
 register_rewards_group(xp_group)
+register_boosts_group(xp_group)
 
 
 @xp_group.command(name="add", description=t("level.xp.add.description"))

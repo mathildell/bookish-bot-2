@@ -153,6 +153,36 @@ Show every level and its reward role.
 **Permissions:** 🔒 Admin
 Reapply reward roles so they match every member's current level.
 
+```
+/xp boosts role set role: percent:
+```
+**Permissions:** 🔒 Admin
+Give members with a role extra XP from messages (additive with channel boosts). Percentage must be between 1 and 500.
+
+```
+/xp boosts role remove role:
+```
+**Permissions:** 🔒 Admin
+Remove a role-based XP boost.
+
+```
+/xp boosts channel set channel: percent:
+```
+**Permissions:** 🔒 Admin
+Give extra XP for messages in a channel or thread (threads inherit boosts from their parent channel). Additive with role boosts. Percentage must be between 1 and 500.
+
+```
+/xp boosts channel remove channel:
+```
+**Permissions:** 🔒 Admin
+Remove a channel-based XP boost.
+
+```
+/xp boosts list
+```
+**Permissions:** 🔒 Admin
+List configured XP boosts.
+
 ***
 
 ## Book reviews
