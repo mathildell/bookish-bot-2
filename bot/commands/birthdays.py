@@ -85,10 +85,9 @@ def _content_embed(
     if kind == MESSAGE:
         embed.title = t("birthday.content.message_title", id=row.id)
         embed.description = row.content
-        set_transparent_image(embed, client)
     else:
         embed.title = t("birthday.content.image_title", id=row.id)
-        embed.set_image(url=row.url)
+        embed.set_thumbnail(url=row.url)
         embed.add_field(
             name=t("birthday.content.url_field"),
             value=row.url,
@@ -103,6 +102,8 @@ def _content_embed(
         ),
         inline=True,
     )
+
+    set_transparent_image(embed, client)
     return embed
 
 
@@ -142,7 +143,8 @@ class ContentListView(Paginator):
 
         self.messages_button = discord.ui.Button(
             label=t("birthday.content.messages_button"),
-            style=discord.ButtonStyle.primary,
+            style=discord.ButtonStyle.secondary,
+            disabled=True
         )
         self.images_button = discord.ui.Button(
             label=t("birthday.content.images_button"),
@@ -175,16 +177,8 @@ class ContentListView(Paginator):
         super()._refresh()
         if not hasattr(self, "messages_button"):
             return
-        self.messages_button.style = (
-            discord.ButtonStyle.primary
-            if self.kind == MESSAGE
-            else discord.ButtonStyle.secondary
-        )
-        self.images_button.style = (
-            discord.ButtonStyle.primary
-            if self.kind == IMAGE
-            else discord.ButtonStyle.secondary
-        )
+        self.messages_button.disabled = self.kind == MESSAGE
+        self.images_button.disabled   = self.kind == IMAGE
 
     async def show_messages(self, interaction: discord.Interaction) -> None:
         self.kind = MESSAGE
