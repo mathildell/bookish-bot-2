@@ -954,12 +954,13 @@ class BirthdayService:
             mentions = ", ".join(
                 f"<@{birthday.user_id}>" for birthday, _ in chunk
             )
+            channel = getattr(interaction.client, "gen_chat_channel_id", 0)
             try:
                 await channel.send(
                     content=t(
                         "birthday.announcement", 
                         mentions=mentions,
-                        channel=""
+                        channel=channel
                     ),
                     embeds=[embed for _, embed in chunk],
                 )
