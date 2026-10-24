@@ -14,9 +14,9 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 
 from ..db import session_scope
-from ..models import Reminder, ReminderSnooze, StreakGoal
+from ..models import Reminder, ReminderSnooze
 from .level import utcnow
-from .timezones import local_now, to_utc, valid_timezone
+from .timezones import default_member_timezone, local_now, to_utc, valid_timezone
 from .weekdays import WEEKDAY_NAMES
 
 KIND_ONCE = "once"
@@ -547,18 +547,7 @@ class ReminderService:
 
     async def default_timezone(self, user_id: int) -> str:
         """The member's streak timezone, falling back to UTC."""
-        async with session_scope() as session:
-            goal = (
-                await session.execute(
-                    select(StreakGoal).where(
-                        StreakGoal.guild_id == self._guild_id,
-                        StreakGoal.user_id == user_id,
-                    )
-                )
-            ).scalar_one_or_none()
-            if goal is not None and valid_timezone(goal.timezone):
-                return goal.timezone
-        return "UTC"
+        return await default_member_timezone(self._guild_id, user_id)
 
     # ----------------------------------------------------------------- CRUD
 

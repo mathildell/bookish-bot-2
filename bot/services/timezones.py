@@ -1,4 +1,4 @@
-"""IANA timezone helpers shared by the streak and reminder features.
+"""IANA timezone helpers shared by the streak, reminder and birthday features.
 
 Naive UTC timestamps (the shape every DATETIME column uses) are converted to
 and from a local wall clock through :class:`zoneinfo`.
@@ -9,6 +9,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, available_timezones
 
+from sqlalchemy import select
+
+from ..db import session_scope
+from ..models import StreakGoal
 from .level import utcnow
 
 POPULAR_TIMEZONES = (
@@ -104,3 +108,19 @@ def valid_timezone(name: str) -> str | None:
     except Exception:
         return None
     return candidate
+
+
+async def default_member_timezone(guild_id: int, user_id: int) -> str:
+    """The member's streak timezone, falling back to UTC."""
+    async with session_scope() as session:
+        goal = (
+            await session.execute(
+                select(StreakGoal).where(
+                    StreakGoal.guild_id == guild_id,
+                    StreakGoal.user_id == user_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if goal is not None and valid_timezone(goal.timezone):
+            return goal.timezone
+    return "UTC"

@@ -11,7 +11,7 @@ from __future__ import annotations
 import discord
 from discord import app_commands, PartialEmoji
 
-from ..services.booster_react import build_identifiers, parse_emoji
+from ..services.booster_react import merge_identifiers, parse_emoji
 from ..services.members import resolve_members
 from ..texts import t
 from .checks import denial_message, require_admin
@@ -95,76 +95,18 @@ def _react_embed(row, member: discord.Member | None, client) -> discord.Embed:
     return embed
 
 
-@react_group.command(name="add", description=t("booster.react.add.description"))
+@react_group.command(name="set", description=t("booster.react.set.description"))
+# @react_group.command(name="add", description=t("booster.react.set.description"))
+# @react_group.command(name="edit", description=t("booster.react.set.description"))
 @app_commands.describe(
-    emoji=t("booster.react.add.param_emoji"),
-    user=t("booster.react.add.param_user"),
-    nicknames=t("booster.react.add.param_nicknames"),
+    emoji=t("booster.react.set.param_emoji"),
+    user=t("booster.react.set.param_user"),
+    nicknames=t("booster.react.set.param_nicknames"),
 )
-async def add(
+async def set_react(
     interaction: discord.Interaction,
-    emoji: str,
-    user: discord.User | None = None,
-    nicknames: str | None = None,
-) -> None:
-    target = user if user is not None else interaction.user
-    denial = denial_message(interaction, target, scope="react")
-    if denial is not None:
-        await interaction.response.send_message(denial, ephemeral=True)
-        return
-
-    await interaction.response.defer()
-
-    try:
-        parse_emoji(emoji)
-    except ValueError:
-        await interaction.followup.send(
-            t("booster.react.add.invalid_emoji", emoji=emoji), ephemeral=True
-        )
-        return
-
-    owner = interaction.client.booster_reacts.emoji_owner(
-        emoji, exclude_user_id=target.id
-    )
-    if owner is not None:
-        await interaction.followup.send(
-            t("booster.react.emoji_taken", user=f"<@{owner}>"), ephemeral=True
-        )
-        return
-
-    identifiers = build_identifiers(
-        discord_user_id=target.id,
-        username=_username(target),
-        display_name=_display_name(target, interaction),
-        nicknames=nicknames,
-    )
-
-    await interaction.client.booster_reacts.upsert(
-        discord_user_id=target.id,
-        identifiers=identifiers,
-        emoji=emoji,
-    )
-
-    await interaction.followup.send(
-        t(
-            "booster.react.add.success",
-            emoji=emoji,
-            user=target.mention,
-            extra=_nickname_extra(nicknames),
-        )
-    )
-
-
-@react_group.command(name="edit", description=t("booster.react.edit.description"))
-@app_commands.describe(
-    user=t("booster.react.edit.param_user"),
-    emoji=t("booster.react.edit.param_emoji"),
-    nicknames=t("booster.react.edit.param_nicknames"),
-)
-async def edit(
-    interaction: discord.Interaction,
-    user: discord.User | None = None,
     emoji: str | None = None,
+    user: discord.User | None = None,
     nicknames: str | None = None,
 ) -> None:
     target = user if user is not None else interaction.user
@@ -174,29 +116,26 @@ async def edit(
         return
 
     await interaction.response.defer()
-
-    if emoji is None and nicknames is None:
-        await interaction.followup.send(
-            t("booster.react.edit.nothing_to_change"), ephemeral=True
-        )
-        return
 
     service = interaction.client.booster_reacts
     record = await service.find(target.id)
-    if record is None:
+    if record is None and emoji is None:
         await interaction.followup.send(
-            t("booster.react.edit.not_found", user=target.mention),
-            ephemeral=True,
+            t("booster.react.set.emoji_required"), ephemeral=True
+        )
+        return
+    if record is not None and emoji is None and nicknames is None:
+        await interaction.followup.send(
+            t("booster.react.set.nothing_to_change"), ephemeral=True
         )
         return
 
-    new_emoji = record.emoji
     if emoji is not None:
         try:
             parse_emoji(emoji)
         except ValueError:
             await interaction.followup.send(
-                t("booster.react.edit.invalid_emoji", emoji=emoji),
+                t("booster.react.set.invalid_emoji", emoji=emoji),
                 ephemeral=True,
             )
             return
@@ -207,16 +146,17 @@ async def edit(
                 ephemeral=True,
             )
             return
-        new_emoji = emoji
 
-    identifiers = list(record.identifiers or [])
-    if nicknames is not None:
-        identifiers = build_identifiers(
-            discord_user_id=target.id,
-            username=_username(target),
-            display_name=_display_name(target, interaction),
-            nicknames=nicknames,
-        )
+    new_emoji = emoji
+    if new_emoji is None and record is not None:
+        new_emoji = record.emoji
+    identifiers = merge_identifiers(
+        record.identifiers if record is not None else None,
+        discord_user_id=target.id,
+        username=_username(target),
+        display_name=_display_name(target, interaction),
+        nicknames=nicknames,
+    )
 
     await service.upsert(
         discord_user_id=target.id,
@@ -226,7 +166,9 @@ async def edit(
 
     await interaction.followup.send(
         t(
-            "booster.react.edit.success",
+            "booster.react.set.created"
+            if record is None
+            else "booster.react.set.updated",
             emoji=new_emoji,
             user=target.mention,
             extra=_nickname_extra(nicknames),

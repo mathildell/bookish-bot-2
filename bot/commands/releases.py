@@ -149,7 +149,7 @@ def _month_options(today: date) -> list[discord.SelectOption]:
     for _ in range(12):
         label = t(
             "releases.list.month_option",
-            month=t(f"releases.months.{month}"),
+            month=t(f"components.months.{month}"),
             year=year,
         )
         options.append(

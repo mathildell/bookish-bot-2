@@ -202,9 +202,11 @@ class IsPostDueTests(unittest.TestCase):
 class ThemePeriodTests(unittest.TestCase):
     def test_period_starts_the_day_after_posting(self) -> None:
         start, end = theme_images.theme_period(date(2026, 10, 19))
-        self.assertEqual(start, date(2026, 10, 20))
-        self.assertEqual(end, date(2026, 11, 2))
-        self.assertEqual((end - start).days, 13)
+        self.assertEqual(start, "Oct 20, 2026")
+        self.assertEqual(end, "Nov 2, 2026")
+        start_date = datetime.strptime(start, "%b %d, %Y").date()
+        end_date = datetime.strptime(end, "%b %d, %Y").date()
+        self.assertEqual((end_date - start_date).days, 13)
 
     def test_date_format(self) -> None:
         self.assertEqual(
@@ -224,10 +226,14 @@ class BuildThemeEmbedTests(unittest.TestCase):
         )
         self.assertEqual(embed.title, t("biweekly_theme.post.embed_title"))
         self.assertEqual(embed.image.url, "https://example.com/theme.png")
-        fields = {field.name: field.value for field in embed.fields}
         self.assertEqual(
-            fields[t("biweekly_theme.post.whatis_field_title")],
-            t("biweekly_theme.post.whatis_field_value"),
+            embed.description,
+            t(
+                "biweekly_theme.post.embed_description",
+                date_start="Oct 20, 2026",
+                date_end="Nov 2, 2026",
+                title="A prompt",
+            ),
         )
 
 
@@ -244,8 +250,8 @@ class ThemeRenderTests(unittest.TestCase):
         path = theme_images.render_theme(
             prompt="Read a book that features a library or a bookshop.",
             description="Tell us which place you would visit and why.",
-            start=date(2026, 10, 20),
-            end=date(2026, 11, 2),
+            start=theme_images.format_theme_date(date(2026, 10, 20)),
+            end=theme_images.format_theme_date(date(2026, 11, 2)),
         )
         try:
             self.assertTrue(path.exists())
@@ -259,8 +265,8 @@ class ThemeRenderTests(unittest.TestCase):
         path = theme_images.render_theme(
             prompt="Read a book with a map.",
             description=None,
-            start=date(2026, 10, 20),
-            end=date(2026, 11, 2),
+            start=theme_images.format_theme_date(date(2026, 10, 20)),
+            end=theme_images.format_theme_date(date(2026, 11, 2)),
         )
         try:
             self.assertTrue(path.exists())

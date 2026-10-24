@@ -748,6 +748,96 @@ class ReminderSnooze(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class Birthday(Base):
+    """A member's birthday, celebrated in their own timezone."""
+
+    __tablename__ = "birthdays"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    month: Mapped[int] = mapped_column(Integer, nullable=False)
+    day: Mapped[int] = mapped_column(Integer, nullable=False)
+    # IANA zone resolved when the birthday was set (streak zone, then UTC).
+    timezone: Mapped[str] = mapped_column(String(64), nullable=False)
+
+    # Local date the announcement was last posted (idempotency marker).
+    last_announced_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Local date the XP gift was paid, so retries never pay it twice.
+    xp_awarded_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Snapshot of the level change caused by the gift, for late retries.
+    xp_award: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # Temporary role applied for the member's birthday.
+    role_granted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    granted_role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_birthdays_guild_user_unique", "guild_id", "user_id", unique=True),
+        Index("ix_birthdays_guild_month_day", "guild_id", "month", "day"),
+    )
+
+
+class BirthdaySetting(Base):
+    """Per-guild settings for birthday announcements."""
+
+    __tablename__ = "birthday_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, index=True, nullable=False
+    )
+    channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    role_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class BirthdayMessage(Base):
+    """A reusable birthday embed description, optionally tied to one member."""
+
+    __tablename__ = "birthday_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class BirthdayImage(Base):
+    """A reusable birthday embed image, optionally tied to one member."""
+
+    __tablename__ = "birthday_images"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class BiweeklyThemeCard(Base):
     """A bi-weekly theme card. A posted card retires until the deck resets."""
 

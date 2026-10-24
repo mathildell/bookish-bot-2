@@ -41,10 +41,10 @@ def format_theme_date(day: date) -> str:
     """Render a theme date the way it appears on the card."""
     return f"{day.strftime('%b')} {day.day}, {day.year}"
 
-def theme_period(posted_on: date) -> tuple[date, date]:
+def theme_period(posted_on: date) -> tuple[str, str]:
     """The inclusive period a theme covers: the next 14 days after posting."""
     start = posted_on + timedelta(days=1)
-    end   = start + timedelta(days=13)
+    end = start + timedelta(days=13)
     return format_theme_date(start), format_theme_date(end)
 
 def _draw_lines(

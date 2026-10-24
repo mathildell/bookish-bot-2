@@ -40,6 +40,7 @@ from bot.services.booster_react import (
     BoosterReactService,
     build_identifiers,
     clean_identifier,
+    merge_identifiers,
     parse_emoji,
 )
 from bot.services import reviews as reviews_service
@@ -169,6 +170,45 @@ class BuildIdentifiersTests(unittest.TestCase):
         self.assertEqual(
             [value.lower() for value in identifiers].count("alice"), 1
         )
+
+
+class MergeIdentifiersTests(unittest.TestCase):
+    def test_keeps_existing_identifiers_when_no_nicknames_are_given(self) -> None:
+        existing = ["7", "Old Name", "old_username"]
+        self.assertEqual(
+            merge_identifiers(
+                existing,
+                discord_user_id=7,
+                username="new_username",
+                display_name="New Name",
+                nicknames=None,
+            ),
+            existing,
+        )
+
+    def test_rebuilds_identifiers_when_nicknames_are_given(self) -> None:
+        identifiers = merge_identifiers(
+            ["7", "Old Name"],
+            discord_user_id=7,
+            username="new_username",
+            display_name="New Name",
+            nicknames="Alias",
+        )
+        self.assertEqual(identifiers[0], "7")
+        self.assertIn("New Name", identifiers)
+        self.assertIn("Alias", identifiers)
+        self.assertNotIn("Old Name", identifiers)
+
+    def test_new_registration_always_builds_identifiers(self) -> None:
+        identifiers = merge_identifiers(
+            None,
+            discord_user_id=7,
+            username="alice",
+            display_name="Alice",
+            nicknames=None,
+        )
+        self.assertIn("7", identifiers)
+        self.assertIn("Alice", identifiers)
 
 
 class FindMatchesTests(unittest.TestCase):

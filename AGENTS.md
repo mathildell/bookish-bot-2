@@ -72,6 +72,15 @@ Implemented features:
   alongside its owner. Each post carries Mark completed and Snooze 1 hour
   buttons (2h lifetime); snoozes repost an hour later via the database.
   Reminders missed while offline post if at most 24h late.
+- **Birthdays** — members register a yearless birthday and optional timezone
+  (defaulting to their streak timezone, then UTC); admins configure the
+  announcement channel and a temporary role. At local midnight the bot pings the
+  member, posts an embed with a random title from `texts/`, a random admin-added
+  description and image, and pays 5000 XP through the normal level system.
+  Admins maintain separate message and image pools, optionally tied to one
+  member, with a shared filterable list. Feb 29 is celebrated on Feb 28 in
+  non-leap years, missed announcements catch up later the same local day, and
+  `/birthday force` posts a full celebration on demand.
 - **Ping** — `/ping` replies with a friendly note and the bot's latency.
 
 The list of commands from the bot lives in the README.md.
@@ -144,7 +153,8 @@ bot/
                            BookRelease, ReleaseSetting, ReleaseEditDraft,
                            StreakGoal, Streak, StreakLog, StreakSetting,
                            BiweeklyThemeCard, BiweeklyThemeSetting,
-                           BotSetting, Reminder, ReminderSnooze)
+                           BotSetting, Reminder, ReminderSnooze, Birthday,
+                           BirthdaySetting, BirthdayMessage, BirthdayImage)
   notifications.py         level-up, streak-closed and theme-failure announcements
   commands/
     booster.py             /booster root group
@@ -157,6 +167,8 @@ bot/
     intro.py               /intro group + sticky button/modal + question manager
     streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
     reminders.py           /reminder group + add/edit/remove/list + complete/snooze buttons
+    birthdays.py           /birthday group + set/remove/channel/role, message and
+                           image pools, shared content list, force
     tickets.py             /tickets group + panel/close/reopen buttons
     bot.py                 /bot root group (say/react)
     bot_say.py             /bot say (post a message as the bot)
@@ -185,9 +197,10 @@ bot/
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
     reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
+    birthdays.py           birthday dates/content/roles + XP gift + local-midnight posting
     biweekly_theme.py      theme deck/schedule/due-post helpers + validation
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry
-    timezones.py           IANA timezone search/validation shared by streaks and reminders
+    timezones.py           IANA timezone search/validation shared by streaks, reminders and birthdays
     settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite

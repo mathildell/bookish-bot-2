@@ -268,3 +268,22 @@ def build_identifiers(
             seen.add(cleaned)
             identifiers.append(value.strip())
     return identifiers
+
+
+def merge_identifiers(
+    existing: list[str] | None,
+    *,
+    discord_user_id: int,
+    username: str | None,
+    display_name: str | None,
+    nicknames: str | None,
+) -> list[str]:
+    """Keep existing identifiers unless new nicknames replace them."""
+    if existing is not None and nicknames is None:
+        return list(existing)
+    return build_identifiers(
+        discord_user_id=discord_user_id,
+        username=username,
+        display_name=display_name,
+        nicknames=nicknames,
+    )

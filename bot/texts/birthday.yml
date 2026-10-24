@@ -1,0 +1,110 @@
+# Texts for the birthday feature (registration, content pools and announcements).
+birthday:
+  group_description: "Set birthdays and celebrate members in their timezone"
+  titles:
+    - "Happy birthday, %{user}!"
+    - "A toast to %{user}"
+    - "Today we celebrate %{user}"
+    - "Wishing %{user} the best day"
+    - "Another year of great stories for %{user}"
+    - "A birthday page for %{user}"
+    - "Cheers to %{user} today"
+    - "May your day be full of books and cake"
+    - "The spotlight is on %{user}"
+    - "Happy birthday from all of us"
+
+  set:
+    description: "Set your birthday"
+    param_date: "Your birthday (start typing to search)"
+    param_timezone: "Timezone for the birthday (defaults to your streak timezone)"
+    param_user: "Set another member’s birthday (admins only)"
+    success: "Birthday for %{user} set to %{date} (%{timezone})."
+
+  remove:
+    description: "Remove a birthday"
+    param_user: "Remove another member’s birthday (admins only)"
+    success: "Removed the birthday for %{user}."
+    not_found: "%{user} has no birthday set."
+
+  channel:
+    group_description: "Choose where birthday announcements are posted"
+    set:
+      description: "Set the birthday announcement channel"
+      param_channel: "Channel for birthday announcements"
+      success: "Birthday announcements will be posted in %{channel}."
+
+  role:
+    group_description: "Choose the temporary birthday role"
+    reason: "Birthday celebration"
+    set:
+      description: "Set the role given on a member’s birthday"
+      param_role: "Role to give for the birthday"
+      success: "The birthday role is now %{role}."
+    remove:
+      description: "Stop giving a role on birthdays"
+      success: "The birthday role has been removed."
+
+  messages:
+    group_description: "Manage the birthday description pool"
+    add:
+      description: "Add a birthday message"
+      param_message: "Description shown in the birthday embed (up to 2000 characters)"
+      param_user: "Only use this message for one member"
+      success: "Added birthday message #%{id} for %{user}."
+    remove:
+      description: "Remove a birthday message"
+      param_message: "Which message to remove (start typing to search)"
+      success: "Removed birthday message #%{id}."
+      not_found: "No birthday message #%{id} exists."
+    list:
+      description: "List birthday messages and images"
+
+  images:
+    group_description: "Manage the birthday image pool"
+    add:
+      description: "Add a birthday image URL"
+      param_url: "Direct http(s) URL to an image"
+      param_user: "Only use this image for one member"
+      success: "Added birthday image #%{id} for %{user}."
+    remove:
+      description: "Remove a birthday image"
+      param_image: "Which image to remove (start typing to search)"
+      success: "Removed birthday image #%{id}."
+      not_found: "No birthday image #%{id} exists."
+    list:
+      description: "List birthday messages and images"
+
+  content:
+    param_user: "Only show content linked to this member"
+    param_search: "Filter by text or URL"
+    message_title: "Birthday message #%{id}"
+    image_title: "Birthday image #%{id}"
+    url_field: "URL"
+    linked_field: "Linked to"
+    everyone: "Everyone"
+    empty_messages: "No birthday messages found."
+    empty_images: "No birthday images found."
+    messages_button: "Messages"
+    images_button: "Images"
+
+  force:
+    description: "Post a member’s birthday celebration now"
+    param_user: "Member whose celebration to post"
+    success: "Posted the birthday celebration for %{user}."
+
+  post:
+    fallback_description: "Another year, another chapter. Happy birthday!"
+    xp_field: "Birthday gift"
+
+  errors:
+    generic: "Something went wrong while handling that birthday."
+    invalid_date: "That date doesn’t look right. Pick one from the date dropdown."
+    invalid_timezone: "That timezone isn’t valid. Start typing a city to search."
+    message_empty: "The birthday message can’t be empty."
+    message_too_long: "Birthday messages can be at most %{maximum} characters (yours has %{length})."
+    invalid_url: "Give a valid http(s) URL to an image."
+    not_registered: "That member hasn’t set a birthday yet."
+    already_celebrated: "That member has already been celebrated today."
+    member_not_found: "That member could not be found in this server."
+    no_channel: "No birthday announcement channel is set. Use `/birthday channel set` first."
+    post_failed: "I couldn’t post the birthday announcement. Check the channel permissions and try again."

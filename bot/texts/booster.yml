@@ -17,22 +17,16 @@ booster:
   react:
     group_description: "Manage custom booster reacts"
     emoji_taken: "Looks like %{user} beat you to the punch; that emoji is already spoken for."
-    add:
-      description: "Add a custom react emoji"
-      param_emoji: "Emoji to react with (unicode or <:name:id>)"
-      param_user: "Who to add it for (defaults to you)"
-      param_nicknames: "Optional comma-separated nicknames to also match"
-      invalid_emoji: "Am I blind? `%{emoji}` doesn’t look like a valid emoji to me."
-      success: "Saved the reaction %{emoji} for %{user}%{extra}"
-    edit:
-      description: "Change a react emoji or nicknames"
-      param_user: "Who to update (defaults to you)"
-      param_emoji: "New emoji (leave empty to keep the current one)"
-      param_nicknames: "New comma-separated nicknames (leave empty to keep current)"
-      not_found: "%{user} has no booster react registered. Bold of you to assume otherwise <:SideEyeBow:1406705598313009232>"
+    set:
+      description: "Add or change a custom react emoji"
+      param_emoji: "Emoji to react with (required when adding a registration)"
+      param_user: "Who to set it for (defaults to you)"
+      param_nicknames: "Optional comma-separated nicknames (leave empty to keep current)"
+      emoji_required: "I need an emoji to create a booster react."
       invalid_emoji: "Am I blind? `%{emoji}` doesn’t look like a valid emoji to me."
       nothing_to_change: "Nothing to change then? That’s fine, no worries, I wasn’t doing anything important..."
-      success: "Updated the react %{emoji} for %{user}%{extra}"
+      created: "Saved the reaction %{emoji} for %{user}%{extra}"
+      updated: "Updated the react %{emoji} for %{user}%{extra}"
     view:
       description: "Show a booster’s react emoji and matching identifiers"
       param_user: "Who to inspect (defaults to you)"

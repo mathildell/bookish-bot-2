@@ -221,14 +221,14 @@ def format_plain_date(value: date, year=True) -> str:
     if year:
         return t(
             "releases.date.plain",
-            month=t(f"releases.months.{value.month}"),
+            month=t(f"components.months.{value.month}"),
             day=value.day,
             year=value.year
         )
     else:
         return t(
             "releases.date.plain_without_year",
-            month=t(f"releases.months.{value.month}"),
+            month=t(f"components.months.{value.month}"),
             day=value.day
         )
 
@@ -378,7 +378,7 @@ def _ordinal(day: int) -> str:
 def _month_day_label(day: date) -> str:
     return t(
         "releases.month_embed.date",
-        month=t(f"releases.months.{day.month}"),
+        month=t(f"components.months.{day.month}"),
         day=_ordinal(day.day),
     )
 
@@ -1027,7 +1027,7 @@ class ReleaseService:
         period = today.strftime("%Y-%m")
         books = await self.month_releases(today.year, today.month)
         if books:
-            month_name = t(f"releases.months.{today.month}")
+            month_name = t(f"components.months.{today.month}")
             embeds = build_month_embeds(books, client)
             if self._ping_role_id:
                 content = f"-# <@&{self._ping_role_id}>\n"

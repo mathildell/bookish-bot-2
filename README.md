@@ -11,17 +11,12 @@ Tie an emoji to a booster's name/nickname; the bot then reacts with that emoji
 whenever the name is mentioned.
 
 ```
-/booster react add emoji: [user:] [nicknames:]
+/booster react set [emoji:] [user:] [nicknames:]
 ```
 **Permissions:** Admin (anyone) / Booster (self only)
-Register a booster's react emoji, with optional extra comma-separated nicknames
-to match.
-
-```
-/booster react edit [user:] [emoji:] [nicknames:]
-```
-**Permissions:** Admin (anyone) / Booster (self only)
-Change a registration's emoji and/or nicknames.
+Create a booster's react registration or change an existing one. Only the
+values you pass are replaced; omitted values keep their current setting. An
+emoji is required when creating a registration.
 
 ```
 /booster react view [user:]
@@ -500,6 +495,69 @@ Delete one of your reminders.
 **Permissions:** 🔒 Admin
 List your reminders with their schedules and next run times, or another
 member's reminders.
+
+***
+
+## Birthdays
+
+Members register a yearless birthday and optionally a timezone. At local
+midnight the bot pings the birthday member and posts an embed with their name as
+the author, a random title, a random description and image, and a **5000 XP**
+gift paid through the normal leveling system. The timezone defaults to the
+member's streak timezone, then UTC, and is fixed when the birthday is saved.
+February 29 is celebrated on February 28 in non-leap years. If the bot was
+offline at midnight, it catches up later the same local day.
+
+Admins maintain separate pools of messages and images, optionally linked to one
+member so that their celebration uses personal content instead of a random
+generic entry. Messages may include `%{mention}` to ping the birthday member.
+Both pools open in one paginated view with **Messages** and **Images** buttons
+and optional user/text filters.
+
+```
+/birthday set date: [timezone:] [user:]
+```
+**Permissions:** Everyone (self) / 🔒 Admin (another member)
+Set a birthday. The date option autocompletes from January 1 to December 31.
+
+```
+/birthday remove [user:]
+```
+**Permissions:** Everyone (self) / 🔒 Admin (another member)
+Remove a birthday.
+
+```
+/birthday channel set channel:
+```
+**Permissions:** 🔒 Admin
+Set where birthday announcements are posted.
+
+```
+/birthday role set role:
+/birthday role remove
+```
+**Permissions:** 🔒 Admin
+Give a role to birthday members for the day, or stop giving one.
+
+```
+/birthday messages add message: [user:]
+/birthday messages remove message:
+/birthday messages list [user:] [search:]
+/birthday images add url: [user:]
+/birthday images remove image:
+/birthday images list [user:] [search:]
+```
+**Permissions:** 🔒 Admin
+Manage birthday descriptions and image URLs. `user` restricts an entry to one
+member. The list commands open the same view; its buttons switch between
+messages and images while keeping the filters.
+
+```
+/birthday force user:
+```
+**Permissions:** 🔒 Admin
+Post a member's celebration immediately. This is a full celebration: it pays
+the XP and grants the birthday role once for the member's current local day.
 
 ***
 

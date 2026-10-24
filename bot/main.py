@@ -16,6 +16,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
+from .commands.birthdays import birthday_group
 from .commands.booster import register_commands
 from .commands.bot import bot_group
 from .commands.bot_say import parse_message_link
@@ -56,6 +57,7 @@ from .notifications import (
     announce_theme_failed,
 )
 from .services import level as level_service
+from .services.birthdays import BirthdayService
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
@@ -224,6 +226,7 @@ async def run() -> None:
     releases = ReleaseService(int(config.guild_id))
     streaks = StreakService(int(config.guild_id))
     reminders = ReminderService(int(config.guild_id))
+    birthdays = BirthdayService(int(config.guild_id))
     tickets = TicketService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
     image_host = ImageHost(config.get("imgbb_api_key"))
@@ -245,6 +248,7 @@ async def run() -> None:
     bot.releases = releases
     bot.streaks = streaks
     bot.reminders = reminders
+    bot.birthdays = birthdays
     bot.tickets = tickets
     bot.weekly = weekly
     bot.biweekly_theme = biweekly_theme
@@ -281,6 +285,7 @@ async def run() -> None:
     bot.tree.add_command(releases_group, guild=guild)
     bot.tree.add_command(streaks_group, guild=guild)
     bot.tree.add_command(reminders_group, guild=guild)
+    bot.tree.add_command(birthday_group, guild=guild)
     bot.tree.add_command(tickets_group, guild=guild)
     bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(settings_group, guild=guild)
@@ -586,6 +591,43 @@ async def run() -> None:
         except Exception:
             logger.exception("Reminder catch-up failed")
 
+    # ------------------------ birthday upkeep ------------------------
+    async def post_birthdays_now() -> None:
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        due = await birthdays.due_birthdays()
+        if due:
+            channel = await resolve_notify_channel(
+                guild, birthdays.channel_id or 0
+            )
+            if channel is None:
+                logger.warning(
+                    "Birthdays are due but no announcement channel is set; "
+                    "awarding gifts and retrying the posts later"
+                )
+            posted = await birthdays.celebrate(
+                guild=guild,
+                channel=channel,
+                client=bot,
+                birthdays=due,
+            )
+            if posted:
+                logger.info("Posted %d birthday(s)", posted)
+        await birthdays.expire_roles(guild)
+
+    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    async def birthday_upkeep() -> None:
+        await post_birthdays_now()
+
+    @birthday_upkeep.before_loop
+    async def _wait_ready_birthdays() -> None:
+        await bot.wait_until_ready()
+        try:
+            await post_birthdays_now()
+        except Exception:
+            logger.exception("Birthday catch-up failed")
+
     # ------------------------ ticket upkeep ------------------------
     async def expire_ticket_buttons_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
@@ -766,6 +808,13 @@ async def run() -> None:
         await streaks.reload()
         logger.info("Streak channel: %s", streaks.channel_id)
 
+        await birthdays.reload()
+        logger.info(
+            "Birthday channel: %s (role %s)",
+            birthdays.channel_id,
+            birthdays.role_id,
+        )
+
         await weekly.reload()
         logger.info(
             "Weekly leaderboard channel: %s (Sunday %02d:00 UTC)",
@@ -795,6 +844,8 @@ async def run() -> None:
             purge_streak_logs.start()
         if not post_member_reminders.is_running():
             post_member_reminders.start()
+        if not birthday_upkeep.is_running():
+            birthday_upkeep.start()
         if not expire_ticket_buttons.is_running():
             expire_ticket_buttons.start()
         if not post_weekly_leaderboard.is_running():
