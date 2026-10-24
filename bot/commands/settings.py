@@ -165,7 +165,7 @@ def _current_value(
     if kind == "channel":
         if key == BUDDY_READ_CHANNEL:
             channel_id = settings.reference_forum_channel_id
-        elif key == GEN_CHAT_CHANNEL
+        elif key == GEN_CHAT_CHANNEL:
             channel_id = settings.gen_chat_channel_id
         elif key == ADMIN_TEST_CHANNEL:
             channel_id = settings.admin_test_channel_id
