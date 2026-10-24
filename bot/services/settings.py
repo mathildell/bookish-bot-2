@@ -22,6 +22,7 @@ class BotSettingsService:
         self._transparent_embed_image: str | None = None
         self._default_embed_color: str | None = None
         self._reference_forum_channel_id: int | None = None
+        self._gen_chat_channel_id: int | None = None
         self._reference_message_link: str | None = None
         self._admin_test_channel_id: int | None = None
         self._coupon_fallback_image: str | None = None
@@ -41,6 +42,10 @@ class BotSettingsService:
     @property
     def reference_forum_channel_id(self) -> int | None:
         return self._reference_forum_channel_id
+
+    @property
+    def reference_forum_channel_id(self) -> int | None:
+        return self._gen_chat_channel_id
 
     @property
     def reference_message_link(self) -> str | None:
@@ -64,6 +69,9 @@ class BotSettingsService:
         self._default_embed_color = row.default_embed_color if row else None
         self._reference_forum_channel_id = (
             row.reference_forum_channel_id if row else None
+        )
+        self._gen_chat_channel_id = (
+            row.gen_chat_channel_id if row else None
         )
         self._reference_message_link = (
             row.reference_message_link if row else None
@@ -90,6 +98,10 @@ class BotSettingsService:
     async def set_reference_forum_channel(self, channel_id: int | None) -> None:
         await self._update(reference_forum_channel_id=channel_id)
         self._reference_forum_channel_id = channel_id
+
+    async def set_gen_chat_channel(self, channel_id: int | None) -> None:
+        await self._update(gen_chat_channel_id=channel_id)
+        self._gen_chat_channel_id = channel_id
 
     async def set_reference_message_link(self, link: str | None) -> None:
         await self._update(reference_message_link=link)

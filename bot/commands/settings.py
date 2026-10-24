@@ -37,6 +37,7 @@ BOT_UPDATES_CHANNEL = "bot_updates_channel_id"
 TRANSPARENT_IMAGE = "transparent_embed_image"
 DEFAULT_COLOR = "default_embed_color"
 BUDDY_READ_CHANNEL = "buddy_read_channel_id"
+GEN_CHAT_CHANNEL = "gen_chat_channel_id"
 BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
 ADMIN_TEST_CHANNEL = "admin_test_channel_id"
 COUPON_FALLBACK_IMAGE = "coupon_fallback_image"
@@ -52,6 +53,7 @@ _KINDS = {
     TRANSPARENT_IMAGE: "url",
     DEFAULT_COLOR: "color",
     BUDDY_READ_CHANNEL: "channel",
+    GEN_CHAT_CHANNEL: "channel",
     BUDDY_READ_MESSAGE_LINK: "message_link",
     ADMIN_TEST_CHANNEL: "channel",
     COUPON_FALLBACK_IMAGE: "url",
@@ -163,6 +165,8 @@ def _current_value(
     if kind == "channel":
         if key == BUDDY_READ_CHANNEL:
             channel_id = settings.reference_forum_channel_id
+        elif key == GEN_CHAT_CHANNEL
+            channel_id = settings.gen_chat_channel_id
         elif key == ADMIN_TEST_CHANNEL:
             channel_id = settings.admin_test_channel_id
         else:
@@ -245,6 +249,11 @@ async def apply_value(
                 channel_id
             )
             interaction.client.reference_forum_channel_id = channel_id or 0
+        elif key == GEN_CHAT_CHANNEL:
+            await interaction.client.bot_settings.set_gen_chat_channel(
+                channel_id
+            )
+            interaction.client.set_gen_chat_channel = channel_id or 0
         elif key == ADMIN_TEST_CHANNEL:
             await interaction.client.bot_settings.set_admin_test_channel(
                 channel_id
