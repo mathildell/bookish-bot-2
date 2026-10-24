@@ -24,7 +24,6 @@ from .listing import (
     chunked,
     new_embed,
     send_paginated,
-    set_author,
     set_transparent_image,
 )
 
@@ -126,14 +125,23 @@ def _birthday_list_embed(
         if member is not None
         else t("birthday.list.unknown_member", id=birthday.user_id)
     )
-    set_author(embed, member, name)
+    # set_author(embed, member, name)
+    embed.title(
+        t("birthday.list.birthday_name", name: name)
+    )
+    embed.set_thumbnail(member.display_avatar.url)
+    embed.add_field(
+        name=t("birthday.list.date_title"),
+        value=birthday_service.date_label(birthday.month, birthday.day),
+        inline=True,
+    )
     moment = birthday_service.next_birthday_at(birthday, now)
-    embed.description = t(
-        "birthday.list.entry",
-        date=birthday_service.date_label(birthday.month, birthday.day),
-        when=discord.utils.format_dt(
+    embed.add_field(
+        name=t("birthday.list.next_title"),
+        value=discord.utils.format_dt(
             moment.replace(tzinfo=timezone.utc), "R"
         ),
+        inline=True,
     )
     set_transparent_image(embed, client)
     return embed

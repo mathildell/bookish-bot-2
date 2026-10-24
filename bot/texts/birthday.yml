@@ -29,7 +29,9 @@ birthday:
   list:
     description: "List everyone’s birthdays, soonest first"
     empty: "No birthdays have been set in this server yet."
-    entry: "**%{date}** • %{when}"
+    birthday_name: "%{name}'s birthday"
+    date_title: Birthday
+    next_title: Next celebration
     unknown_member: "Unknown member (%{id})"
 
   channel:
