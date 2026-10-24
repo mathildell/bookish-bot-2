@@ -663,6 +663,10 @@ class BotSetting(Base):
     admin_test_channel_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True
     )
+    # Channel where general chat goes
+    gen_chat_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
     # Image shown on a streak coupon when rendering/uploading fails.
     coupon_fallback_image: Mapped[str | None] = mapped_column(
         String(512), nullable=True
