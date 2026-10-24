@@ -144,11 +144,13 @@ class ContentListView(Paginator):
         self.messages_button = discord.ui.Button(
             label=t("birthday.content.messages_button"),
             style=discord.ButtonStyle.secondary,
+            emoji=t("birthday.content.messages_button_emoji"),
             disabled=True
         )
         self.images_button = discord.ui.Button(
             label=t("birthday.content.images_button"),
             style=discord.ButtonStyle.secondary,
+            emoji=t("birthday.content.images_button_emoji"),
         )
         self.messages_button.callback = self.show_messages
         self.images_button.callback = self.show_images

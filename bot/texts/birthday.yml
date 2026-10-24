@@ -56,7 +56,9 @@ birthday:
     empty_messages: "No birthday messages found."
     empty_images: "No birthday images found."
     messages_button: "Messages"
+    messages_button_emoji: "🖼️"
     images_button: "Images"
+    images_button_emoji: "🖼️"
     id_field: "ID"
     add:
       description: "Add birthday content (message or image URL)"
