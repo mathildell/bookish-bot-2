@@ -641,6 +641,7 @@ View and edit the bot's runtime settings.
 /settings edit key: transparent_embed_image value: https://example.com/bg.png
 /settings edit key: default_embed_color value: "#97A97C"
 /settings edit key: buddy_read_channel_id value: <#123456789012345678>
+/settings edit key: gen_chat_channel_id value: <#1509577088137691261>
 /settings edit key: buddy_read_message_link value: https://discord.com/channels/1/222/333
 /settings edit key: admin_test_channel_id value: <#123456789012345678>
 /settings edit key: coupon_fallback_image value: https://example.com/fallback.gif

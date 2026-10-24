@@ -951,12 +951,16 @@ class BirthdayService:
         posted = 0
         for start in range(0, len(embeds), EMBEDS_PER_MESSAGE):
             chunk = embeds[start : start + EMBEDS_PER_MESSAGE]
-            mentions = " ".join(
+            mentions = ", ".join(
                 f"<@{birthday.user_id}>" for birthday, _ in chunk
             )
             try:
                 await channel.send(
-                    content=mentions,
+                    content=t(
+                        "birthday.announcement", 
+                        mentions=mentions,
+                        channel=""
+                    ),
                     embeds=[embed for _, embed in chunk],
                 )
             except discord.HTTPException:

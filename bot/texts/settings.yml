@@ -2,6 +2,7 @@
 settings:
   group_description: "View and edit the bot’s settings"
   keys:
+    gen_chat_channel_id: "Channel for general chat"
     admin_test_channel_id: "Channel for bot tests (mods)"
     bot_updates_channel_id: "Channel for bot updates"
     buddy_read_channel_id: "Channel for buddy reads"
@@ -34,6 +35,7 @@ settings:
       transparent_embed_image: "-# Publicly reachable image used as a transparent embed background."
       default_embed_color: "-# Default colour applied to every embed the bot sends."
       buddy_read_channel_id: "-# Forum channel where new threads get the reference message pinned."
+      gen_chat_channel_id: "-# Channel dedicated to talking about anything."
       buddy_read_message_link: "-# Message reposted into new forum threads."
       admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
       coupon_fallback_image: "-# Image shown on a streak coupon when it cannot be generated or uploaded."

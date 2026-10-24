@@ -12,6 +12,10 @@ birthday:
     - "May your day be full of books and cake"
     - "The spotlight is on %{user}"
     - "Happy birthday from all of us"
+  announcement: |
+    ## :gift: :birthday: ‎ We're celebrating a birthday today!
+    Please send happy wishes to %{mentions} in %{channel}! :balloon: 
+    ‎
 
   set:
     description: "Set your birthday"
