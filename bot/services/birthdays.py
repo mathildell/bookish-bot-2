@@ -85,10 +85,6 @@ class BirthdayNotRegistered(BirthdayError):
     key = "birthday.errors.not_registered"
 
 
-class AlreadyCelebrated(BirthdayError):
-    key = "birthday.errors.already_celebrated"
-
-
 class MemberNotFound(BirthdayError):
     key = "birthday.errors.member_not_found"
 
@@ -999,8 +995,6 @@ class BirthdayService:
         birthday = await self.get_birthday(user_id)
         if birthday is None:
             raise BirthdayNotRegistered()
-        if birthday.last_announced_on == local_birthday_date(birthday, now):
-            raise AlreadyCelebrated()
         members = await resolve_members(guild, [user_id])
         if members[0] is None:
             raise MemberNotFound()

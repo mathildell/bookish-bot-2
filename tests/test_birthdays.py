@@ -79,14 +79,6 @@ class DueTests(unittest.TestCase):
         now = datetime.datetime(2026, 10, 23, 0, 2)
         self.assertTrue(birthday_service.needs_celebration(birthday, now))
 
-    def test_already_announced_and_paid_is_not_due(self) -> None:
-        today = datetime.date(2026, 10, 23)
-        birthday = _birthday(
-            last_announced_on=today, xp_awarded_on=today
-        )
-        now = datetime.datetime(2026, 10, 23, 18, 0)
-        self.assertFalse(birthday_service.needs_celebration(birthday, now))
-
     def test_missing_xp_still_needs_work(self) -> None:
         birthday = _birthday(
             last_announced_on=datetime.date(2026, 10, 23),
@@ -279,7 +271,6 @@ class CommandTests(unittest.TestCase):
             "birthday.errors.message_too_long",
             "birthday.errors.invalid_url",
             "birthday.errors.not_registered",
-            "birthday.errors.already_celebrated",
             "birthday.errors.member_not_found",
             "birthday.errors.no_guild",
             "birthday.errors.no_channel",

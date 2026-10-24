@@ -112,7 +112,6 @@ birthday:
     message_too_long: "Birthday messages can be at most %{maximum} characters (yours has %{length})."
     invalid_url: "Give a valid http(s) URL to an image."
     not_registered: "That member hasn’t set a birthday yet."
-    already_celebrated: "That member has already been celebrated today."
     member_not_found: "That member could not be found in this server."
     no_guild: "This command can only be used in a server."
     no_channel: "No birthday announcement channel is set. Use `/birthday channel set` first."
