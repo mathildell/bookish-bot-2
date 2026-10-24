@@ -37,21 +37,33 @@ def register_boosts_group(xp_group: app_commands.Group) -> None:
 
     @boosts_group.command(name="set", description=t("level.boosts.set.description"))
     @app_commands.describe(
-        booster=t("level.boosts.set.param_booster"),
+        role=t("level.boosts.set.param_role"),
+        channel=t("level.boosts.set.param_channel"),
         percent=t("level.boosts.set.param_percent"),
     )
     async def set_boost(
         interaction: discord.Interaction,
-        booster: discord.Role
-        | discord.TextChannel
+        percent: int,
+        role: discord.Role | None = None,
+        channel: discord.TextChannel
         | discord.VoiceChannel
         | discord.StageChannel
         | discord.ForumChannel
         | discord.CategoryChannel
-        | discord.Thread,
-        percent: int,
+        | discord.Thread
+        | None = None,
     ) -> None:
         if not await require_admin(interaction):
+            return
+        if role is None and channel is None:
+            await interaction.response.send_message(
+                t("level.boosts.missing_target"), ephemeral=True
+            )
+            return
+        if role is not None and channel is not None:
+            await interaction.response.send_message(
+                t("level.boosts.both_targets"), ephemeral=True
+            )
             return
         if percent < 1 or percent > 500:
             await interaction.response.send_message(
@@ -59,58 +71,74 @@ def register_boosts_group(xp_group: app_commands.Group) -> None:
             )
             return
         service = _boosts(interaction)
-        if isinstance(booster, discord.Role):
-            await service.set_role(booster.id, percent)
+        if role is not None:
+            await service.set_role(role.id, percent)
             await interaction.response.send_message(
-                t("level.boosts.role.set.success", role=booster.mention, percent=percent)
+                t("level.boosts.role.set.success", role=role.mention, percent=percent)
             )
             return
-        await service.set_channel(booster.id, percent)
-        await interaction.response.send_message(
-            t(
-                "level.boosts.channel.set.success",
-                channel=booster.mention,
-                percent=percent,
+        if channel is not None:
+            await service.set_channel(channel.id, percent)
+            await interaction.response.send_message(
+                t(
+                    "level.boosts.channel.set.success",
+                    channel=channel.mention,
+                    percent=percent,
+                )
             )
-        )
 
     @boosts_group.command(name="remove", description=t("level.boosts.remove.description"))
-    @app_commands.describe(booster=t("level.boosts.remove.param_booster"))
+    @app_commands.describe(
+        role=t("level.boosts.remove.param_role"),
+        channel=t("level.boosts.remove.param_channel"),
+    )
     async def remove_boost(
         interaction: discord.Interaction,
-        booster: discord.Role
-        | discord.TextChannel
+        role: discord.Role | None = None,
+        channel: discord.TextChannel
         | discord.VoiceChannel
         | discord.StageChannel
         | discord.ForumChannel
         | discord.CategoryChannel
-        | discord.Thread,
+        | discord.Thread
+        | None = None,
     ) -> None:
         if not await require_admin(interaction):
             return
+        if role is None and channel is None:
+            await interaction.response.send_message(
+                t("level.boosts.missing_target"), ephemeral=True
+            )
+            return
+        if role is not None and channel is not None:
+            await interaction.response.send_message(
+                t("level.boosts.both_targets"), ephemeral=True
+            )
+            return
         service = _boosts(interaction)
-        if isinstance(booster, discord.Role):
-            if await service.remove_role(booster.id):
+        if role is not None:
+            if await service.remove_role(role.id):
                 await interaction.response.send_message(
-                    t("level.boosts.role.remove.success", role=booster.mention),
+                    t("level.boosts.role.remove.success", role=role.mention),
                     ephemeral=True,
                 )
             else:
                 await interaction.response.send_message(
-                    t("level.boosts.role.remove.fail", role=booster.mention),
+                    t("level.boosts.role.remove.fail", role=role.mention),
                     ephemeral=True,
                 )
             return
-        if await service.remove_channel(booster.id):
-            await interaction.response.send_message(
-                t("level.boosts.channel.remove.success", channel=booster.mention),
-                ephemeral=True,
-            )
-        else:
-            await interaction.response.send_message(
-                t("level.boosts.channel.remove.fail", channel=booster.mention),
-                ephemeral=True,
-            )
+        if channel is not None:
+            if await service.remove_channel(channel.id):
+                await interaction.response.send_message(
+                    t("level.boosts.channel.remove.success", channel=channel.mention),
+                    ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    t("level.boosts.channel.remove.fail", channel=channel.mention),
+                    ephemeral=True,
+                )
 
     @boosts_group.command(name="list", description=t("level.boosts.list.description"))
     async def list_boosts(interaction: discord.Interaction) -> None:
@@ -151,7 +179,5 @@ def register_boosts_group(xp_group: app_commands.Group) -> None:
             )
         set_transparent_image(embed, interaction.client)
         await interaction.response.send_message(embed=embed)
-
-    xp_group.add_command(boosts_group)
 
     return boosts_group

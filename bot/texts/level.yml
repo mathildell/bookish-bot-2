@@ -90,13 +90,17 @@ level:
   boosts:
     group_description: "Manage XP boosts for messages"
     invalid_percent: "Percent must be between 1 and 500. Use `/xp boosts remove` to delete a boost."
+    missing_target: "Choose either a role or a channel/thread."
+    both_targets: "Choose either a role or a channel/thread, not both."
     set:
       description: "Give extra XP to a role or channel/thread"
-      param_booster: "Role or channel/thread to boost"
+      param_role: "Role to boost"
+      param_channel: "Channel or thread to boost"
       param_percent: "Extra XP percent (1-500)"
     remove:
       description: "Remove an XP boost from a role or channel/thread"
-      param_booster: "Role or channel/thread to remove the boost from"
+      param_role: "Role to remove the boost from"
+      param_channel: "Channel or thread to remove the boost from"
     role:
       set:
         success: "%{role} now gets +%{percent}% XP from messages."

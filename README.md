@@ -154,13 +154,13 @@ Show every level and its reward role.
 Reapply reward roles so they match every member's current level.
 
 ```
-/xp boosts set booster: percent:
+/xp boosts set percent: [role:] [channel:]
 ```
 **Permissions:** 🔒 Admin
 Give extra XP to a role or channel/thread (threads inherit boosts from their parent channel). Additive across roles and channels. Percentage must be between 1 and 500.
 
 ```
-/xp boosts remove booster:
+/xp boosts remove [role:] [channel:]
 ```
 **Permissions:** 🔒 Admin
 Remove an XP boost from a role or channel/thread.
