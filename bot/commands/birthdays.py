@@ -126,8 +126,8 @@ def _birthday_list_embed(
         else t("birthday.list.unknown_member", id=birthday.user_id)
     )
     if member is not None:
-        embed.set_thumbnail(member.display_avatar.url)
-    
+        embed.set_thumbnail(url=member.display_avatar.url)
+
     embed.title(
         t("birthday.list.birthday_name", name=name)
     )
