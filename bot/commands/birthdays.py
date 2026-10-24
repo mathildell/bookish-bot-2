@@ -120,17 +120,18 @@ def _birthday_list_embed(
     now,
 ) -> discord.Embed:
     embed = new_embed(client)
-    name = (
-        discord.utils.escape_markdown(member.display_name)
-        if member is not None
-        else t("birthday.list.unknown_member", id=birthday.user_id)
-    )
     if member is not None:
         embed.set_thumbnail(url=member.display_avatar.url)
 
-    embed.title(
-        t("birthday.list.birthday_name", name=name)
-    )
+        name = discord.utils.escape_markdown(member.display_name)
+        embed.title(
+            t("birthday.list.birthday_name", name=name)
+        )
+    else:
+        embed.title(
+            t("birthday.list.unknown_member", id=birthday.user_id)
+        )
+
     embed.add_field(
         name=t("birthday.list.date_title"),
         value=birthday_service.date_label(birthday.month, birthday.day),
