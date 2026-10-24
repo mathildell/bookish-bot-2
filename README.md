@@ -527,6 +527,13 @@ Set a birthday. The date option autocompletes from January 1 to December 31.
 Remove a birthday.
 
 ```
+/birthday list
+```
+**Permissions:** Everyone
+List every birthday in the server, soonest first, with the next occurrence as
+a Discord relative timestamp.
+
+```
 /birthday channel set channel:
 ```
 **Permissions:** 🔒 Admin
@@ -540,12 +547,10 @@ Set where birthday announcements are posted.
 Give a role to birthday members for the day, or stop giving one.
 
 ```
-/birthday messages add message: [user:]
-/birthday messages remove message:
-/birthday messages list [user:] [search:]
-/birthday images add url: [user:]
-/birthday images remove image:
-/birthday images list [user:] [search:]
+/birthday content add content: [user:]
+/birthday content edit id: content: [user:]
+/birthday content remove id:
+/birthday content list [user:] [search:]
 ```
 **Permissions:** 🔒 Admin
 Manage birthday descriptions and image URLs. `user` restricts an entry to one

@@ -26,6 +26,12 @@ birthday:
     success: "Removed the birthday for %{user}."
     not_found: "%{user} has no birthday set."
 
+  list:
+    description: "List everyone’s birthdays, soonest first"
+    empty: "No birthdays have been set in this server yet."
+    entry: "**%{date}** • %{when}"
+    unknown_member: "Unknown member (%{id})"
+
   channel:
     group_description: "Choose where birthday announcements are posted"
     set:
@@ -56,7 +62,7 @@ birthday:
     empty_messages: "No birthday messages found."
     empty_images: "No birthday images found."
     messages_button: "Messages"
-    messages_button_emoji: "🖼️"
+    messages_button_emoji: "💬"
     images_button: "Images"
     images_button_emoji: "🖼️"
     id_field: "ID"
@@ -102,6 +108,7 @@ birthday:
     not_registered: "That member hasn’t set a birthday yet."
     already_celebrated: "That member has already been celebrated today."
     member_not_found: "That member could not be found in this server."
+    no_guild: "This command can only be used in a server."
     no_channel: "No birthday announcement channel is set. Use `/birthday channel set` first."
     post_failed: "I couldn’t post the birthday announcement. Check the channel permissions and try again."
     content_empty: "The birthday content can’t be empty."

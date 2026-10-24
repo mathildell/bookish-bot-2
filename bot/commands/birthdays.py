@@ -6,18 +6,25 @@ the temporary role and the shared pools of messages and images.
 
 from __future__ import annotations
 
+from datetime import timezone
+
 import discord
 from discord import app_commands
 
 from ..services import birthdays as birthday_service
 from ..services.booster_role import resolve_notify_channel
+from ..services.level import utcnow
+from ..services.members import resolve_members
 from ..services.timezones import search_timezones
 from ..texts import t
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     Paginator,
+    chunked,
     new_embed,
+    send_paginated,
+    set_author,
     set_transparent_image,
 )
 
@@ -103,6 +110,31 @@ def _content_embed(
         inline=True,
     )
 
+    set_transparent_image(embed, client)
+    return embed
+
+
+def _birthday_list_embed(
+    client: discord.Client,
+    birthday,
+    member: discord.Member | None,
+    now,
+) -> discord.Embed:
+    embed = new_embed(client)
+    name = (
+        member.display_name
+        if member is not None
+        else t("birthday.list.unknown_member", id=birthday.user_id)
+    )
+    set_author(embed, member, name)
+    moment = birthday_service.next_birthday_at(birthday, now)
+    embed.description = t(
+        "birthday.list.entry",
+        date=birthday_service.date_label(birthday.month, birthday.day),
+        when=discord.utils.format_dt(
+            moment.replace(tzinfo=timezone.utc), "R"
+        ),
+    )
     set_transparent_image(embed, client)
     return embed
 
@@ -293,6 +325,46 @@ async def remove_birthday(
             user=target.mention,
         ),
         ephemeral=True,
+    )
+
+
+@birthday_group.command(
+    name="list", description=t("birthday.list.description")
+)
+async def list_birthdays(interaction: discord.Interaction) -> None:
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            t("birthday.errors.no_guild"), ephemeral=True
+        )
+        return
+    await interaction.response.defer(ephemeral=True)
+    service = _service(interaction)
+    rows = await service.list_birthdays()
+    if not rows:
+        await interaction.followup.send(
+            t("birthday.list.empty"), ephemeral=True
+        )
+        return
+    now = utcnow()
+    rows.sort(
+        key=lambda row: (
+            birthday_service.next_birthday_at(row, now),
+            row.month,
+            row.day,
+            row.user_id,
+        )
+    )
+    members = await resolve_members(
+        interaction.guild, [row.user_id for row in rows]
+    )
+    embeds = [
+        _birthday_list_embed(interaction.client, row, member, now)
+        for row, member in zip(rows, members)
+    ]
+    await send_paginated(
+        interaction,
+        chunked(embeds, EMBEDS_PER_PAGE),
+        total_results=len(rows),
     )
 
 

@@ -12,7 +12,8 @@ import calendar
 import logging
 import random
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
 import discord
 from sqlalchemy import delete, select
@@ -24,7 +25,12 @@ from ..texts import t, t_choice
 from . import level as level_service
 from .level_rewards import sync_member_roles
 from .members import resolve_members
-from .timezones import default_member_timezone, local_now, valid_timezone
+from .timezones import (
+    default_member_timezone,
+    local_now,
+    to_utc,
+    valid_timezone,
+)
 
 logger = logging.getLogger("bh2.birthdays")
 
@@ -186,6 +192,27 @@ def local_birthday_date(birthday: Birthday, now: datetime) -> date:
     return local_now(now, birthday.timezone).date()
 
 
+def next_birthday_at(birthday: Birthday, now: datetime) -> datetime:
+    """Naive-UTC moment of the birthday's next local occurrence.
+
+    A birthday falling today resolves to ``now`` so it sorts first and reads
+    "now" rather than a time earlier that day.
+    """
+    local_today = local_now(now, birthday.timezone).date()
+    year = local_today.year
+    day = effective_day(birthday.month, birthday.day, year)
+    occurrence = date(year, birthday.month, day)
+    if occurrence < local_today:
+        year += 1
+        day = effective_day(birthday.month, birthday.day, year)
+        occurrence = date(year, birthday.month, day)
+    midnight = datetime.combine(
+        occurrence, time.min, tzinfo=ZoneInfo(birthday.timezone)
+    )
+    moment = to_utc(midnight)
+    return max(moment, now) if occurrence == local_today else moment
+
+
 def needs_celebration(birthday: Birthday, now: datetime) -> bool:
     """Whether the birthday still needs its post or its XP gift today."""
     today = local_birthday_date(birthday, now)
@@ -275,7 +302,7 @@ def xp_progress_text(summary: dict) -> str:
 
 
 def render_birthday_message(template: str, member: discord.abc.User) -> str:
-    """Fill the legacy ``%{mention}`` placeholder used by imported cards."""
+    """Fill the ``%{mention}`` placeholder in a birthday message."""
     return template.replace("%{mention}", member.mention)
 
 
@@ -758,6 +785,20 @@ class BirthdayService:
             user_id,
             fallback_message=t("birthday.post.fallback_description"),
         )
+
+    async def list_birthdays(self) -> list[Birthday]:
+        async with session_scope() as session:
+            return list(
+                (
+                    await session.execute(
+                        select(Birthday).where(
+                            Birthday.guild_id == self.guild_id
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
 
     async def due_birthdays(
         self, now: datetime | None = None

@@ -116,6 +116,46 @@ class DueTests(unittest.TestCase):
         )
 
 
+class NextBirthdayTests(unittest.TestCase):
+    def test_future_birthday_this_year(self) -> None:
+        birthday = _birthday(month=12, day=1)
+        now = datetime.datetime(2026, 10, 24, 12, 0)
+        self.assertEqual(
+            birthday_service.next_birthday_at(birthday, now),
+            datetime.datetime(2026, 12, 1, 0, 0),
+        )
+
+    def test_past_birthday_wraps_to_next_year(self) -> None:
+        birthday = _birthday(month=10, day=23)
+        now = datetime.datetime(2026, 10, 24, 12, 0)
+        self.assertEqual(
+            birthday_service.next_birthday_at(birthday, now),
+            datetime.datetime(2027, 10, 23, 0, 0),
+        )
+
+    def test_birthday_today_resolves_to_now(self) -> None:
+        birthday = _birthday(month=10, day=24)
+        now = datetime.datetime(2026, 10, 24, 12, 0)
+        self.assertEqual(
+            birthday_service.next_birthday_at(birthday, now), now
+        )
+
+    def test_leap_day_falls_back_to_february_28(self) -> None:
+        birthday = _birthday(month=2, day=29)
+        now = datetime.datetime(2026, 10, 24, 12, 0)
+        self.assertEqual(
+            birthday_service.next_birthday_at(birthday, now),
+            datetime.datetime(2027, 2, 28, 0, 0),
+        )
+
+    def test_uses_the_member_timezone(self) -> None:
+        birthday = _birthday(month=10, day=25, timezone="Pacific/Auckland")
+        now = datetime.datetime(2026, 10, 24, 12, 0)
+        self.assertEqual(
+            birthday_service.next_birthday_at(birthday, now), now
+        )
+
+
 class ContentTests(unittest.TestCase):
     def test_personal_content_wins_over_generic(self) -> None:
         messages = [
@@ -212,6 +252,7 @@ class CommandTests(unittest.TestCase):
             {
                 "set",
                 "remove",
+                "list",
                 "channel",
                 "role",
                 "content",
@@ -240,6 +281,7 @@ class CommandTests(unittest.TestCase):
             "birthday.errors.not_registered",
             "birthday.errors.already_celebrated",
             "birthday.errors.member_not_found",
+            "birthday.errors.no_guild",
             "birthday.errors.no_channel",
             "birthday.errors.post_failed",
         ):
