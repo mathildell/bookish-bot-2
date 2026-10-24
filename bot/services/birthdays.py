@@ -895,6 +895,7 @@ class BirthdayService:
         client: discord.Client,
         birthdays: list[Birthday],
         now: datetime | None = None,
+        force: bool = False,
     ) -> int:
         """Post due celebrations, awarding XP and roles exactly once each."""
         if not birthdays:
@@ -932,7 +933,7 @@ class BirthdayService:
                     )
             if birthday.role_granted_on != local_day:
                 await self._grant_role(birthday, member, local_day, guild)
-            if birthday.last_announced_on == local_day or channel is None:
+            if (birthday.last_announced_on == local_day and not force) or channel is None:
                 continue
             content = await self.choose_content(birthday.user_id)
             embeds.append(
@@ -950,13 +951,13 @@ class BirthdayService:
             mentions = ", ".join(
                 f"<@{birthday.user_id}>" for birthday, _ in chunk
             )
-            channel = getattr(interaction.client, "gen_chat_channel_id", 0)
+
             try:
                 await channel.send(
                     content=t(
                         "birthday.announcement", 
                         mentions=mentions,
-                        channel=channel
+                        channel=f"<#{client.bot_settings.gen_chat_channel_id}>"
                     ),
                     embeds=[embed for _, embed in chunk],
                 )
@@ -1004,6 +1005,7 @@ class BirthdayService:
             client=client,
             birthdays=[birthday],
             now=now,
+            force=True,
         )
         if not posted:
             raise PostFailed()
