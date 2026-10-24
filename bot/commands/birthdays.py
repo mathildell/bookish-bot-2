@@ -127,7 +127,7 @@ def _birthday_list_embed(
     )
     # set_author(embed, member, name)
     embed.title(
-        t("birthday.list.birthday_name", name: name)
+        t("birthday.list.birthday_name", name=name)
     )
     embed.set_thumbnail(member.display_avatar.url)
     embed.add_field(
