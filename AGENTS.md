@@ -16,7 +16,7 @@ Implemented features:
   Monday-to-Sunday week. A top-10 weekly leaderboard is posted on Sundays at
   the configurable hour, and the weekly totals roll over for the next week. Admins
   can grant additive role- and channel/thread-based message XP boosts via
-  `/xp boosts`.
+  `/xp boosts set|remove`.
 - **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
   new reviews to the configured channel (each entry at most once per 24h).
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
