@@ -136,7 +136,12 @@ def parse_birthdays(
             )
             continue
 
-        timezone = user.timezone if valid_timezone(user.timezone) else None
+        tz = user.timezone
+        if tz == "CST6CDT":
+            tz = "America/Chicago"
+        elif tz == "US/Hawaii":
+            tz = "Pacific/Honolulu"
+        timezone = tz if valid_timezone(tz) else None
         if timezone is None:
             warnings.append(
                 f"birthday for {user.discord_user_id}: unknown timezone "
