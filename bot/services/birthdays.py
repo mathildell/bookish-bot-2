@@ -280,14 +280,14 @@ def xp_progress_text(summary: dict) -> str:
     """Format the gift exactly like the weekly XP leaderboard details."""
     if summary["old_level"] == summary["new_level"]:
         return t(
-            "level.xp.leaderboard.weekly_details_progress",
+            "birthday.post.xp_gift_add_xp",
             xp=XP_GIFT,
             n1=summary["progress_start"],
             n2=summary["progress_end"],
             needed=summary["needed"],
         )
     return t(
-        "level.xp.leaderboard.weekly_details_levels",
+        "birthday.post.xp_gift_level_up",
         xp=XP_GIFT,
         l1=summary["old_level"],
         l2=summary["new_level"],
@@ -313,7 +313,7 @@ def build_birthday_embed(
         name=discord.utils.escape_markdown(member.display_name),
         icon_url=member.display_avatar.url,
     )
-    embed.title = t_choice("birthday.titles", user=member.display_name)
+    embed.title = t_choice("birthday.titles")
     embed.description = render_birthday_message(content.message, member)
     if content.image_url:
         embed.set_image(url=content.image_url)

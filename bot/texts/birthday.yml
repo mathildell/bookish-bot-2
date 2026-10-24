@@ -2,16 +2,29 @@
 birthday:
   group_description: "Set birthdays and celebrate members in their timezone"
   titles:
-    - "Happy birthday, %{user}!"
-    - "A toast to %{user}"
-    - "Today we celebrate %{user}"
-    - "Wishing %{user} the best day"
-    - "Another year of great stories for %{user}"
-    - "A birthday page for %{user}"
-    - "Cheers to %{user} today"
-    - "May your day be full of books and cake"
-    - "The spotlight is on %{user}"
-    - "Happy birthday from all of us"
+      - "生日快乐!"
+      - "Gefeliciteerd!"
+      - "Joyeux anniversaire !"
+      - "お誕生日おめでとう!"
+      - "생일 축하해요!"
+      - "Wszystkiego najlepszego z okazji urodzin!"
+      - "Feliz aniversário!"
+      - "¡Feliz cumpleaños!"
+      - "Grattis på födelsedagen!"
+      - "Chúc mừng sinh nhật!"
+      - "Doğum günün kutlu olsun!"
+      - "Alles Gute zum Geburtstag!"
+      - "Penblwydd hapus!"
+      - "Til hamingju með afmælið!"
+      - "Selamat ulang tahun!"
+      - "Happy birthday!"
+      - "Lá breithe shona duit!"
+      - "Tillykke med fødselsdagen!"
+      - "Gratulerer med dagen!"
+      - "Hauʻoli lā hānau!"
+      - "Hyvää syntymäpäivää!"
+      - "Buon compleanno!"
+      - "عيد ميلاد سعيد!"
   announcement: |
     ## :gift: :birthday: ‎ We're celebrating a birthday today!
     Please send happy wishes to %{mentions} in %{channel}! :balloon: 
@@ -102,7 +115,9 @@ birthday:
 
   post:
     fallback_description: "Another year, another chapter. Happy birthday!"
-    xp_field: "Birthday gift"
+    xp_field: ":gift: ‎ Birthday gift"
+    xp_gift_level_up: "**`%{xp}` XP** (Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
+    xp_gift_add_xp: "**`%{xp}` XP** (`%{n1}` → `%{n2}`/`%{needed}` XP)"
 
   errors:
     generic: "Something went wrong while handling that birthday."
