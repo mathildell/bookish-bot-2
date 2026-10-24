@@ -42,7 +42,13 @@ def register_boosts_group(xp_group: app_commands.Group) -> None:
     )
     async def set_boost(
         interaction: discord.Interaction,
-        booster: discord.Role | discord.abc.GuildChannel | discord.Thread,
+        booster: discord.Role
+        | discord.TextChannel
+        | discord.VoiceChannel
+        | discord.StageChannel
+        | discord.ForumChannel
+        | discord.CategoryChannel
+        | discord.Thread,
         percent: int,
     ) -> None:
         if not await require_admin(interaction):
@@ -72,7 +78,13 @@ def register_boosts_group(xp_group: app_commands.Group) -> None:
     @app_commands.describe(booster=t("level.boosts.remove.param_booster"))
     async def remove_boost(
         interaction: discord.Interaction,
-        booster: discord.Role | discord.abc.GuildChannel | discord.Thread,
+        booster: discord.Role
+        | discord.TextChannel
+        | discord.VoiceChannel
+        | discord.StageChannel
+        | discord.ForumChannel
+        | discord.CategoryChannel
+        | discord.Thread,
     ) -> None:
         if not await require_admin(interaction):
             return
