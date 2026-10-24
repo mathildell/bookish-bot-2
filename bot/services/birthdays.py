@@ -67,6 +67,14 @@ class InvalidImageUrl(BirthdayError):
     key = "birthday.errors.invalid_url"
 
 
+class ContentEmpty(BirthdayError):
+    key = "birthday.errors.content_empty"
+
+
+class ContentTooLong(BirthdayError):
+    key = "birthday.errors.content_too_long"
+
+
 class BirthdayNotRegistered(BirthdayError):
     key = "birthday.errors.not_registered"
 
@@ -207,6 +215,15 @@ def _pick_content(rows: list, user_id: int):
     return random.choice(pool) if pool else None
 
 
+def is_image_url(url: str) -> bool:
+    cleaned = (url or "").strip()
+    if not cleaned.startswith(("http://", "https://")):
+        return False
+    if len(cleaned) > IMAGE_URL_MAX_LENGTH:
+        return False
+    return True
+
+
 def choose_content(
     messages: list,
     images: list,
@@ -221,6 +238,7 @@ def choose_content(
         message=message.content if message is not None else fallback_message,
         image_url=image.url if image is not None else None,
     )
+
 
 
 def xp_award_summary(change: level_service.LevelChangeResult) -> dict:
@@ -400,6 +418,59 @@ class BirthdayService:
             await session.commit()
             return bool(result.rowcount)
 
+    async def remove_birthday_and_unlink_content(self, user_id: int) -> tuple[bool, bool]:
+        removed_birthday = False
+        had_linked = False
+        async with session_scope() as session:
+            result = await session.execute(
+                delete(Birthday).where(
+                    Birthday.guild_id == self.guild_id,
+                    Birthday.user_id == user_id,
+                )
+            )
+            removed_birthday = bool(result.rowcount)
+            from sqlalchemy import update, select
+
+            # Check if had linked content
+            linked_msg = (
+                await session.execute(
+                    select(BirthdayMessage).where(
+                        BirthdayMessage.guild_id == self.guild_id,
+                        BirthdayMessage.user_id == user_id,
+                    )
+                )
+            ).scalars().first()
+            linked_img = (
+                await session.execute(
+                    select(BirthdayImage).where(
+                        BirthdayImage.guild_id == self.guild_id,
+                        BirthdayImage.user_id == user_id,
+                    )
+                )
+            ).scalars().first()
+            had_linked = linked_msg is not None or linked_img is not None
+            await session.execute(
+                update(BirthdayMessage)
+                .where(
+                    BirthdayMessage.guild_id == self.guild_id,
+                    BirthdayMessage.user_id == user_id,
+                )
+                .values(user_id=None)
+            )
+            await session.execute(
+                update(BirthdayImage)
+                .where(
+                    BirthdayImage.guild_id == self.guild_id,
+                    BirthdayImage.user_id == user_id,
+                )
+                .values(user_id=None)
+            )
+            await session.commit()
+        return removed_birthday, had_linked
+
+
+
+
     async def _list_content(self, model, *, user_id, search):
         async with session_scope() as session:
             rows = list(
@@ -476,6 +547,24 @@ class BirthdayService:
             await session.refresh(row)
             return row
 
+    async def add_content(self, *, content: str, user_id: int | None = None):
+        cleaned = (content or "").strip()
+        if not cleaned:
+            raise ContentEmpty()
+        if is_image_url(cleaned):
+            try:
+                return await self.add_image(url=cleaned, user_id=user_id)
+            except InvalidImageUrl:
+                raise
+        if len(cleaned) > MESSAGE_MAX_LENGTH:
+            raise ContentTooLong(length=len(cleaned), maximum=MESSAGE_MAX_LENGTH)
+        try:
+            return await self.add_message(content=cleaned, user_id=user_id)
+        except MessageTooLong as exc:
+            raise ContentTooLong(**exc.variables) from exc
+        except MessageEmpty:
+            raise ContentEmpty()
+
     async def remove_message(self, message_id: int) -> bool:
         return await self._remove_content(BirthdayMessage, message_id)
 
@@ -491,6 +580,174 @@ class BirthdayService:
             )
             await session.commit()
             return bool(result.rowcount)
+
+    async def remove_content(self, row_id: int) -> bool:
+        if await self.remove_message(row_id):
+            return True
+        if await self.remove_image(row_id):
+            return True
+        return False
+
+    async def get_content(self, row_id: int):
+        async with session_scope() as session:
+            row = (
+                await session.execute(
+                    select(BirthdayMessage).where(
+                        BirthdayMessage.id == row_id,
+                        BirthdayMessage.guild_id == self.guild_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is not None:
+                return ("message", row)
+            row = (
+                await session.execute(
+                    select(BirthdayImage).where(
+                        BirthdayImage.id == row_id,
+                        BirthdayImage.guild_id == self.guild_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if row is not None:
+                return ("image", row)
+        return None
+
+    async def edit_content(
+        self,
+        row_id: int,
+        *,
+        content: str,
+        user_id: int | None = None,
+        clear_user: bool = False,
+    ):
+        cleaned = (content or "").strip()
+        if not cleaned:
+            raise ContentEmpty()
+        kind_and_row = await self.get_content(row_id)
+        if kind_and_row is None:
+            return None
+        kind, row = kind_and_row
+        if is_image_url(cleaned):
+            # If changing to URL, move to image type if currently message
+            if kind == "message":
+                # remove old message and add image
+                async with session_scope() as session:
+                    await session.execute(
+                        delete(BirthdayMessage).where(
+                            BirthdayMessage.id == row_id,
+                            BirthdayMessage.guild_id == self.guild_id,
+                        )
+                    )
+                    await session.commit()
+                new_row = await self.add_image(
+                    url=cleaned,
+                    user_id=user_id if not clear_user else (row.user_id if user_id is not None or not clear_user else None),
+                )
+                # handle user assignment
+                if clear_user:
+                    async with session_scope() as session:
+                        stored = (
+                            await session.execute(
+                                select(BirthdayImage).where(
+                                    BirthdayImage.id == new_row.id
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if stored is not None:
+                            stored.user_id = None
+                            await session.commit()
+                elif user_id is not None and user_id != new_row.user_id:
+                    async with session_scope() as session:
+                        stored = (
+                            await session.execute(
+                                select(BirthdayImage).where(
+                                    BirthdayImage.id == new_row.id
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if stored is not None:
+                            stored.user_id = user_id
+                            await session.commit()
+                # refresh
+                new_row = await self.get_content(new_row.id)
+                if new_row is not None:
+                    return new_row[0], new_row[1]
+                return None
+            else:  # image
+                if len(cleaned) > IMAGE_URL_MAX_LENGTH:
+                    raise InvalidImageUrl()
+                async with session_scope() as session:
+                    stored = (
+                        await session.execute(
+                            select(BirthdayImage).where(
+                                BirthdayImage.id == row_id,
+                                BirthdayImage.guild_id == self.guild_id,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if stored is None:
+                        return None
+                    stored.url = cleaned
+                    if clear_user:
+                        stored.user_id = None
+                    elif user_id is not None:
+                        stored.user_id = user_id
+                    await session.commit()
+                    await session.refresh(stored)
+                    return "image", stored
+        else:
+            # message
+            if len(cleaned) > MESSAGE_MAX_LENGTH:
+                raise ContentTooLong(length=len(cleaned), maximum=MESSAGE_MAX_LENGTH)
+            if kind == "image":
+                async with session_scope() as session:
+                    await session.execute(
+                        delete(BirthdayImage).where(
+                            BirthdayImage.id == row_id,
+                            BirthdayImage.guild_id == self.guild_id,
+                        )
+                    )
+                    await session.commit()
+                new_row = await self.add_message(content=cleaned, user_id=None)
+                if clear_user:
+                    pass
+                elif user_id is not None:
+                    async with session_scope() as session:
+                        stored = (
+                            await session.execute(
+                                select(BirthdayMessage).where(
+                                    BirthdayMessage.id == new_row.id
+                                )
+                            )
+                        ).scalar_one_or_none()
+                        if stored is not None:
+                            stored.user_id = user_id
+                            await session.commit()
+                new_row_res = await self.get_content(new_row.id)
+                if new_row_res is not None:
+                    return new_row_res[0], new_row_res[1]
+                return None
+            else:  # message
+                async with session_scope() as session:
+                    stored = (
+                        await session.execute(
+                            select(BirthdayMessage).where(
+                                BirthdayMessage.id == row_id,
+                                BirthdayMessage.guild_id == self.guild_id,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    if stored is None:
+                        return None
+                    stored.content = cleaned
+                    if clear_user:
+                        stored.user_id = None
+                    elif user_id is not None:
+                        stored.user_id = user_id
+                    await session.commit()
+                    await session.refresh(stored)
+                    return "message", stored
+
 
     async def choose_content(self, user_id: int) -> ContentChoice:
         messages = await self.list_messages()

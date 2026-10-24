@@ -341,6 +341,33 @@ async def run() -> None:
         if await post_reference(bot, thread):
             logger.info("Posted reference message in thread %s", thread.id)
 
+    # ------------------- member leaves -------------------
+    @bot.event
+    async def on_member_remove(member: discord.Member) -> None:
+        if member.guild.id != int(config.guild_id):
+            return
+        try:
+            service = bot.birthdays
+            removed, had_linked = await service.remove_birthday_and_unlink_content(member.id)
+            if removed or had_linked:
+                channel = await resolve_notify_channel(
+                    member.guild, getattr(bot, "bot_updates_channel_id", 0)
+                )
+                if channel is not None:
+                    try:
+                        await channel.send(
+                            t(
+                                "birthday.cleanup.member_left",
+                                user=str(member),
+                            )
+                        )
+                    except Exception:
+                        logger.exception("Failed to post birthday cleanup notice")
+        except Exception:
+            logger.exception("Failed to clean up birthday data on member leave")
+
+
+
     # ------------------- booster role upkeep -------------------
     # No Members intent: poll daily to catch boosters who stopped boosting.
     # The single-member fetch used by reconcile() does not need the intent.

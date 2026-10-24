@@ -44,37 +44,8 @@ birthday:
       description: "Stop giving a role on birthdays"
       success: "The birthday role has been removed."
 
-  messages:
-    group_description: "Manage the birthday description pool"
-    add:
-      description: "Add a birthday message"
-      param_message: "Description shown in the birthday embed (up to 2000 characters)"
-      param_user: "Only use this message for one member"
-      success: "Added birthday message #%{id} for %{user}."
-    remove:
-      description: "Remove a birthday message"
-      param_message: "Which message to remove (start typing to search)"
-      success: "Removed birthday message #%{id}."
-      not_found: "No birthday message #%{id} exists."
-    list:
-      description: "List birthday messages and images"
-
-  images:
-    group_description: "Manage the birthday image pool"
-    add:
-      description: "Add a birthday image URL"
-      param_url: "Direct http(s) URL to an image"
-      param_user: "Only use this image for one member"
-      success: "Added birthday image #%{id} for %{user}."
-    remove:
-      description: "Remove a birthday image"
-      param_image: "Which image to remove (start typing to search)"
-      success: "Removed birthday image #%{id}."
-      not_found: "No birthday image #%{id} exists."
-    list:
-      description: "List birthday messages and images"
-
   content:
+    group_description: "Manage the birthday content pool"
     param_user: "Only show content linked to this member"
     param_search: "Filter by text or URL"
     message_title: "Birthday message #%{id}"
@@ -86,6 +57,29 @@ birthday:
     empty_images: "No birthday images found."
     messages_button: "Messages"
     images_button: "Images"
+    id_field: "ID"
+    add:
+      description: "Add birthday content (message or image URL)"
+      param_content: "Message text or direct http(s) image URL"
+      param_user: "Only use this content for one member"
+      success_message: "Added birthday message #%{id} for %{user}."
+      success_image: "Added birthday image #%{id} for %{user}."
+    remove:
+      description: "Remove birthday content"
+      param_id: "Content ID to remove"
+      success: "Removed birthday content #%{id}."
+      not_found: "No birthday content #%{id} exists."
+    list:
+      description: "List birthday messages and images"
+    edit:
+      description: "Edit birthday content"
+      param_id: "Content ID to edit"
+      param_content: "New message text or direct http(s) image URL"
+      param_user: "Only use this content for one member (leave empty to keep or clear)"
+      success_message: "Updated birthday message #%{id}."
+      success_image: "Updated birthday image #%{id}."
+      not_found: "No birthday content #%{id} exists."
+
 
   force:
     description: "Post a member’s birthday celebration now"
@@ -108,3 +102,7 @@ birthday:
     member_not_found: "That member could not be found in this server."
     no_channel: "No birthday announcement channel is set. Use `/birthday channel set` first."
     post_failed: "I couldn’t post the birthday announcement. Check the channel permissions and try again."
+    content_empty: "The birthday content can’t be empty."
+    content_too_long: "Birthday messages can be at most %{maximum} characters (yours has %{length})."
+  cleanup:
+    member_left: "Removed birthday for %{user} (left the server) and freed up their linked birthday content."

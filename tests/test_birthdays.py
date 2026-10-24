@@ -214,27 +214,20 @@ class CommandTests(unittest.TestCase):
                 "remove",
                 "channel",
                 "role",
-                "messages",
-                "images",
+                "content",
                 "force",
             },
         )
 
-    def test_content_subgroups_are_available(self) -> None:
+    def test_content_subgroup_is_available(self) -> None:
         self.assertEqual(
             {
                 command.name
-                for command in birthday_commands.messages_group.commands
+                for command in birthday_commands.content_group.commands
             },
-            {"add", "remove", "list"},
+            {"add", "remove", "list", "edit"},
         )
-        self.assertEqual(
-            {
-                command.name
-                for command in birthday_commands.images_group.commands
-            },
-            {"add", "remove", "list"},
-        )
+
 
     def test_every_error_text_exists(self) -> None:
         for key in (

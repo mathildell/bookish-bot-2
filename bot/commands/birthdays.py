@@ -38,20 +38,15 @@ role_group = app_commands.Group(
     parent=birthday_group,
 )
 
-messages_group = app_commands.Group(
-    name="messages",
-    description=t("birthday.messages.group_description"),
-    parent=birthday_group,
-)
-
-images_group = app_commands.Group(
-    name="images",
-    description=t("birthday.images.group_description"),
+content_group = app_commands.Group(
+    name="content",
+    description=t("birthday.content.group_description"),
     parent=birthday_group,
 )
 
 MESSAGE = "message"
 IMAGE = "image"
+
 
 
 def _service(interaction: discord.Interaction) -> birthday_service.BirthdayService:
@@ -347,154 +342,139 @@ async def remove_role(interaction: discord.Interaction) -> None:
     )
 
 
-@messages_group.command(
-    name="add", description=t("birthday.messages.add.description")
+@content_group.command(
+    name="add", description=t("birthday.content.add.description")
 )
 @app_commands.describe(
-    message=t("birthday.messages.add.param_message"),
-    user=t("birthday.messages.add.param_user"),
+    content=t("birthday.content.add.param_content"),
+    user=t("birthday.content.add.param_user"),
 )
-async def add_message(
+async def add_content_cmd(
     interaction: discord.Interaction,
-    message: str,
+    content: str,
     user: discord.User | None = None,
 ) -> None:
     if not await require_admin(interaction):
         return
     try:
-        row = await _service(interaction).add_message(
-            content=message, user_id=user.id if user is not None else None
+        row = await _service(interaction).add_content(
+            content=content, user_id=user.id if user is not None else None
         )
     except birthday_service.BirthdayError as exc:
         await interaction.response.send_message(
             _error_text(exc), ephemeral=True
         )
         return
-    await interaction.response.send_message(
-        t(
-            "birthday.messages.add.success",
-            id=row.id,
-            user=(
-                user.mention
-                if user is not None
-                else t("birthday.content.everyone")
+    # Determine type - BirthdayImage has url, BirthdayMessage has content
+    is_img = hasattr(row, "url")
+    if is_img:
+        await interaction.response.send_message(
+            t(
+                "birthday.content.add.success_image",
+                id=row.id,
+                user=(
+                    user.mention
+                    if user is not None
+                    else t("birthday.content.everyone")
+                ),
             ),
-        ),
-        ephemeral=True,
-    )
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            t(
+                "birthday.content.add.success_message",
+                id=row.id,
+                user=(
+                    user.mention
+                    if user is not None
+                    else t("birthday.content.everyone")
+                ),
+            ),
+            ephemeral=True,
+        )
 
 
-@messages_group.command(
-    name="remove", description=t("birthday.messages.remove.description")
+
+@content_group.command(
+    name="remove", description=t("birthday.content.remove.description")
 )
-@app_commands.describe(message=t("birthday.messages.remove.param_message"))
-async def remove_message(
-    interaction: discord.Interaction, message: int
+@app_commands.describe(id=t("birthday.content.remove.param_id"))
+async def remove_content_cmd(
+    interaction: discord.Interaction, id: int
 ) -> None:
     if not await require_admin(interaction):
         return
-    removed = await _service(interaction).remove_message(message)
+    removed = await _service(interaction).remove_content(id)
     await interaction.response.send_message(
         t(
-            "birthday.messages.remove.success"
+            "birthday.content.remove.success"
             if removed
-            else "birthday.messages.remove.not_found",
-            id=message,
+            else "birthday.content.remove.not_found",
+            id=id,
         ),
         ephemeral=True,
     )
 
 
-@messages_group.command(
-    name="list", description=t("birthday.messages.list.description")
+@content_group.command(
+    name="list", description=t("birthday.content.list.description")
 )
 @app_commands.describe(
     user=t("birthday.content.param_user"),
     search=t("birthday.content.param_search"),
 )
-async def list_messages(
+async def list_content_cmd(
     interaction: discord.Interaction,
     user: discord.User | None = None,
     search: str | None = None,
 ) -> None:
+    # Default to showing both; reuse list view logic by showing messages first or just open combined - but existing view shows both via buttons
     await _open_content_list(
         interaction, kind=MESSAGE, user=user, search=search
     )
 
 
-@images_group.command(
-    name="add", description=t("birthday.images.add.description")
+@content_group.command(
+    name="edit", description=t("birthday.content.edit.description")
 )
 @app_commands.describe(
-    url=t("birthday.images.add.param_url"),
-    user=t("birthday.images.add.param_user"),
+    id=t("birthday.content.edit.param_id"),
+    content=t("birthday.content.edit.param_content"),
+    user=t("birthday.content.edit.param_user"),
 )
-async def add_image(
+async def edit_content_cmd(
     interaction: discord.Interaction,
-    url: str,
+    id: int,
+    content: str,
     user: discord.User | None = None,
 ) -> None:
     if not await require_admin(interaction):
         return
     try:
-        row = await _service(interaction).add_image(
-            url=url, user_id=user.id if user is not None else None
+        result = await _service(interaction).edit_content(
+            id, content=content, user_id=user.id if user is not None else None, clear_user=False
         )
+        if result is None:
+            await interaction.response.send_message(
+                t("birthday.content.edit.not_found", id=id), ephemeral=True
+            )
+            return
+        kind, row = result
+        if kind == "image":
+            await interaction.response.send_message(
+                t("birthday.content.edit.success_image", id=row.id), ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                t("birthday.content.edit.success_message", id=row.id), ephemeral=True
+            )
     except birthday_service.BirthdayError as exc:
         await interaction.response.send_message(
             _error_text(exc), ephemeral=True
         )
         return
-    await interaction.response.send_message(
-        t(
-            "birthday.images.add.success",
-            id=row.id,
-            user=(
-                user.mention
-                if user is not None
-                else t("birthday.content.everyone")
-            ),
-        ),
-        ephemeral=True,
-    )
 
-
-@images_group.command(
-    name="remove", description=t("birthday.images.remove.description")
-)
-@app_commands.describe(image=t("birthday.images.remove.param_image"))
-async def remove_image(
-    interaction: discord.Interaction, image: int
-) -> None:
-    if not await require_admin(interaction):
-        return
-    removed = await _service(interaction).remove_image(image)
-    await interaction.response.send_message(
-        t(
-            "birthday.images.remove.success"
-            if removed
-            else "birthday.images.remove.not_found",
-            id=image,
-        ),
-        ephemeral=True,
-    )
-
-
-@images_group.command(
-    name="list", description=t("birthday.images.list.description")
-)
-@app_commands.describe(
-    user=t("birthday.content.param_user"),
-    search=t("birthday.content.param_search"),
-)
-async def list_images(
-    interaction: discord.Interaction,
-    user: discord.User | None = None,
-    search: str | None = None,
-) -> None:
-    await _open_content_list(
-        interaction, kind=IMAGE, user=user, search=search
-    )
 
 
 @birthday_group.command(
@@ -541,41 +521,30 @@ async def force(
 # -------------------------------------------------------------- autocomplete
 
 
-async def message_autocomplete(
+async def content_autocomplete(
     interaction: discord.Interaction, current: str
 ) -> list[app_commands.Choice[int]]:
-    rows = await _service(interaction).list_messages()
+    service = _service(interaction)
+    messages = await service.list_messages()
+    images = await service.list_images()
+    rows = []
+    # combine
+    for r in messages:
+        rows.append((r.id, "msg", getattr(r, "content", "")))
+    for r in images:
+        rows.append((r.id, "img", getattr(r, "url", "")))
     needle = (current or "").strip().lower()
     choices: list[app_commands.Choice[int]] = []
-    for row in rows:
-        label = f"#{row.id} {row.content}"
+    for row_id, kind, content in rows:
+        label = f"#{row_id} [{kind}] {content}"
         if needle and needle not in label.lower():
             continue
-        choices.append(
-            app_commands.Choice(name=label[:100], value=row.id)
-        )
+        choices.append(app_commands.Choice(name=label[:100], value=row_id))
         if len(choices) >= 25:
             break
     return choices
 
 
-async def image_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[int]]:
-    rows = await _service(interaction).list_images()
-    needle = (current or "").strip().lower()
-    choices: list[app_commands.Choice[int]] = []
-    for row in rows:
-        label = f"#{row.id} {row.url}"
-        if needle and needle not in label.lower():
-            continue
-        choices.append(
-            app_commands.Choice(name=label[:100], value=row.id)
-        )
-        if len(choices) >= 25:
-            break
-    return choices
+remove_content_cmd.autocomplete("id")(content_autocomplete)
+edit_content_cmd.autocomplete("id")(content_autocomplete)
 
-
-remove_message.autocomplete("message")(message_autocomplete)
-remove_image.autocomplete("image")(image_autocomplete)
