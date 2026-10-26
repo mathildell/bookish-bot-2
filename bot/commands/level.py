@@ -18,7 +18,17 @@ from .checks import require_admin
 from .level_rewards import register_rewards_group
 from .level_boosts import register_boosts_group
 from .listing import new_embed, placement, set_author, set_transparent_image
-from .views import ExpiringView
+from .views import (
+    ExpiringView,
+    track_view,
+    tracked_row,
+    update_interaction_state,
+)
+
+XP_LEADERBOARD_ALL_CUSTOM_ID = "xp:leaderboard:all"
+XP_LEADERBOARD_WEEKLY_CUSTOM_ID = "xp:leaderboard:weekly"
+XP_LEADERBOARD_LIFETIME_SECONDS = 180
+XP_LEADERBOARD_VIEW_KIND = "xp_leaderboard"
 
 xp_group = app_commands.Group(
     name="xp",
@@ -237,10 +247,12 @@ class LeaderboardView(ExpiringView):
         self,
         all_time_embed: discord.Embed,
         weekly_embed: discord.Embed,
+        *,
+        showing: str = "all",
     ) -> None:
-        super().__init__(timeout=180)
+        super().__init__(timeout=XP_LEADERBOARD_LIFETIME_SECONDS)
         self.embeds = {"all": all_time_embed, "weekly": weekly_embed}
-        self.showing = "all"
+        self.showing = showing
         self.message: discord.Message | None = None
         self._sync_styles()
 
@@ -248,9 +260,14 @@ class LeaderboardView(ExpiringView):
         self.all_time_button.disabled = self.showing == "all"
         self.weekly_button.disabled = self.showing == "weekly"
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        return allowed
+
     async def _switch(self, interaction: discord.Interaction, which: str) -> None:
         self.showing = which
         self._sync_styles()
+        await update_interaction_state(interaction, {"showing": which})
         await interaction.response.edit_message(
             embed=self.embeds[which], view=self
         )
@@ -259,6 +276,7 @@ class LeaderboardView(ExpiringView):
         label=t("level.xp.leaderboard.button_all_time"),
         emoji=t("level.xp.leaderboard.button_all_time_emoji"),
         style=discord.ButtonStyle.secondary,
+        custom_id=XP_LEADERBOARD_ALL_CUSTOM_ID,
     )
     async def all_time_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -269,6 +287,7 @@ class LeaderboardView(ExpiringView):
         label=t("level.xp.leaderboard.button_weekly"),
         emoji=t("level.xp.leaderboard.button_weekly_emoji"),
         style=discord.ButtonStyle.secondary,
+        custom_id=XP_LEADERBOARD_WEEKLY_CUSTOM_ID,
     )
     async def weekly_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -276,11 +295,59 @@ class LeaderboardView(ExpiringView):
         await self._switch(interaction, "weekly")
 
 
-@xp_group.command(
-    name="leaderboard", description=t("level.xp.leaderboard.description")
-)
-async def leaderboard(interaction: discord.Interaction) -> None:
-    await interaction.response.defer()
+class XpLeaderboardFallbackView(discord.ui.View):
+    """Persistent fallback for the XP leaderboard toggles."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        return allowed
+
+    async def _show(self, interaction: discord.Interaction, which: str) -> None:
+        embeds = await _leaderboard_embeds(interaction)
+        if embeds is None:
+            await interaction.response.send_message(
+                t("level.xp.leaderboard.empty"), ephemeral=True
+            )
+            return
+        all_time_embed, weekly_embed = embeds
+        view = LeaderboardView(
+            all_time_embed, weekly_embed, showing=which
+        )
+        view.message = interaction.message
+        await update_interaction_state(interaction, {"showing": which})
+        await interaction.response.edit_message(
+            embed=view.embeds[which], view=view
+        )
+
+    @discord.ui.button(
+        label=t("level.xp.leaderboard.button_all_time"),
+        emoji=t("level.xp.leaderboard.button_all_time_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=XP_LEADERBOARD_ALL_CUSTOM_ID,
+    )
+    async def all_time_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._show(interaction, "all")
+
+    @discord.ui.button(
+        label=t("level.xp.leaderboard.button_weekly"),
+        emoji=t("level.xp.leaderboard.button_weekly_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=XP_LEADERBOARD_WEEKLY_CUSTOM_ID,
+    )
+    async def weekly_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._show(interaction, "weekly")
+
+
+async def _leaderboard_embeds(
+    interaction: discord.Interaction,
+) -> tuple[discord.Embed, discord.Embed] | None:
     now = level_service.utcnow()
     week_start = level_service.week_start_for(now.date())
     async with session_scope() as session:
@@ -296,16 +363,8 @@ async def leaderboard(interaction: discord.Interaction) -> None:
             week_start=week_start,
             limit=LEADERBOARD_SIZE,
         )
-
     if not rows:
-        await interaction.followup.send(
-            t("level.xp.leaderboard.empty"), ephemeral=True
-        )
-        try:
-            await interaction.delete_original_response()
-        except discord.HTTPException:
-            pass
-        return
+        return None
 
     members = await resolve_members(
         interaction.guild, [user_xp.user_id for user_xp, _ in rows]
@@ -323,9 +382,36 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         weekly_members,
         week_start=week_start,
     )
+    return all_time_embed, weekly_embed
+
+
+@xp_group.command(
+    name="leaderboard", description=t("level.xp.leaderboard.description")
+)
+async def leaderboard(interaction: discord.Interaction) -> None:
+    await interaction.response.defer()
+    embeds = await _leaderboard_embeds(interaction)
+    if embeds is None:
+        await interaction.followup.send(
+            t("level.xp.leaderboard.empty"), ephemeral=True
+        )
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException:
+            pass
+        return
+
+    all_time_embed, weekly_embed = embeds
     view = LeaderboardView(all_time_embed, weekly_embed)
     view.message = await interaction.edit_original_response(
         embed=all_time_embed, view=view
+    )
+    await track_view(
+        interaction.client,
+        view.message,
+        kind=XP_LEADERBOARD_VIEW_KIND,
+        lifetime=XP_LEADERBOARD_LIFETIME_SECONDS,
+        state={"showing": "all"},
     )
 
 

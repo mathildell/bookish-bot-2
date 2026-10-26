@@ -6,6 +6,8 @@ owner is pinged and can complete it or snooze it for an hour.
 
 from __future__ import annotations
 
+import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import discord
@@ -37,9 +39,15 @@ from .listing import (
     set_author,
     set_transparent_image,
 )
-from .views import ExpiringView
+from .views import ExpiringView, delete_interaction_view, tracked_row
 
 BUTTON_LIFETIME_SECONDS = 2 * 60 * 60
+REMINDER_VIEW_KIND = "reminder"
+COMPLETE_CUSTOM_ID = "reminders:complete"
+SNOOZE_CUSTOM_ID = "reminders:snooze"
+
+_USER_MENTION = re.compile(r"<@!?(\d+)>")
+_ROLE_MENTION = re.compile(r"<@&(\d+)>")
 
 reminders_group = app_commands.Group(
     name="reminder",
@@ -190,17 +198,47 @@ def _confirmation_embed(
 # --------------------------------------------------------------------- views
 
 
+@dataclass(frozen=True)
+class _ReminderButtonState:
+    owner_id: int | None
+    role_id: int | None
+    task_text: str
+
+
+def _message_state(message: discord.Message) -> _ReminderButtonState:
+    content = getattr(message, "content", "") or ""
+    owner = _USER_MENTION.search(content)
+    role = _ROLE_MENTION.search(content)
+    embeds = getattr(message, "embeds", None) or []
+    task_text = embeds[0].title if embeds and embeds[0].title else ""
+    return _ReminderButtonState(
+        owner_id=int(owner.group(1)) if owner else None,
+        role_id=int(role.group(1)) if role else None,
+        task_text=task_text,
+    )
+
+
+def _reminder_id(row: object | None) -> int | None:
+    state = getattr(row, "state", None) if row is not None else None
+    if isinstance(state, dict):
+        value = state.get("reminder_id")
+        if isinstance(value, int):
+            return value
+    return None
+
+
 class _CompleteButton(discord.ui.Button):
     def __init__(self) -> None:
         super().__init__(
             label=t("reminders.buttons.complete"),
             emoji=t("reminders.buttons.complete_emoji"),
             style=discord.ButtonStyle.success,
+            custom_id=COMPLETE_CUSTOM_ID,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
-        assert isinstance(view, ReminderActionsView)
+        assert isinstance(view, _ReminderActions)
         await view.mark_completed(interaction)
 
 
@@ -210,15 +248,101 @@ class _SnoozeButton(discord.ui.Button):
             label=t("reminders.buttons.snooze"),
             emoji=t("reminders.buttons.snooze_emoji"),
             style=discord.ButtonStyle.secondary,
+            custom_id=SNOOZE_CUSTOM_ID,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
-        assert isinstance(view, ReminderActionsView)
+        assert isinstance(view, _ReminderActions)
         await view.snooze_for_an_hour(interaction)
 
 
-class ReminderActionsView(ExpiringView):
+class _ReminderActions:
+    """Shared callbacks for sent and persistent reminder action views."""
+
+    reminder_id: int | None = None
+    owner_id: int | None = None
+    task_text: str | None = None
+    role_id: int | None = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        if not allowed:
+            return False
+
+        state = _message_state(interaction.message)
+        owner_id = self.owner_id or state.owner_id
+        if owner_id is not None and interaction.user.id != owner_id:
+            await interaction.response.send_message(
+                t("components.not_author"), ephemeral=True
+            )
+            return False
+        return True
+
+    async def _state(
+        self, interaction: discord.Interaction
+    ) -> tuple[_ReminderButtonState, object | None]:
+        client = getattr(interaction, "client", None)
+        service = getattr(client, "view_messages", None)
+        message = getattr(interaction, "message", None)
+        row = (
+            await service.get(message.id)
+            if service is not None and message is not None
+            else None
+        )
+        state = _message_state(interaction.message)
+        return (
+            _ReminderButtonState(
+                owner_id=self.owner_id or state.owner_id,
+                role_id=(
+                    self.role_id
+                    if self.role_id is not None
+                    else state.role_id
+                ),
+                task_text=self.task_text or state.task_text,
+            ),
+            row,
+        )
+
+    async def mark_completed(self, interaction: discord.Interaction) -> None:
+        allowed, _ = await tracked_row(interaction)
+        if not allowed:
+            return
+        state, _ = await self._state(interaction)
+        await interaction.response.edit_message(
+            embed=completed_embed(interaction.client, state.task_text),
+            view=None,
+        )
+        if self.timeout is not None:
+            self.stop()
+        await delete_interaction_view(interaction)
+
+    async def snooze_for_an_hour(self, interaction: discord.Interaction) -> None:
+        allowed, _ = await tracked_row(interaction)
+        if not allowed:
+            return
+        state, row = await self._state(interaction)
+        now = utcnow()
+        await _service(interaction).snooze(
+            reminder_id=_reminder_id(row),
+            user_id=state.owner_id or interaction.user.id,
+            channel_id=interaction.message.channel.id,
+            message=state.task_text,
+            role_id=state.role_id,
+            now=now,
+        )
+        if self.timeout is not None:
+            self.stop()
+        await interaction.response.edit_message(
+            embed=snoozed_embed(
+                interaction.client, state.task_text, now + SNOOZE_DELAY
+            ),
+            view=None,
+        )
+        await delete_interaction_view(interaction)
+
+
+class ReminderActionsView(_ReminderActions, ExpiringView):
     """The complete/snooze buttons attached to a posted reminder."""
 
     def __init__(
@@ -238,38 +362,14 @@ class ReminderActionsView(ExpiringView):
         self.add_item(_CompleteButton())
         self.add_item(_SnoozeButton())
 
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id == self.owner_id:
-            return True
-        await interaction.response.send_message(
-            t("components.not_author"), ephemeral=True
-        )
-        return False
 
-    async def mark_completed(self, interaction: discord.Interaction) -> None:
-        self.stop()
-        await interaction.response.edit_message(
-            embed=completed_embed(interaction.client, self.task_text),
-            view=None,
-        )
+class ReminderActionsFallbackView(_ReminderActions, discord.ui.View):
+    """Persistent fallback for reminder action buttons after a restart."""
 
-    async def snooze_for_an_hour(self, interaction: discord.Interaction) -> None:
-        now = utcnow()
-        await _service(interaction).snooze(
-            reminder_id=self.reminder_id,
-            user_id=self.owner_id,
-            channel_id=interaction.channel_id or 0,
-            message=self.task_text,
-            role_id=self.role_id,
-            now=now,
-        )
-        self.stop()
-        await interaction.response.edit_message(
-            embed=snoozed_embed(
-                interaction.client, self.task_text, now + SNOOZE_DELAY
-            ),
-            view=None,
-        )
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.add_item(_CompleteButton())
+        self.add_item(_SnoozeButton())
 
 
 # ------------------------------------------------------------------ choices

@@ -10,7 +10,7 @@ Wires everything together:
 from __future__ import annotations
 
 import logging
-from datetime import time as dt_time
+from datetime import time as dt_time, timedelta
 
 import discord
 from discord import app_commands
@@ -27,19 +27,38 @@ from .commands.intro import (
     repost_sticky,
     resolve_intro_channel,
 )
-from .commands.level import weekly_leaderboard_embed, xp_group
+from .commands.level import (
+    XpLeaderboardFallbackView,
+    weekly_leaderboard_embed,
+    xp_group,
+)
 from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
 from .commands.reminders import (
+    BUTTON_LIFETIME_SECONDS,
+    REMINDER_VIEW_KIND,
+    ReminderActionsFallbackView,
     ReminderActionsView,
     reminder_embed,
     reminders_group,
     schedule_description,
 )
-from .commands.releases import releases_group
+from .commands.releases import ReleaseListFallbackView, releases_group
 from .commands.reviews import reviews_group
 from .commands.settings import settings_group
-from .commands.streaks import StreakLogView, StreakRescueView, streaks_group
+from .commands.streaks import (
+    STREAK_ACTION_LIFETIME_SECONDS,
+    STREAK_LOG_VIEW_KIND,
+    StreakEditButtonView,
+    StreakLeaderboardFallbackView,
+    StreakLogView,
+    StreakRescueView,
+    streaks_group,
+)
+from .commands.views import (
+    disable_view_message,
+    track_view,
+)
 from .commands.tickets import (
     OpenTicketView,
     TicketCloseView,
@@ -73,6 +92,7 @@ from .services.reviews import ReviewService
 from .services.settings import BotSettingsService
 from .services.streaks import Reminder, StreakService
 from .services.tickets import TicketService
+from .services.view_messages import ViewMessageService
 from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
 from .services.image_hosting import ImageHost
 from .services.xp_boosts import XpBoostService, apply_boost, boost_percent
@@ -220,6 +240,12 @@ async def _post_streak_reminders(
             )
             continue
         view.message = message
+        await track_view(
+            client,
+            message,
+            kind=STREAK_LOG_VIEW_KIND,
+            lifetime=STREAK_ACTION_LIFETIME_SECONDS,
+        )
         sent.extend(due)
     return sent
 
@@ -252,6 +278,7 @@ async def run() -> None:
     image_host = ImageHost(config.get("imgbb_api_key"))
     biweekly_theme = BiweeklyThemeService(int(config.guild_id), image_host)
     bot_settings = BotSettingsService(int(config.guild_id))
+    view_messages = ViewMessageService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))
     release_scraper = ReleaseScraper()
 
@@ -274,6 +301,7 @@ async def run() -> None:
     bot.weekly = weekly
     bot.biweekly_theme = biweekly_theme
     bot.bot_settings = bot_settings
+    bot.view_messages = view_messages
     bot.coupons = coupons
     bot.release_scraper = release_scraper
     # Persistent button on the intro sticky message (works after restarts).
@@ -281,11 +309,19 @@ async def run() -> None:
     # Persistent refresh button on every intro embed (shares one custom id).
     bot.add_view(IntroRefreshView())
     # Persistent "repair streak" button offered on log/view messages.
-    bot.add_view(StreakRescueView())
+    bot.add_view(StreakRescueView(is_fallback=True))
     # Persistent ticket panel and ticket close/reopen buttons.
     bot.add_view(OpenTicketView())
     bot.add_view(TicketCloseView())
     bot.add_view(TicketReopenView())
+    # Fallbacks for public timed views whose original message-bound views are
+    # lost on restart. Their per-message state lives in view_messages.
+    bot.add_view(ReminderActionsFallbackView())
+    bot.add_view(StreakLogView(timeout=None))
+    bot.add_view(StreakEditButtonView())
+    bot.add_view(XpLeaderboardFallbackView())
+    bot.add_view(StreakLeaderboardFallbackView())
+    bot.add_view(ReleaseListFallbackView())
     # Bot-wide settings are loaded from the database in on_ready; start with
     # the disabled/unset defaults so nothing fires before the first reload.
     bot.bot_updates_channel_id = 0
@@ -581,6 +617,14 @@ async def run() -> None:
             )
             return None
         view.message = message
+        await track_view(
+            bot,
+            message,
+            kind=REMINDER_VIEW_KIND,
+            lifetime=BUTTON_LIFETIME_SECONDS,
+            state={"reminder_id": reminder_id},
+            author_id=user_id,
+        )
         return message
 
     async def post_member_reminders_now() -> None:
@@ -675,6 +719,83 @@ async def run() -> None:
             await post_birthdays_now()
         except Exception:
             logger.exception("Birthday catch-up failed")
+
+    # ------------------------ timed view upkeep ------------------------
+    async def expire_view_buttons_now() -> None:
+        rows = await view_messages.expired()
+        if not rows:
+            return
+        cleared = 0
+        for row in rows:
+            guild = bot.get_guild(row.guild_id)
+            if guild is None:
+                await view_messages.delete(row.message_id)
+                continue
+            channel = await resolve_notify_channel(guild, row.channel_id)
+            if channel is None:
+                await view_messages.delete(row.message_id)
+                continue
+            try:
+                message = await channel.get_partial_message(
+                    row.message_id
+                ).fetch()
+            except discord.NotFound:
+                await view_messages.delete(row.message_id)
+                continue
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not fetch timed view message %s",
+                    row.message_id,
+                    exc_info=True,
+                )
+                continue
+            try:
+                await disable_view_message(message)
+            except discord.NotFound:
+                await view_messages.delete(row.message_id)
+                continue
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not disable timed view message %s",
+                    row.message_id,
+                    exc_info=True,
+                )
+                continue
+            await view_messages.delete(row.message_id)
+            cleared += 1
+        if cleared:
+            logger.info("Disabled %d expired view message(s)", cleared)
+
+    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    async def expire_view_buttons() -> None:
+        await expire_view_buttons_now()
+
+    @expire_view_buttons.before_loop
+    async def _wait_ready_view_buttons() -> None:
+        await bot.wait_until_ready()
+        try:
+            await expire_view_buttons_now()
+        except Exception:
+            logger.exception("Timed view catch-up failed")
+
+    async def purge_view_messages_now() -> None:
+        await expire_view_buttons_now()
+        cutoff = level_service.utcnow() - timedelta(days=30)
+        removed = await view_messages.purge_before(cutoff)
+        if removed:
+            logger.info("Purged %d stale view message row(s)", removed)
+
+    @tasks.loop(time=DAILY_TIMES)
+    async def purge_view_messages() -> None:
+        await purge_view_messages_now()
+
+    @purge_view_messages.before_loop
+    async def _wait_ready_view_purge() -> None:
+        await bot.wait_until_ready()
+        try:
+            await purge_view_messages_now()
+        except Exception:
+            logger.exception("Timed view purge catch-up failed")
 
     # ------------------------ ticket upkeep ------------------------
     async def expire_ticket_buttons_now() -> None:
@@ -903,6 +1024,10 @@ async def run() -> None:
             birthday_upkeep.start()
         if not expire_ticket_buttons.is_running():
             expire_ticket_buttons.start()
+        if not expire_view_buttons.is_running():
+            expire_view_buttons.start()
+        if not purge_view_messages.is_running():
+            purge_view_messages.start()
         if not post_weekly_leaderboard.is_running():
             post_weekly_leaderboard.start()
         if not post_biweekly_theme.is_running():

@@ -2895,6 +2895,7 @@ class SettingsDisplayTests(unittest.TestCase):
         reference_message_link = (
             "https://discord.com/channels/1/222/333"
         )
+        gen_chat_channel_id = 55
         admin_test_channel_id = 99
 
     class _Client:

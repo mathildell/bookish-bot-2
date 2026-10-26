@@ -34,9 +34,26 @@ from ..services.streaks import (
 from ..texts import t, t_choice
 from .checks import in_admin_test_channel, require_admin
 from .listing import new_embed, placement, set_author, set_transparent_image
-from .views import ExpiringView
+from .views import (
+    ExpiringView,
+    message_author_id,
+    track_view,
+    tracked_row,
+    tracked_row_if_present,
+    update_interaction_state,
+)
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
+LOG_CUSTOM_ID = "streaks:log"
+EDIT_CUSTOM_ID = "streaks:edit"
+LEADERBOARD_ONGOING_CUSTOM_ID = "streaks:leaderboard:ongoing"
+LEADERBOARD_ALL_TIME_CUSTOM_ID = "streaks:leaderboard:all"
+
+STREAK_ACTION_LIFETIME_SECONDS = 2 * 60 * 60
+STREAK_LEADERBOARD_LIFETIME_SECONDS = 120
+STREAK_ACTION_VIEW_KIND = "streak_actions"
+STREAK_LOG_VIEW_KIND = "streak_log"
+STREAK_LEADERBOARD_VIEW_KIND = "streak_leaderboard"
 
 logger = logging.getLogger(__name__)
 
@@ -1265,7 +1282,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         )
         return
     view = getattr(interaction, "view", None)
-    if view is not None:
+    if view is not None and not getattr(view, "is_fallback", False):
         view.stop()
     generating = _will_generate_coupons(interaction, result.progress)
     if generating:
@@ -1336,9 +1353,19 @@ class _RescueButton(discord.ui.Button):
 class StreakRescueView(discord.ui.View):
     """Persistent "repair streak" button; works after restarts."""
 
-    def __init__(self, kind: str = streak_service.RESCUE_NORMAL) -> None:
+    def __init__(
+        self,
+        kind: str = streak_service.RESCUE_NORMAL,
+        *,
+        is_fallback: bool = False,
+    ) -> None:
         super().__init__(timeout=None)
+        self.is_fallback = is_fallback
         self.add_item(_RescueButton(kind))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row_if_present(interaction)
+        return allowed
 
 
 class _LogModal(discord.ui.Modal):
@@ -1365,6 +1392,7 @@ class _LogButton(discord.ui.Button):
             label=t("streaks.log.button"),
             emoji=t("streaks.log.button_emoji"),
             style=discord.ButtonStyle.secondary,
+            custom_id=LOG_CUSTOM_ID,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -1374,9 +1402,15 @@ class _LogButton(discord.ui.Button):
 
 
 class StreakLogView(ExpiringView):
-    def __init__(self, *, timeout: float = 2 * 60 * 60) -> None:
+    def __init__(
+        self, *, timeout: float | None = STREAK_ACTION_LIFETIME_SECONDS
+    ) -> None:
         super().__init__(timeout=timeout)
         self.add_item(_LogButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        return allowed
 
 
 class _EditButton(discord.ui.Button):
@@ -1385,6 +1419,7 @@ class _EditButton(discord.ui.Button):
             label=t("streaks.edit.button_on_view"),
             emoji=t("streaks.edit.button_on_view_emoji"),
             style=discord.ButtonStyle.secondary,
+            custom_id=EDIT_CUSTOM_ID,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -1397,6 +1432,18 @@ class _EditButton(discord.ui.Button):
         view.message = await interaction.original_response()
 
 
+class StreakEditButtonView(discord.ui.View):
+    """Persistent edit button on a member's streak overview."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.add_item(_EditButton())
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        return allowed
+
+
 class _ViewActions(ExpiringView):
     def __init__(
         self,
@@ -1406,7 +1453,7 @@ class _ViewActions(ExpiringView):
         log: bool = False,
         rescue_kind: str = streak_service.RESCUE_NORMAL,
     ) -> None:
-        super().__init__(timeout=2 * 60 * 60)
+        super().__init__(timeout=STREAK_ACTION_LIFETIME_SECONDS)
         if rescue:
             self.add_item(_RescueButton(rescue_kind))
         if log:
@@ -1414,10 +1461,33 @@ class _ViewActions(ExpiringView):
         if edit:
             self.add_item(_EditButton())
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, _ = await tracked_row(interaction)
+        return allowed
+
+
+async def _leaderboard_data(
+    interaction: discord.Interaction, ongoing: bool
+) -> tuple[list, list, discord.Embed]:
+    rows = await _service(interaction).leaderboard(ongoing=ongoing)
+    members = await resolve_members(
+        interaction.guild, [streak.user_id for streak, _ in rows]
+    )
+    embed = _leaderboard_embed(
+        interaction.client, rows, members, ongoing=ongoing
+    )
+    return rows, members, embed
+
 
 class _LeaderboardView(ExpiringView):
-    def __init__(self, author_id: int, ongoing: bool = True) -> None:
-        super().__init__(timeout=120)
+    def __init__(
+        self,
+        author_id: int | None,
+        ongoing: bool = True,
+        *,
+        timeout: float | None = STREAK_LEADERBOARD_LIFETIME_SECONDS,
+    ) -> None:
+        super().__init__(timeout=timeout)
         self.author_id = author_id
         self.ongoing = ongoing
         self._refresh()
@@ -1427,24 +1497,30 @@ class _LeaderboardView(ExpiringView):
         self.all_time_button.disabled = not self.ongoing
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return await _author_check(interaction, self.author_id)
+        allowed, row = await tracked_row(interaction)
+        if not allowed:
+            return False
+        author_id = (
+            self.author_id
+            or getattr(row, "author_id", None)
+            or message_author_id(interaction.message)
+        )
+        if author_id is None:
+            return True
+        return await _author_check(interaction, author_id)
 
     async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
         self.ongoing = ongoing
         self._refresh()
-        rows = await _service(interaction).leaderboard(ongoing=ongoing)
-        members = await resolve_members(
-            interaction.guild, [streak.user_id for streak, _ in rows]
-        )
-        embed = _leaderboard_embed(
-            interaction.client, rows, members, ongoing=ongoing
-        )
+        _rows, _members, embed = await _leaderboard_data(interaction, ongoing)
+        await update_interaction_state(interaction, {"ongoing": ongoing})
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(
         label=t("streaks.leaderboard.ongoing_button"),
         emoji=t("streaks.leaderboard.ongoing_emoji"),
         style=discord.ButtonStyle.secondary,
+        custom_id=LEADERBOARD_ONGOING_CUSTOM_ID,
     )
     async def ongoing_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1455,6 +1531,62 @@ class _LeaderboardView(ExpiringView):
         label=t("streaks.leaderboard.all_time_button"),
         emoji=t("streaks.leaderboard.all_time_emoji"),
         style=discord.ButtonStyle.secondary,
+        custom_id=LEADERBOARD_ALL_TIME_CUSTOM_ID,
+    )
+    async def all_time_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._show(interaction, False)
+
+
+class StreakLeaderboardFallbackView(discord.ui.View):
+    """Persistent fallback for the streak leaderboard toggles."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, row = await tracked_row(interaction)
+        if not allowed:
+            return False
+        author_id = (
+            getattr(row, "author_id", None)
+            or message_author_id(interaction.message)
+        )
+        if author_id is None:
+            return True
+        return await _author_check(interaction, author_id)
+
+    async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
+        _rows, _members, embed = await _leaderboard_data(interaction, ongoing)
+        author_id = (
+            message_author_id(interaction.message) or interaction.user.id
+        )
+        view = _LeaderboardView(
+            author_id,
+            ongoing=ongoing,
+            timeout=STREAK_LEADERBOARD_LIFETIME_SECONDS,
+        )
+        view.message = interaction.message
+        await update_interaction_state(interaction, {"ongoing": ongoing})
+        await interaction.response.edit_message(embed=embed, view=view)
+
+    @discord.ui.button(
+        label=t("streaks.leaderboard.ongoing_button"),
+        emoji=t("streaks.leaderboard.ongoing_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=LEADERBOARD_ONGOING_CUSTOM_ID,
+    )
+    async def ongoing_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        await self._show(interaction, True)
+
+    @discord.ui.button(
+        label=t("streaks.leaderboard.all_time_button"),
+        emoji=t("streaks.leaderboard.all_time_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=LEADERBOARD_ALL_TIME_CUSTOM_ID,
     )
     async def all_time_button(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1647,6 +1779,12 @@ async def view(
     )
     if actions is not None:
         actions.message = await interaction.original_response()
+        await track_view(
+            interaction.client,
+            actions.message,
+            kind=STREAK_ACTION_VIEW_KIND,
+            lifetime=STREAK_ACTION_LIFETIME_SECONDS,
+        )
 
 
 @streaks_group.command(
@@ -1672,6 +1810,14 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         view=view,
     )
     view.message = await interaction.original_response()
+    await track_view(
+        interaction.client,
+        view.message,
+        kind=STREAK_LEADERBOARD_VIEW_KIND,
+        lifetime=STREAK_LEADERBOARD_LIFETIME_SECONDS,
+        state={"ongoing": True},
+        author_id=interaction.user.id,
+    )
 
 
 @channel_group.command(

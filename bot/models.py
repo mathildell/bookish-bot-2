@@ -903,6 +903,37 @@ class BiweeklyThemeCard(Base):
     )
 
 
+class ViewMessage(Base):
+    """A public message with components that expire.
+
+    The row stores only the small amount of state the fallback view needs after
+    a restart; the message itself remains the source of truth for its content.
+    """
+
+    __tablename__ = "view_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    message_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, nullable=False, index=True
+    )
+
+    # Feature family, used by the expiry sweep for logging.
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    author_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # Naive UTC, like the other scheduled timestamps in the project.
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class BiweeklyThemeSetting(Base):
     """Per-guild settings for the bi-weekly themes feature."""
 

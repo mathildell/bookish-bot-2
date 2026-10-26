@@ -33,11 +33,23 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import Paginator, chunked, send_paginated
-from .views import ExpiringView
+from .views import (
+    ExpiringView,
+    message_author_id,
+    track_view,
+    tracked_row,
+    update_interaction_state,
+)
 
 logger = logging.getLogger("bh2.releases")
 
 RELEASE_EMBEDS_PER_PAGE = 5
+RELEASE_LIST_LIFETIME_SECONDS = 120
+RELEASE_LIST_VIEW_KIND = "release_list"
+RELEASE_PREV_CUSTOM_ID = "releases:list:prev"
+RELEASE_NEXT_CUSTOM_ID = "releases:list:next"
+RELEASE_MONTH_CUSTOM_ID = "releases:list:month"
+RELEASE_PAGE_CUSTOM_ID = "releases:list:page"
 RELEASE_SEARCH_EMBEDS_PER_PAGE = 3
 
 releases_group = app_commands.Group(
@@ -198,16 +210,23 @@ class _ReleaseListSource:
 class _MonthSelect(discord.ui.Select):
     """Jumps the list to the page holding the first release of a month."""
 
-    def __init__(self, options: list[discord.SelectOption]) -> None:
+    def __init__(
+        self, options: list[discord.SelectOption], *, custom_id: str | None = None
+    ) -> None:
         super().__init__(
             placeholder=t("releases.list.jump_to_month"),
             options=options,
             row=1,
+            custom_id=custom_id,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         target = date.fromisoformat(self.values[0])
+        jump = getattr(view, "jump_to_month", None)
+        if jump is not None:
+            await jump(interaction, target)
+            return
         index = await view.source.page_index_for_date(
             target, RELEASE_EMBEDS_PER_PAGE
         )
@@ -215,6 +234,9 @@ class _MonthSelect(discord.ui.Select):
         await interaction.response.defer()
         page = await view.load_page(view.index)
         await view.message.edit(embeds=page, view=view)
+        persist = getattr(view, "_persist_page", None)
+        if persist is not None:
+            await persist(interaction)
 
 
 class ReleaseListView(Paginator):
@@ -222,7 +244,131 @@ class ReleaseListView(Paginator):
 
     def __init__(self, source: _ReleaseListSource, author_id: int) -> None:
         super().__init__(source=source, author_id=author_id)
-        self.add_item(_MonthSelect(_month_options(today_utc())))
+        self.prev_button.custom_id = RELEASE_PREV_CUSTOM_ID
+        self.next_button.custom_id = RELEASE_NEXT_CUSTOM_ID
+        self.page_label.custom_id = RELEASE_PAGE_CUSTOM_ID
+        self.add_item(
+            _MonthSelect(
+                _month_options(today_utc()), custom_id=RELEASE_MONTH_CUSTOM_ID
+            )
+        )
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, row = await tracked_row(interaction)
+        if not allowed:
+            return False
+        author_id = (
+            getattr(row, "author_id", None)
+            or message_author_id(interaction.message)
+            or self.author_id
+        )
+        if interaction.user.id != author_id:
+            await interaction.response.send_message(
+                t("components.not_author"), ephemeral=True
+            )
+            return False
+        return True
+
+    async def _persist_page(self, interaction: discord.Interaction) -> None:
+        await update_interaction_state(interaction, {"page": self.index})
+
+    async def _show(self, interaction: discord.Interaction) -> None:
+        await super()._show(interaction)
+        await self._persist_page(interaction)
+
+
+class ReleaseListFallbackView(discord.ui.View):
+    """Persistent fallback for the release list's navigation controls."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.add_item(
+            _MonthSelect(
+                _month_options(today_utc()), custom_id=RELEASE_MONTH_CUSTOM_ID
+            )
+        )
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        allowed, row = await tracked_row(interaction)
+        if not allowed:
+            return False
+        author_id = (
+            getattr(row, "author_id", None)
+            or message_author_id(interaction.message)
+        )
+        if author_id is not None and interaction.user.id != author_id:
+            await interaction.response.send_message(
+                t("components.not_author"), ephemeral=True
+            )
+            return False
+        return True
+
+    async def _row_state(self, interaction: discord.Interaction) -> dict:
+        client = getattr(interaction, "client", None)
+        service = getattr(client, "view_messages", None)
+        message = getattr(interaction, "message", None)
+        row = (
+            await service.get(message.id)
+            if service is not None and message is not None
+            else None
+        )
+        state = getattr(row, "state", None) if row is not None else None
+        return state if isinstance(state, dict) else {}
+
+    async def _render(self, interaction: discord.Interaction, index: int) -> None:
+        service = _service(interaction)
+        total = await service.count_upcoming()
+        if total == 0:
+            await interaction.response.defer()
+            return
+        source = _ReleaseListSource(
+            service, interaction.guild, interaction.client, total
+        )
+        view = ReleaseListView(source, interaction.user.id)
+        view.set_index(index)
+        view.message = interaction.message
+        page = await view.load_page(view.index)
+        await update_interaction_state(interaction, {"page": view.index})
+        await interaction.response.edit_message(embeds=page, view=view)
+
+    async def _jump(self, interaction: discord.Interaction, index: int) -> None:
+        await self._render(interaction, index)
+
+    async def jump_to_month(
+        self, interaction: discord.Interaction, target: date
+    ) -> None:
+        index = await _service(interaction).page_index_for_date(
+            target, RELEASE_EMBEDS_PER_PAGE
+        )
+        await self._render(interaction, index)
+
+    @discord.ui.button(
+        label=t("components.pagination.prev"),
+        emoji=t("components.pagination.prev_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=RELEASE_PREV_CUSTOM_ID,
+    )
+    async def prev_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        state = await self._row_state(interaction)
+        page = int(state.get("page", 0))
+        await self._jump(interaction, max(0, page - 1))
+
+    @discord.ui.button(
+        label=t("components.pagination.next"),
+        emoji=t("components.pagination.next_emoji"),
+        style=discord.ButtonStyle.secondary,
+        custom_id=RELEASE_NEXT_CUSTOM_ID,
+    )
+    async def next_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        state = await self._row_state(interaction)
+        page = int(state.get("page", 0))
+        total = await _service(interaction).count_upcoming()
+        page_count = max(1, ceil(total / RELEASE_EMBEDS_PER_PAGE))
+        await self._jump(interaction, min(page_count - 1, page + 1))
 
 
 class ReleaseConfirmView(ExpiringView):
@@ -439,6 +585,14 @@ async def list_releases(interaction: discord.Interaction) -> None:
     view = ReleaseListView(source, interaction.user.id)
     view.message = await interaction.followup.send(
         embeds=await view.load_page(0), view=view
+    )
+    await track_view(
+        interaction.client,
+        view.message,
+        kind=RELEASE_LIST_VIEW_KIND,
+        lifetime=RELEASE_LIST_LIFETIME_SECONDS,
+        state={"page": 0},
+        author_id=interaction.user.id,
     )
 
 

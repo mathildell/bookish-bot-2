@@ -8,6 +8,7 @@ components:
     page_x_of_y: "Page %{current} of %{total} • %{results} results"
   # Shared by any component whose buttons are usable only by the invoker.
   not_author: "Sneaky little thing! Only the command author can use these buttons."
+  expired: "These buttons have expired. Run the command again if you need them."
   leaderboard:
     placement_1: "🥇"
     placement_2: "🥈"
