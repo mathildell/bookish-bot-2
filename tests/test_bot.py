@@ -16,6 +16,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import discord
 
@@ -693,6 +694,7 @@ class WeeklyLeaderboardEmbedTests(unittest.TestCase):
         self.assertIn(
             t(
                 "level.xp.leaderboard.weekly_details_progress",
+                l=1,
                 xp=100,
                 n1=50,
                 n2=150,
@@ -787,6 +789,68 @@ class LeaderboardViewTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(view.all_time_button.disabled)
         self.assertTrue(view.weekly_button.disabled)
         self.assertEqual(message.edits, [{"view": view}])
+
+
+class _OrderRecordingInteraction:
+    """Interaction stub that logs the order of its acknowledgements."""
+
+    def __init__(self, order: list[str]) -> None:
+        self.order = order
+        self.response = SimpleNamespace(defer=self._defer)
+
+    async def _defer(self) -> None:
+        self.order.append("defer")
+
+    async def edit_original_response(self, **kwargs):
+        self.order.append("edit")
+        return _FakeMessage()
+
+
+class XpLeaderboardFallbackViewTests(unittest.IsolatedAsyncioTestCase):
+    async def test_answers_the_interaction_before_rebuilding_the_embeds(
+        self,
+    ) -> None:
+        order: list[str] = []
+
+        async def fake_embeds(interaction):
+            order.append("render")
+            return discord.Embed(title="all time"), discord.Embed(title="weekly")
+
+        interaction = _OrderRecordingInteraction(order)
+
+        with patch.object(level_cmds, "_leaderboard_embeds", fake_embeds):
+            await level_cmds.XpLeaderboardFallbackView().all_time_button.callback(
+                interaction
+            )
+
+        self.assertEqual(order, ["defer", "render", "edit"])
+
+    async def test_empty_leaderboard_is_reported_ephemerally(self) -> None:
+        sent: list[dict] = []
+
+        async def fake_embeds(interaction):
+            return None
+
+        async def fake_send(content=None, **kwargs) -> None:
+            sent.append({"content": content, **kwargs})
+
+        interaction = _OrderRecordingInteraction([])
+        interaction.followup = SimpleNamespace(send=fake_send)
+
+        with patch.object(level_cmds, "_leaderboard_embeds", fake_embeds):
+            await level_cmds.XpLeaderboardFallbackView().weekly_button.callback(
+                interaction
+            )
+
+        self.assertEqual(
+            sent,
+            [
+                {
+                    "content": t("level.xp.leaderboard.empty"),
+                    "ephemeral": True,
+                }
+            ],
+        )
 
 
 class LevelFormulaTests(unittest.TestCase):

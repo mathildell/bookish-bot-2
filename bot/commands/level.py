@@ -268,10 +268,10 @@ class LeaderboardView(ExpiringView):
     async def _switch(self, interaction: discord.Interaction, which: str) -> None:
         self.showing = which
         self._sync_styles()
-        await update_interaction_state(interaction, {"showing": which})
         await interaction.response.edit_message(
             embed=self.embeds[which], view=self
         )
+        await update_interaction_state(interaction, {"showing": which})
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_all_time"),
@@ -307,9 +307,12 @@ class XpLeaderboardFallbackView(discord.ui.View):
         return allowed
 
     async def _show(self, interaction: discord.Interaction, which: str) -> None:
+        # Rebuilding the embeds refetches uncached members, which can take
+        # longer than the three seconds Discord allows for a first response.
+        await interaction.response.defer()
         embeds = await _leaderboard_embeds(interaction)
         if embeds is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 t("level.xp.leaderboard.empty"), ephemeral=True
             )
             return
@@ -317,11 +320,10 @@ class XpLeaderboardFallbackView(discord.ui.View):
         view = LeaderboardView(
             all_time_embed, weekly_embed, showing=which
         )
-        view.message = interaction.message
-        await update_interaction_state(interaction, {"showing": which})
-        await interaction.response.edit_message(
+        view.message = await interaction.edit_original_response(
             embed=view.embeds[which], view=view
         )
+        await update_interaction_state(interaction, {"showing": which})
 
     @discord.ui.button(
         label=t("level.xp.leaderboard.button_all_time"),

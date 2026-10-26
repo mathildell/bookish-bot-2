@@ -1512,9 +1512,10 @@ class _LeaderboardView(ExpiringView):
     async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
         self.ongoing = ongoing
         self._refresh()
+        await interaction.response.defer()
         _rows, _members, embed = await _leaderboard_data(interaction, ongoing)
+        await interaction.edit_original_response(embed=embed, view=self)
         await update_interaction_state(interaction, {"ongoing": ongoing})
-        await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(
         label=t("streaks.leaderboard.ongoing_button"),
@@ -1558,6 +1559,9 @@ class StreakLeaderboardFallbackView(discord.ui.View):
         return await _author_check(interaction, author_id)
 
     async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
+        # Rebuilding the embed refetches uncached members, which can take
+        # longer than the three seconds Discord allows for a first response.
+        await interaction.response.defer()
         _rows, _members, embed = await _leaderboard_data(interaction, ongoing)
         author_id = (
             message_author_id(interaction.message) or interaction.user.id
@@ -1567,9 +1571,10 @@ class StreakLeaderboardFallbackView(discord.ui.View):
             ongoing=ongoing,
             timeout=STREAK_LEADERBOARD_LIFETIME_SECONDS,
         )
-        view.message = interaction.message
+        view.message = await interaction.edit_original_response(
+            embed=embed, view=view
+        )
         await update_interaction_state(interaction, {"ongoing": ongoing})
-        await interaction.response.edit_message(embed=embed, view=view)
 
     @discord.ui.button(
         label=t("streaks.leaderboard.ongoing_button"),
@@ -1793,9 +1798,11 @@ async def view(
 async def leaderboard(interaction: discord.Interaction) -> None:
     if not await _channel_guard(interaction):
         return
+    # Resolving uncached members can outlast the three-second response window.
+    await interaction.response.defer()
     rows = await _service(interaction).leaderboard(ongoing=True)
     if not rows:
-        await interaction.response.send_message(
+        await interaction.followup.send(
             t("streaks.leaderboard.empty"), ephemeral=True
         )
         return
@@ -1803,13 +1810,12 @@ async def leaderboard(interaction: discord.Interaction) -> None:
         interaction.guild, [streak.user_id for streak, _ in rows]
     )
     view = _LeaderboardView(interaction.user.id)
-    await interaction.response.send_message(
+    view.message = await interaction.edit_original_response(
         embed=_leaderboard_embed(
             interaction.client, rows, members, ongoing=True
         ),
         view=view,
     )
-    view.message = await interaction.original_response()
     await track_view(
         interaction.client,
         view.message,
