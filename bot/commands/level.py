@@ -197,6 +197,7 @@ def _weekly_details(row: level_service.WeeklyStanding) -> str:
     if row.level_start == row.level_end:
         return t(
             "level.xp.leaderboard.weekly_details_progress",
+            l=row.level_start,
             xp=row.xp,
             n1=row.progress_start,
             n2=row.progress_end,
