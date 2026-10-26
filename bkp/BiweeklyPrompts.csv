@@ -20,8 +20,8 @@ Written by new-to-you author,,Author,Easy,FALSE
 Written by an author you already love,,Author,Easy,FALSE
 Written by a ghostwriter,,Author,Hard,FALSE
 A second chance on a DNF'd author,,Author,Easy,FALSE
-A book with a map,,Book Contents/Trope,Easy,FALSE
-A book with a glossary,,Book Contents/Trope,Medium,FALSE
+Features a map,,Book Contents/Trope,Easy,FALSE
+Features a glossary or in-world reference guide,,Book Contents/Trope,Medium,FALSE
 Contains a murder,,Book Contents/Trope,Easy,FALSE
 About technology/technology is a main part of the book,,Book Contents/Trope,Medium,FALSE
 About nature/the environment,,Book Contents/Trope,Medium,FALSE
@@ -47,7 +47,7 @@ Main character is an artist,,Book Contents/Trope,Medium,FALSE
 Non-linear timeline/time travel/flashbacks,,Book Contents/Trope,Medium,FALSE
 Has children/MC is a parent/caregiver,,Book Contents/Trope,Medium,FALSE
 Features senior characters,,Book Contents/Trope,Medium,FALSE
-A book with humor to make you giggle,,Book Contents/Trope,Medium,FALSE
+Has humor to make you giggle,,Book Contents/Trope,Medium,FALSE
 Some scenes in the book happen at night,,Book Contents/Trope,Medium,FALSE
 Characters go on a date,,Book Contents/Trope,Easy,FALSE
 There's an awkward first-meeting/first encounter,,Book Contents/Trope,Easy,FALSE
@@ -59,16 +59,16 @@ Characters get lost/disappear,,Book Contents/Trope,Medium,FALSE
 There's a cake,,Book Contents/Trope,Hard,FALSE
 Someone wears an apron at some time,,Book Contents/Trope,Hard,FALSE
 There's an animal shapeshifter/anthropomorphic character,,Book Contents/Trope,Medium,FALSE
-First sentence is a question,,Book Contents/Trope,Hard,FALSE
+Opening sentence is a question,,Book Contents/Trope,Hard,FALSE
 Explores social or political issues,,Book Contents/Trope,Hard,FALSE
 Features a strong sibling relationship,,Book Contents/Trope,Medium,FALSE
 Set during your favorite historical era,,Book Contents/Trope,Easy,FALSE
 About sickness/character gets sick,,Book Contents/Trope,Medium,FALSE
-Over 250 pages,,Book Length,Easy,FALSE
-Over 450 pages,,Book Length,Easy,FALSE
-Under 200 pages,,Book Length,Easy,FALSE
-Under 300 pages,,Book Length,Easy,FALSE
-Book happens at a school,,Book Location,Easy,FALSE
+Over 250 pages or takes more than 10h to complete/watch/read,,Book Length,Easy,FALSE
+Over 450 pages or takes more than 20h to complete/watch/read,,Book Length,Easy,FALSE
+Under 200 pages or takes less than 5h to complete/watch/read,,Book Length,Easy,FALSE
+Under 300 pages or takes less than 10h to complete/watch/read,,Book Length,Easy,FALSE
+Happens at a school,,Book Location,Easy,FALSE
 Characters go an adventure/travel/journey,,Book Location,Medium,FALSE
 Takes place in Mexico,,Book Location,Easy,FALSE
 Takes place in Russia,,Book Location,Easy,FALSE
@@ -88,7 +88,7 @@ Set in a metropolis,,Book Location,Easy,FALSE
 Set on an island,,Book Location,Medium,FALSE
 Closed-doors/takes place in a single building,,Book Location,Medium,FALSE
 In a fictional country,,Book Location,Easy,FALSE
-Features a bookshop/library,,Book Location,Easy,FALSE
+"Features a bookshop, library or archive",,Book Location,Easy,FALSE
 Features a coffee shop,,Book Location,Easy,FALSE
 LGBTQIA+ Rep,,Characters rep,Easy,FALSE
 MC is a woman,,Characters rep,Easy,FALSE
@@ -101,58 +101,59 @@ The main character has freckles,,Characters rep,Hard,FALSE
 One of the characters is plus-size,,Characters rep,Medium,FALSE
 BIPOC protagonists,,Characters rep,Easy,FALSE
 A non-human protagonist,,Characters rep,Medium,FALSE
-Has an animal on the cover,,Cover,Medium,FALSE
-Has a flower on the cover,,Cover,Easy,FALSE
-Has vegetables on the cover,,Cover,Easy,FALSE
-Has a building on the cover,,Cover,Easy,FALSE
-Has a mode of transportation on the cover,,Cover,Easy,FALSE
-Has a decorative object on the cover,,Cover,Easy,FALSE
-Has food on the cover,,Cover,Easy,FALSE
-Has blood or grime on the cover,,Cover,Easy,FALSE
-Characters are facing each other on the cover,,Cover,Easy,FALSE
-Characters are back-to-back on the cover,,Cover,Easy,FALSE
-Has an historic location on the cover,,Cover,Easy,FALSE
-Has a weapon on the cover,,Cover,Easy,FALSE
-Has a source of light on the cover,,Cover,Easy,FALSE
-Has wings or a winged creature on the cover,,Cover,Easy,FALSE
-Has water on the cover,,Cover,Easy,FALSE
-Illustrated/cartoon cover,,Cover,Easy,FALSE
-Read a book based solely on how pretty the cover is,,Cover,Easy,FALSE
-Head cut-off on cover/bust picture,,Cover,Easy,FALSE
+Features an animal on the cover/promotional materials,,Cover,Medium,FALSE
+Features a flower on the cover/promotional materials,,Cover,Easy,FALSE
+Features vegetables on the cover/promotional materials,,Cover,Easy,FALSE
+Features a building on the cover/promotional materials,,Cover,Easy,FALSE
+Features a mode of transportation on the cover/promotional materials,,Cover,Easy,FALSE
+Features a decorative object on the cover/promotional materials,,Cover,Easy,FALSE
+Features food on the cover/promotional materials,,Cover,Easy,FALSE
+Features blood or grime on the cover/promotional materials,,Cover,Easy,FALSE
+Characters are facing each other on the cover/promotional materials,,Cover,Easy,FALSE
+Characters are back-to-back on the cover/promotional materials,,Cover,Easy,FALSE
+Features an historic location on the cover/promotional materials,,Cover,Easy,FALSE
+Features a weapon on the cover/promotional materials,,Cover,Easy,FALSE
+Features a source of light on the cover/promotional materials,,Cover,Easy,FALSE
+Features wings or a winged creature on the cover/promotional materials,,Cover,Easy,FALSE
+Features water on the cover/promotional materials,,Cover,Easy,FALSE
+Monochromatic cover/promotional materials,,Cover,Easy,FALSE
+Illustrated/cartoon cover/promotional materials,,Cover,Easy,FALSE
+Choose a work based solely on how pretty the cover/promotional materials are,,Cover,Easy,FALSE
+Head cut-off/bust picture on the cover/promotional materials,,Cover,Easy,FALSE
 Bestseller,,Popularity,Easy,FALSE
-Made it to a movie or mini-series,,Popularity,Medium,FALSE
+Has been adapted into another medium,"Book became a movie or mini-series, or a video game's tie-in novel...",Popularity,Medium,FALSE
 Won a prize or award,,Popularity,Medium,FALSE
-Less than 500 GR ratings,,Popularity,Easy,FALSE
-Less than 1000 GR ratings,,Popularity,Easy,FALSE
-"Morally-grey character, villain MC",,POVs,Medium,FALSE
-Book with only one POV,,POVs,Easy,FALSE
-Book with several POVs,,POVs,Easy,FALSE
-Read with a snack,,Reading Set-Up,Easy,FALSE
-Read outside,,Reading Set-Up,Easy,FALSE
-Read in your favorite spot,,Reading Set-Up,Easy,FALSE
-Read in a new spot,,Reading Set-Up,Easy,FALSE
-Read while listening to a playlist inspired by the book,,Reading Set-Up,Easy,FALSE
-Read in your pajamas or with cozy socks,,Reading Set-Up,Easy,FALSE
-Buddy Read with someone,,Server Activity,Easy,FALSE
-Has been on your TBR for a year or less,,Server Activity,Easy,FALSE
-Has been on your TBR for 5 years or more,,Server Activity,Easy,FALSE
-Has been on your TBR for 2 years or more,,Server Activity,Easy,FALSE
-Pick a book off your TBR with your eyes closed,,Server Activity,Easy,FALSE
-Support an indie book store,Treat yourself to shopping this week or pick up a book you bought from an independent source,Source,Easy,FALSE
-A self-published book,,Source,Easy,FALSE
-From the library,,Source,Easy,FALSE
+"Less than 500 Goodreads, Steam, Letterboxd(...) ratings",,Popularity,Easy,FALSE
+"Less than 1000 Goodreads, Steam, Letterboxd(...) ratings",,Popularity,Easy,FALSE
+"Morally-grey protagonist, villain MC",,POVs,Medium,FALSE
+Uses only one POV or centers one perspective,,POVs,Easy,FALSE
+Uses multiple POVs or centers multiple perspectives,,POVs,Easy,FALSE
+Experience it with a snack,,Reading Set-Up,Easy,FALSE
+Experience it outside,,Reading Set-Up,Easy,FALSE
+Experience it in your favorite spot,,Reading Set-Up,Easy,FALSE
+Experience it in a new spot,,Reading Set-Up,Easy,FALSE
+Find a playlist inspired by the media in question and listen to it in full,,Reading Set-Up,Easy,FALSE
+Experience it in your pajamas or with cozy socks,,Reading Set-Up,Easy,FALSE
+Experience it with someone else,"eg. multiplayer game, buddy read, watch party...",Server Activity,Easy,FALSE
+"Has been on your radar for a year or less",,Server Activity,Easy,FALSE
+Has been on your radar for 5 years or more,,Server Activity,Easy,FALSE
+Has been on your radar for 2 years or more,,Server Activity,Easy,FALSE
+Pick a book off your backlog with your eyes closed,,Server Activity,Easy,FALSE
+"Support an indie book store, retailer or creator",Treat yourself to shopping this week or pick up a media you already bought from an independent source,Source,Easy,FALSE
+A self-published book or independently produced media,,Source,Easy,FALSE
+"Borrowed from the library, a rental service or lending platform",,Source,Easy,FALSE
 A new release,,Source,Easy,FALSE
 Purchased second-hand or got it as a freebie or from Guttenberg,,Source,Easy,FALSE
-"Read a fanfic, a retelling, or a fairy tale",,Specific Genre,Easy,FALSE
+"Read a fanfic, or pick a retelling or a fairy tale",,Specific Genre,Easy,FALSE
 Historical fiction set in or inspired by the Middle Ages (c. AD 500-1500),,Specific Genre,Easy,FALSE
 Historical fiction set in or inspired by Classical Antiquity (c. 3000 BC-500 AD),,Specific Genre,Easy,FALSE
 Historical fiction set during or inspired by the Industrial Revolution/Napoleonic era (c. 1760-1850),,Specific Genre,Easy,FALSE
 Historical fiction set during or inspired by WWI era (c. 1910-1930),,Specific Genre,Easy,FALSE
 Historical fiction set during or inspired by WWII era (c. 1930-1950),,Specific Genre,Easy,FALSE
-A contemporary read,,Specific Genre,Easy,FALSE
+A contemporary media,,Specific Genre,Easy,FALSE
 Nonfiction,,Specific Genre,Medium,FALSE
-Holidays (eg. christmas),,Specific Genre,Easy,FALSE
-Translated work,,Specific Genre,Easy,FALSE
+Set during a holidays (eg. christmas),,Specific Genre,Easy,FALSE
+A translated work or with subtitles,,Specific Genre,Easy,FALSE
 Title starts with A,,Title,Easy,FALSE
 Title starts with B,,Title,Easy,FALSE
 Title starts with C,,Title,Easy,FALSE
@@ -187,15 +188,15 @@ Features a character's place of work,,Book Contents/Trope,Easy,FALSE
 Character is a business-owner,,Characters rep,Easy,FALSE
 Cyborg/AI as a character,,Characters rep,Easy,FALSE
 Someone has a price on their head/is hunted down by law enforcement/a rival. Someone is in pursuit.,,Book Contents/Trope,Hard,FALSE
-MC is poor/has to deal with poverty,,Characters rep,Medium,FALSE
+Protagonist is poor/has to deal with poverty,,Characters rep,Medium,FALSE
 Has a long title,,Title,Easy,FALSE
 Characters break into a house/a public place/use lockpicks,,Book Contents/Trope,Hard,FALSE
 Takes place in a mall,,Book Location,Medium,FALSE
 Protagonists are from First Nations/North Americans Indigenous people,,Characters rep,Easy,FALSE
-Book contains a showdown between the MC(s) and their antagonist(s),,Book Contents/Trope,Medium,FALSE
-Biblical MC ,"Angels, Seraphs, Gods, Prophets...",Characters rep,Hard,FALSE
+Contains a showdown between the protagonist(s) and their antagonist(s),,Book Contents/Trope,Medium,FALSE
+Biblical protagonist,"Angels, Seraphs, Gods, Prophets...",Characters rep,Hard,FALSE
 Eldritch horror,The horror comes from something we can't possibly understand or imagine,Specific Genre,Hard,FALSE
-A relative/friend/acquaintance of the MC dies,,Book Contents/Trope,Hard,FALSE
+A relative/friend/acquaintance of the protagonist dies,,Book Contents/Trope,Hard,FALSE
 Has a multiverse,,Book Contents/Trope,Hard,FALSE
 "Characters fly into a rage, or have anger issues",,Book Contents/Trope,Hard,FALSE
 "There's a (horse, car, etc) race or chase scene",,Book Contents/Trope,Hard,FALSE
@@ -204,10 +205,10 @@ Has starships,,Book Contents/Trope,Medium,FALSE
 Depicts epic battles,,Book Contents/Trope,Medium,FALSE
 Space exploration/adventures,,Book Contents/Trope,Easy,FALSE
 Contains physical combats/martial art/wrestling,,Book Contents/Trope,Medium,FALSE
-The MC has to train to achive their goals/contains a training montage,,Book Contents/Trope,Hard,FALSE
+The protagonist has to train to achive their goals/contains a training montage,,Book Contents/Trope,Hard,FALSE
 Has an anniversary or wedding celebration,,Book Contents/Trope,Easy,FALSE
-MC is a noble/royal,,Characters rep,Easy,FALSE
-Arranged marriage,,Book Contents/Trope,Easy,FALSE
+The protagonist is a noble/royal,,Characters rep,Easy,FALSE
+Has an arranged marriage,,Book Contents/Trope,Easy,FALSE
 Opens on a sex/gory scene,,Book Contents/Trope,Hard,FALSE
 Characters are going to therapy,,Book Contents/Trope,Hard,FALSE
 Opposite attracts,,Book Contents/Trope,Easy,FALSE
@@ -217,13 +218,13 @@ Contains a dead or made-up language,"For example, spells in latin",Book Contents
 One of the location is a disaffected/abandonned building/home,,Book Contents/Trope,Hard,FALSE
 The protagonist is dramatic/over-the-top,,Book Contents/Trope,Hard,FALSE
 Dives deep into a character's psychology,,Book Contents/Trope,Hard,FALSE
-MC is a wheelchair user,,Characters rep,Medium,FALSE
+The protagonist is a wheelchair user,,Characters rep,Medium,FALSE
 Contains a heat wave/overly warm days,,Book Contents/Trope,Hard,FALSE
-MC has a tense relationship with a sibling/parent,,Book Contents/Trope,Medium,FALSE
+The protagonist has a tense relationship with a sibling/parent,,Book Contents/Trope,Medium,FALSE
 One of the main characters had shitty and/or dead parents,,Book Contents/Trope,Medium,FALSE
 Protagonist wears armor/protective suit,,Book Contents/Trope,Medium,FALSE
 "Dexterity: The protagonist is a pro at wielding weapons, or can play an instrument well, or is very agile",,Book Contents/Trope,Medium,FALSE
-World where magical beings are shunned/hidden/MC hates magical beings,,Book Contents/Trope,Hard,FALSE
+A world where magical beings are shunned/hidden/protagonist hates magical beings,,Book Contents/Trope,Hard,FALSE
 Rage against the machine: the protagonists go after their government/rulers/fight the system,,Book Contents/Trope,Medium,FALSE
 There's a war!,,Book Contents/Trope,Medium,FALSE
 "Everyone is after the same MacGuffin (a magical artefact, a promotion, etc.)",,Book Contents/Trope,Hard,FALSE
@@ -231,14 +232,14 @@ Characters are in perillous situations/might die,,Book Contents/Trope,Hard,FALSE
 "Character gives a long speech, or is a gifted storyteller/an orator",,Book Contents/Trope,Hard,FALSE
 "Fashion faux-pas: character must wear a disguise/clothes that don't fit them in order to blend in, or fail to blend in due to their clothes",,Book Contents/Trope,Hard,FALSE
 Contains telepathy or communication without words,,Book Contents/Trope,Hard,FALSE
-MC has to interact with a dead body/is in the same room/discovers a corpse,,Book Contents/Trope,Hard,FALSE
-MC has your dream job,,Book Contents/Trope,Easy,FALSE
+Protagonist has to interact with a dead body/is in the same room/discovers a corpse,,Book Contents/Trope,Hard,FALSE
+Protagonist has your dream job,,Book Contents/Trope,Easy,FALSE
 Characters bond through a common hobby/interest/goal,,Book Contents/Trope,Medium,FALSE
 Character discovers a secret strength/ability/magic,,Book Contents/Trope,Medium,FALSE
 "There's a misunderstanding/past breakup, or a second chance is given to a character",,Book Contents/Trope,Easy,FALSE
 "Dichotomy: good vs. bad, light vs. darkness","There's a ""good"" faction battling with a ""bad"" faction",Book Contents/Trope,Medium,FALSE
 "Contains imprisonment, jail, captivity",,Book Contents/Trope,Hard,FALSE
-Someone gets rejected (romantically or other),,Book Contents/Trope,Medium,FALSE
+Someone gets rejected (romantically or otherwise),,Book Contents/Trope,Medium,FALSE
 "One of the characters is a punk, emo or has an alt aesthetic",,Characters rep,Medium,FALSE
 One of the characters is a man with long hair,,Characters rep,Easy,FALSE
 Characters wear jewellery,,Characters rep,Easy,FALSE
@@ -246,24 +247,24 @@ Takes place in close-knit/closed/remote community,,Book Location,Medium,FALSE
 Characters escape a mariage/family/unwanted contract,,Book Contents/Trope,Medium,FALSE
 One of the characters is part of law enforcement,,Characters rep,Hard,FALSE
 There's a ghost. Boo!!,,Book Contents/Trope,Easy,FALSE
-The book keeps you guessing until the end,,Book Contents/Trope,Hard,FALSE
+Keeps you guessing until the end,,Book Contents/Trope,Hard,FALSE
 Star-crossed lovers,,Book Contents/Trope,Easy,FALSE
 "Humanity might be wiped out (virus, alien threat, etc)",,Book Contents/Trope,Medium,FALSE
-MC swore off dating/isn't interested in romance or is aromantic,,Book Contents/Trope,Medium,FALSE
+Protagonist swore off dating/isn't interested in romance or is aromantic,,Book Contents/Trope,Medium,FALSE
 Takes place in a forest,,Book Location,Easy,FALSE
 There are teenagers,,Book Contents/Trope,Easy,FALSE
 There are twins and/or the MC gets a new identity/name or uses aliases,,Book Contents/Trope,Medium,FALSE
 "There are human sacrifices and/or about cannibalism, satanism, paganism, etc",,Book Contents/Trope,Medium,FALSE
-MC already survived a traumatic/life threatening event before the book starts,,Book Contents/Trope,Medium,FALSE
+Protagonist already survived a traumatic/life threatening event before the story starts,,Book Contents/Trope,Medium,FALSE
 "Cheesy/over the top premise, so bad it's good",,Specific Genre,Medium,FALSE
-"Improper power dynamics between a couple/someone has an inappropriate affair (eg. affair with staff, getting on with a professor, etc.)",,Book Contents/Trope,Medium,FALSE
-MC is a high ranking official/a hero/achieved a lot in their field before the book starts,,Characters rep,Medium,FALSE
-"Masquerade (has balls, dances, parties, prom night etc)",,Book Contents/Trope,Easy,FALSE
+"Improper power dynamics between a couple/someone has an inappropriate affair","(eg. affair with staff, getting on with a professor, etc.)",Book Contents/Trope,Medium,FALSE
+Protagonist is a high ranking official/a hero/achieved a lot in their field before the story starts,,Characters rep,Medium,FALSE
+"Masquerade","(has balls, dances, parties, prom night etc)",Book Contents/Trope,Easy,FALSE
 About food/food-centered,,Book Contents/Trope,Medium,FALSE
-MC tells a lie that gets out of control (Snowball),,Book Contents/Trope,Hard,FALSE
-Book has footnotes,,Book Contents/Trope,Medium,FALSE
-There's a cult (or about social pressure),,Book Contents/Trope,Medium,FALSE
-Book has content warnings,,Book Contents/Trope,Easy,FALSE
+Protagonist tells a lie that gets out of control (Snowball),,Book Contents/Trope,Hard,FALSE
+"Has footnotes, or an audio-commentary track, or additional content to contextualize the main story",,Book Contents/Trope,Medium,FALSE
+There's a cult or a story about social pressure,,Book Contents/Trope,Medium,FALSE
+Has content warnings or parental advisory warnings,,Book Contents/Trope,Easy,FALSE
 Menage (3+ romantic relationship),,Characters rep,Easy,FALSE
 Family business,,Book Contents/Trope,Medium,FALSE
 There's an established couple,,Book Contents/Trope,Easy,FALSE
