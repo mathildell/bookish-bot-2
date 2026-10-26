@@ -385,6 +385,7 @@ def _level_progress_text(progress: streak_service.LevelProgress) -> str:
     if progress.xp_old_level == progress.xp_new_level:
         return t(
             "streaks.shared.level_progress",
+            l=progress.xp_old_level,
             n1=progress.xp_progress_start,
             n2=progress.xp_progress_end,
             needed=progress.xp_needed,

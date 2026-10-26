@@ -24,7 +24,7 @@ streaks:
     date_field: "Date"
     rescue_button: "Repair streak"
     level_progress_up: " (XP Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
-    level_progress: " (`%{n1}` → `%{n2}`/`%{needed}` XP)"
+    level_progress: " (Level `%{l}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
     reminder:
       none: "No reminder"
       custom: "Reminder at %{hour}"

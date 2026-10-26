@@ -282,6 +282,7 @@ def xp_progress_text(summary: dict) -> str:
         return t(
             "birthday.post.xp_gift_add_xp",
             xp=XP_GIFT,
+            l=summary["old_level"],
             n1=summary["progress_start"],
             n2=summary["progress_end"],
             needed=summary["needed"],

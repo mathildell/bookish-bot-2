@@ -117,7 +117,7 @@ birthday:
     fallback_description: "Another year, another chapter. Happy birthday!"
     xp_field: ":gift: ‎ Birthday gift"
     xp_gift_level_up: "**`%{xp}` XP** (Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
-    xp_gift_add_xp: "**`%{xp}` XP** (`%{n1}` → `%{n2}`/`%{needed}` XP)"
+    xp_gift_add_xp: "**`%{xp}` XP** (Level `%{l}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
 
   errors:
     generic: "Something went wrong while handling that birthday."
