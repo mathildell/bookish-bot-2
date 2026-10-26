@@ -157,6 +157,7 @@ class LogLevelProgressTests(unittest.TestCase):
         )
         expected = t(
             "streaks.shared.level_progress",
+            l=1,
             n1=100,
             n2=150,
             needed=175,

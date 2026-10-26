@@ -146,6 +146,7 @@ async def _announce_closed(
     client: discord.Client,
     guild: discord.Guild | None,
     ticket: Ticket,
+    thread: discord.Thread,
 ) -> None:
     if guild is None:
         return
@@ -155,7 +156,7 @@ async def _announce_closed(
     if channel is None:
         return
     try:
-        await channel.send(embed=summary_embed(client, ticket))
+        await channel.send(embed=summary_embed(client, ticket, thread.jump_url))
     except discord.HTTPException:
         logger.warning("Could not announce closed ticket", exc_info=True)
 
@@ -292,7 +293,7 @@ async def _handle_close(
         await thread.edit(archived=True, reason=reason)
     except discord.HTTPException:
         logger.warning("Could not archive ticket thread", exc_info=True)
-    await _announce_closed(interaction.client, interaction.guild, updated)
+    await _announce_closed(interaction.client, interaction.guild, updated, thread)
     await _clear_command_progress(interaction)
 
 

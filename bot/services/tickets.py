@@ -96,13 +96,16 @@ def ticket_embed(client: discord.Client, number: int) -> discord.Embed:
     return embed
 
 
-def summary_embed(client: discord.Client, ticket: Ticket) -> discord.Embed:
+def summary_embed(
+    client: discord.Client, ticket: Ticket, thread_link: str
+) -> discord.Embed:
     """The close summary posted in the admins' updates channel."""
     embed = discord.Embed(
         title=t("tickets.summary.title"),
         description=t(
             "tickets.summary.description",
             name=discord.utils.escape_markdown(ticket.name),
+            link=thread_link,
             user=f"<@{ticket.opener_id}>",
         ),
         colour=getattr(client, "default_embed_color", None),

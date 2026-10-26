@@ -231,7 +231,7 @@ class XpTests(unittest.TestCase):
         summary = birthday_service.xp_award_summary(change)
         text = birthday_service.xp_progress_text(summary)
         self.assertIn("`5000` XP", text)
-        self.assertNotIn("Level", text)
+        self.assertIn("Level `1`", text)
 
 
 class CommandTests(unittest.TestCase):

@@ -50,7 +50,7 @@ tickets:
     resolved_prefix: "[Resolved] "
   summary:
     title: "Ticket closed"
-    description: "**%{name}**\nOpened by %{user}"
+    description: "**%{name}**\n%{link}\nOpened by %{user}"
     opened_field: "Opened"
     closed_field: "Closed"
     unknown_time: "Unknown"

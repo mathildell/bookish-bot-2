@@ -144,10 +144,16 @@ class TicketEmbedTests(unittest.TestCase):
             opened_at=datetime(2026, 10, 20, 10, 0, 0),
             closed_at=datetime(2026, 10, 20, 12, 0, 0),
         )
-        embed = ticket_service.summary_embed(FakeClient(), ticket)
+        link = "https://discord.com/channels/1/2"
+        embed = ticket_service.summary_embed(FakeClient(), ticket, link)
         self.assertEqual(embed.title, t("tickets.summary.title"))
         self.assertIn("<@42>", embed.description)
         self.assertIn("Alice's ticket #7", embed.description)
+        self.assertIn(link, embed.description)
+        self.assertLess(
+            embed.description.index(link),
+            embed.description.index("<@42>"),
+        )
         fields = {field.name: field.value for field in embed.fields}
         self.assertEqual(
             fields[t("tickets.summary.opened_field")],
