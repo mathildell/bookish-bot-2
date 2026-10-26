@@ -85,6 +85,9 @@ biweekly_theme:
     embed_description: "From **%{date_start}**, to **%{date_end}:** %{title}" 
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
+  audit:
+    pin: "Pinned this fortnight’s theme"
+    unpin: "Unpinned the previous theme"
 
   errors:
     generic: "Something went wrong with that card."

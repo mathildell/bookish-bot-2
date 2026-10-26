@@ -18,6 +18,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import discord
+
 from bot.services import biweekly_theme as theme_service
 from bot.services import theme_images
 from bot.texts import t
@@ -283,12 +285,41 @@ class _FakeHost:
         return "https://example.com/theme.png"
 
 
-class _FakeChannel:
-    def __init__(self) -> None:
-        self.sent: list[dict] = []
+class _FakeMessage:
+    def __init__(self, channel, message_id: int) -> None:
+        self.channel = channel
+        self.id = message_id
+        self.pinned = False
+        self.unpinned = False
 
-    async def send(self, **kwargs) -> None:
+    async def pin(self, *, reason: str | None = None) -> None:
+        self.pinned = True
+
+    async def unpin(self, *, reason: str | None = None) -> None:
+        self.pinned = False
+        self.unpinned = True
+
+
+class _FakeChannel:
+    def __init__(self, channel_id: int = 99) -> None:
+        self.id = channel_id
+        self.sent: list[dict] = []
+        self.messages: dict[int, _FakeMessage] = {}
+
+    async def send(self, **kwargs) -> _FakeMessage:
+        message = _FakeMessage(self, 1000 + len(self.sent))
+        self.messages[message.id] = message
         self.sent.append(kwargs)
+        return message
+
+    async def fetch_message(self, message_id: int) -> _FakeMessage:
+        message = self.messages.get(message_id)
+        if message is None:
+            raise discord.NotFound(
+                SimpleNamespace(status=404, reason="Not Found"),
+                "Unknown message",
+            )
+        return message
 
 
 class _Service(theme_service.BiweeklyThemeService):
@@ -302,6 +333,10 @@ class _Service(theme_service.BiweeklyThemeService):
 
     async def mark_card_sent(self, card_id: int, now=None) -> None:
         self.marked.append(card_id)
+
+    async def set_pinned_post(self, channel_id, message_id) -> None:
+        self._pinned_channel_id = channel_id
+        self._pinned_message_id = message_id
 
 
 class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
@@ -331,6 +366,44 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
             "https://example.com/theme.png",
         )
 
+    async def test_pins_the_new_card(self) -> None:
+        channel = _FakeChannel()
+        service = _Service(_FakeHost(), card())
+
+        message = await self._post(service, channel)
+
+        self.assertTrue(message.pinned)
+        self.assertEqual(service.pinned_message_id, message.id)
+        self.assertEqual(service._pinned_channel_id, channel.id)
+
+    async def test_unpins_the_previous_card(self) -> None:
+        channel = _FakeChannel()
+        service = _Service(_FakeHost(), card())
+        previous = await self._post(service, channel)
+        self.assertTrue(previous.pinned)
+
+        newest = await self._post(service, channel)
+
+        self.assertTrue(previous.unpinned)
+        self.assertFalse(previous.pinned)
+        self.assertTrue(newest.pinned)
+        self.assertEqual(service.pinned_message_id, newest.id)
+
+    async def test_pin_failure_leaves_the_post_untracked(self) -> None:
+        channel = _FakeChannel()
+        service = _Service(_FakeHost(), card())
+
+        with patch.object(
+            _FakeMessage,
+            "pin",
+            side_effect=discord.Forbidden(
+                SimpleNamespace(status=403, reason="Forbidden"), "no pin"
+            ),
+        ):
+            await self._post(service, channel)
+
+        self.assertIsNone(service.pinned_message_id)
+
     async def test_render_failure_has_no_fallback(self) -> None:
         host = _FakeHost()
         channel = _FakeChannel()
@@ -349,6 +422,20 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(channel.sent, [])
         self.assertEqual(service.marked, [])
         self.assertEqual(host.expirations, [])
+
+    async def _post(self, service: _Service, channel: _FakeChannel):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "theme.png"
+            path.write_bytes(b"png")
+            with patch.object(
+                theme_service, "render_theme", return_value=path
+            ):
+                await service.post_card(
+                    channel,
+                    FakeClient(),
+                    posted_on=date(2026, 10, 19),
+                )
+        return channel.messages[max(channel.messages)]
 
 
 class ParseCardsTests(unittest.TestCase):

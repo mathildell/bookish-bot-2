@@ -958,6 +958,13 @@ class BiweeklyThemeSetting(Base):
     last_posted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     # UTC date the last scheduled run was attempted, successful or not.
     last_attempted_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # The theme post currently pinned, so the next one can replace its pin.
+    pinned_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    pinned_message_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

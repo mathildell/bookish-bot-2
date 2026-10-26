@@ -8,6 +8,7 @@ module-level functions so they can be tested without a database. The
 from __future__ import annotations
 
 import asyncio
+import logging
 import random
 import unicodedata
 from datetime import date, datetime
@@ -32,6 +33,8 @@ POST_INTERVAL_DAYS = 14
 
 # The weekday and hour the theme goes out on are both UTC.
 DEFAULT_HOUR = 12
+
+logger = logging.getLogger("bh2.biweekly_theme")
 
 
 class BiweeklyThemeError(Exception):
@@ -205,6 +208,8 @@ class BiweeklyThemeService:
         self._enabled = True
         self._last_posted_on: date | None = None
         self._last_attempted_on: date | None = None
+        self._pinned_channel_id: int | None = None
+        self._pinned_message_id: int | None = None
         # Serialises posts so a manual run cannot race the scheduled loop.
         self._post_lock = asyncio.Lock()
 
@@ -236,6 +241,10 @@ class BiweeklyThemeService:
     def last_attempted_on(self) -> date | None:
         return self._last_attempted_on
 
+    @property
+    def pinned_message_id(self) -> int | None:
+        return self._pinned_message_id
+
     # ------------------------------------------------------------- settings
 
     async def reload(self) -> None:
@@ -248,6 +257,8 @@ class BiweeklyThemeService:
         self._enabled = bool(row.enabled) if row else True
         self._last_posted_on = row.last_posted_on if row else None
         self._last_attempted_on = row.last_attempted_on if row else None
+        self._pinned_channel_id = row.pinned_channel_id if row else None
+        self._pinned_message_id = row.pinned_message_id if row else None
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -298,6 +309,18 @@ class BiweeklyThemeService:
             row.last_attempted_on = attempted_on
             await session.commit()
         self._last_attempted_on = attempted_on
+
+    async def set_pinned_post(
+        self, channel_id: int | None, message_id: int | None
+    ) -> None:
+        """Remember the theme post that is pinned, or clear it."""
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.pinned_channel_id = channel_id
+            row.pinned_message_id = message_id
+            await session.commit()
+        self._pinned_channel_id = channel_id
+        self._pinned_message_id = message_id
 
     def is_due(self, now: datetime | None = None) -> bool:
         now = now or utcnow()
@@ -518,8 +541,64 @@ class BiweeklyThemeService:
                     path.unlink(missing_ok=True)
 
             content = f"<@&{self._role_id}>" if self._role_id else None
-            await channel.send(
-                content=content, embed=build_theme_embed(url, start, end, card.title, client)
+            message = await channel.send(
+                content=content,
+                embed=build_theme_embed(url, start, end, card.title, client),
             )
             await self.mark_card_sent(card.id)
+            await self._replace_pin(client, channel, message)
             return card
+
+    async def _replace_pin(
+        self,
+        client: discord.Client,
+        channel: discord.abc.Messageable,
+        message: discord.Message,
+    ) -> None:
+        """Pin the new theme, unpinning the one posted two weeks earlier."""
+        await self._unpin_previous(client, channel)
+        try:
+            await message.pin(reason=t("biweekly_theme.audit.pin"))
+        except discord.HTTPException:
+            logger.warning(
+                "Could not pin the theme post %s", message.id, exc_info=True
+            )
+            return
+        await self.set_pinned_post(channel.id, message.id)
+
+    async def _unpin_previous(
+        self, client: discord.Client, channel: discord.abc.Messageable
+    ) -> None:
+        message_id = self._pinned_message_id
+        if message_id is None:
+            return
+        previous: discord.abc.Messageable | None = channel
+        if getattr(channel, "id", None) != self._pinned_channel_id:
+            previous = await self._channel(client, self._pinned_channel_id)
+        if previous is not None:
+            try:
+                message = await previous.fetch_message(message_id)
+                await message.unpin(reason=t("biweekly_theme.audit.unpin"))
+            except discord.NotFound:
+                pass
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not unpin the previous theme post %s",
+                    message_id,
+                    exc_info=True,
+                )
+        await self.set_pinned_post(None, None)
+
+    async def _channel(
+        self, client: discord.Client, channel_id: int | None
+    ) -> discord.abc.Messageable | None:
+        """Resolve a channel by id, falling back to an API fetch."""
+        if not channel_id:
+            return None
+        channel = client.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await client.fetch_channel(channel_id)
+            except discord.HTTPException:
+                return None
+        return channel
