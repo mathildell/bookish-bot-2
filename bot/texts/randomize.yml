@@ -1,0 +1,5 @@
+randomize:
+  description: "Pick a random item from a comma-separated list"
+  param_items: "Items separated by commas, e.g. tea, coffee, water"
+  too_few: "Give me at least two comma-separated items."
+  result: "I pick: %{item}"

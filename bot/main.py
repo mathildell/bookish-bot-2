@@ -34,6 +34,7 @@ from .commands.level import (
 )
 from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
+from .commands.randomize import randomize_command
 from .commands.reminders import (
     BUTTON_LIFETIME_SECONDS,
     REMINDER_VIEW_KIND,
@@ -353,6 +354,7 @@ async def run() -> None:
     bot.tree.add_command(bot_group, guild=guild)
     bot.tree.add_command(settings_group, guild=guild)
     bot.tree.add_command(ping_command, guild=guild)
+    bot.tree.add_command(randomize_command, guild=guild)
     bot.tree.add_command(biweekly_theme_group, guild=guild)
 
     # ------------------------ message reactor ------------------------

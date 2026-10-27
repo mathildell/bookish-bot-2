@@ -697,3 +697,9 @@ View and edit the bot's runtime settings.
 ```
 **Permissions:** Everyone
 Check that the bot is awake; replies with the round-trip latency.
+
+```
+/randomize items:<items>
+```
+**Permissions:** Everyone
+Pick a random item from a comma-separated list (duplicates are weighted); reply is public as `I pick: <item>`.
