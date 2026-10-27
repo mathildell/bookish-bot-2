@@ -17,21 +17,21 @@ FONT_REGULAR = _ASSETS / "fonts" / "FlowerBee.ttf"
 
 THEME_IMGBB_EXPIRATION_SECONDS = 90 * 24 * 3600
 
-DATE_FROM_CENTER = (635, 190)
-DATE_FROM_MAX_WIDTH = 280
-DATE_TO_CENTER = (1095, 190)
+DATE_FROM_CENTER = (640, 193)
+DATE_FROM_MAX_WIDTH = 230
+DATE_TO_CENTER = (1110, 193)
 DATE_TO_MAX_WIDTH = 230
 DATE_SIZE = 48
 DATE_MIN_SIZE = 20
 
-PROMPT_LEFT = 395
+PROMPT_LEFT = 440
 PROMPT_TOP = 240
-PROMPT_WIDTH = 820
+PROMPT_WIDTH = 760
 PROMPT_HEIGHT = 480
 PROMPT_TITLE_SIZE = 55
 PROMPT_DESCRIPTION_SIZE = 34
 PROMPT_GAP = 10
-PROMPT_SPACING = 1.12
+PROMPT_SPACING = 1.1
 
 
 class ThemeRenderError(Exception):
@@ -72,18 +72,27 @@ def render_theme(
     *,
     prompt: str,
     description: str | None,
-    start: str,
-    end: str,
+    start: str | date,
+    end: str | date,
 ) -> Path:
     """Draw the theme card and return the temporary PNG path."""
     try:
+        if isinstance(start, date):
+            start_text = format_theme_date(start)
+        else:
+            start_text = str(start)
+        if isinstance(end, date):
+            end_text = format_theme_date(end)
+        else:
+            end_text = str(end)
+
         with Image.open(TEMPLATE) as opened:
             image = opened.convert("RGBA")
         draw = ImageDraw.Draw(image)
 
         for text, center, max_width in (
-            (start, DATE_FROM_CENTER, DATE_FROM_MAX_WIDTH),
-            (end, DATE_TO_CENTER, DATE_TO_MAX_WIDTH),
+            (start_text, DATE_FROM_CENTER, DATE_FROM_MAX_WIDTH),
+            (end_text, DATE_TO_CENTER, DATE_TO_MAX_WIDTH),
         ):
             font, fitted = fit_single_line(
                 draw,
