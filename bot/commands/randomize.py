@@ -133,6 +133,15 @@ class RandomizeRerollView(ExpiringView):
             pass
 
 
+class RandomizeRerollFallbackView(discord.ui.View):
+    """Persistent fallback for reroll button after a restart."""
+
+    def __init__(self) -> None:
+        super().__init__(timeout=None)
+        self.add_item(RandomizeRerollButton(disabled=False))
+
+
+
 @app_commands.command(name="randomize", description=t("randomize.description"))
 @app_commands.describe(items=t("randomize.param_items"))
 async def randomize_command(interaction: discord.Interaction, items: str) -> None:
