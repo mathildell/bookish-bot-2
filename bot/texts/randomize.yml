@@ -2,6 +2,5 @@ randomize:
   description: "Pick a random item from a comma-separated list"
   param_items: "Items separated by commas, e.g. tea, coffee, water"
   too_few: "Give me at least two comma-separated items."
-  wheel_turning: "Wheel is turning..."
-  picking: "I pick: %{item}"
-  result: "I pick: %{item}"
+  wheel_turning: "🎲 ‎ The wheel is turning..."
+  picking: "Result: **%{item}**"
