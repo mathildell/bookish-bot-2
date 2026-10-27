@@ -361,7 +361,7 @@ class ThemeSuggestionReviewView(discord.ui.View):
         if name is None:
             name = f"User {suggestion.user_id}"
         try:
-            await service.add_card(suggestion.title, credited_description)
+            await service.add_card(suggestion.title, credit_description)
         except BiweeklyThemeError as exc:
             await interaction.followup.send(
                 t(exc.key, **exc.variables), ephemeral=True
