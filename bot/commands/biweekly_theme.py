@@ -342,15 +342,24 @@ class ThemeSuggestionReviewView(discord.ui.View):
         name = None
         if guild is not None:
             member = guild.get_member(suggestion.user_id)
+            if member is None:
+                try:
+                    member = await guild.fetch_member(suggestion.user_id)
+                except Exception:
+                    member = None
             if member is not None:
                 name = member.display_name
         if name is None:
             user = interaction.client.get_user(suggestion.user_id)
+            if user is None:
+                try:
+                    user = await interaction.client.fetch_user(suggestion.user_id)
+                except Exception:
+                    user = None
             if user is not None:
-                name = user.display_name
+                name = getattr(user, "display_name", None) or user.name
         if name is None:
             name = f"User {suggestion.user_id}"
-        credited_description = credit_description(suggestion.description, name)
         try:
             await service.add_card(suggestion.title, credited_description)
         except BiweeklyThemeError as exc:
@@ -360,7 +369,11 @@ class ThemeSuggestionReviewView(discord.ui.View):
             return
         await service.remove_suggestion(suggestion.id)
         embed = interaction.message.embeds[0] if interaction.message.embeds else new_embed(interaction.client)
-        embed.title = t("biweekly_theme.cards.review.approved", user=interaction.user.mention)
+        embed.add_field(
+            name=t("biweekly_theme.cards.review.approb_status"),
+            value=t("biweekly_theme.cards.review.approved", user=interaction.user.mention),
+            inline=False,
+        )
         await interaction.message.edit(embed=embed, view=None)
         await interaction.followup.send(
             t("biweekly_theme.cards.review.approve_success"), ephemeral=True
@@ -389,7 +402,10 @@ class ThemeSuggestionReviewView(discord.ui.View):
             return
         await service.remove_suggestion(suggestion.id)
         embed = interaction.message.embeds[0] if interaction.message.embeds else new_embed(interaction.client)
-        embed.title = t("biweekly_theme.cards.review.refused", user=interaction.user.mention)
+        embed.add_field(
+            name=t("biweekly_theme.cards.review.approb_status"),
+            value=t("biweekly_theme.cards.review.refused", user=interaction.user.mention),            inline=False,
+        )
         await interaction.response.edit_message(embed=embed, view=None)
 
 
