@@ -44,16 +44,21 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         return
 
     winner = random.choice(parsed)
-    animation_frames = random.sample(_ROULETTE_FRAMES, k=3)
-    await interaction.response.send_message(animation_frames[0])
+    frames = _ROULETTE_FRAMES
+    start = random.randint(0, len(frames) - 1)
+    f1 = frames[start % len(frames)]
+    f2 = frames[(start + 1) % len(frames)]
+    f3 = frames[(start + 2) % len(frames)]
+    f4 = frames[(start + 3) % len(frames)]
+
+    await interaction.response.send_message(f"{f1}\n\n{t('randomize.wheel_turning')}")
     message = await interaction.original_response()
 
     await asyncio.sleep(1)
-    await message.edit(content=animation_frames[1])
+    await message.edit(content=f"{f2}\n\n{t('randomize.wheel_turning')}")
 
     await asyncio.sleep(1)
-    await message.edit(content=animation_frames[2])
+    await message.edit(content=f"{f3}\n\n{t('randomize.wheel_turning')}")
 
     await asyncio.sleep(1)
-    final_frame = random.choice(_ROULETTE_FRAMES)
-    await message.edit(content=f"{final_frame}\n\n{t('randomize.result', item=winner)}")
+    await message.edit(content=f"{f4}\n\n{t('randomize.picking', item=winner)}")
