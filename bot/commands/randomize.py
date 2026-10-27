@@ -55,7 +55,7 @@ class RandomizeRerollButton(discord.ui.Button):
     def __init__(self, *, disabled: bool = False) -> None:
         super().__init__(
             label=t("randomize.reroll_label"),
-            emoji="🎰",
+            emoji=t("randomize.reroll_emoji"),
             style=discord.ButtonStyle.secondary,
             custom_id=REROLL_CUSTOM_ID,
             disabled=disabled,
