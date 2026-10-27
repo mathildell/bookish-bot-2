@@ -6,3 +6,4 @@ randomize:
   picking: "Result: **%{item}**"
   reroll_label: "Reroll"
   reroll_emoji: "<:slotmachine:1564739493678948503>"
+  reroll_not_author: "Only the person who ran the initial command can use this button. Run `/randomize` with your own list to get a reroll!"

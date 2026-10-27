@@ -9,7 +9,7 @@ import discord
 from discord import app_commands
 
 from ..texts import t
-from .views import ExpiringView, track_view
+from .views import ExpiringView, message_author_id, track_view
 
 REROLL_CUSTOM_ID = "randomize:reroll"
 REROLL_LIFETIME_SECONDS = 2 * 60 * 60
@@ -70,9 +70,10 @@ class RandomizeRerollButton(discord.ui.Button):
 
 
 class RandomizeRerollView(ExpiringView):
-    def __init__(self, items_text: str = "", *, disabled: bool = False) -> None:
+    def __init__(self, items_text: str = "", *, disabled: bool = False, owner_id: int | None = None) -> None:
         super().__init__(timeout=REROLL_LIFETIME_SECONDS)
         self.items_text = items_text
+        self.owner_id = owner_id
         self.add_item(RandomizeRerollButton(disabled=disabled))
 
     def _set_reroll_disabled(self, disabled: bool) -> None:
@@ -82,6 +83,14 @@ class RandomizeRerollView(ExpiringView):
 
     async def reroll(self, interaction: discord.Interaction) -> None:
         client = getattr(interaction, "client", None)
+        owner_id = getattr(self, "owner_id", None)
+        if owner_id is None and interaction.message is not None:
+            owner_id = message_author_id(interaction.message)
+        if owner_id is not None and interaction.user.id != owner_id:
+            await interaction.response.send_message(
+                t("randomize.reroll_not_author"), ephemeral=True
+            )
+            return
         parsed = parse_items(self.items_text)
         if len(parsed) < 2:
             self._set_reroll_disabled(True)
@@ -104,7 +113,7 @@ class RandomizeRerollView(ExpiringView):
                 message,
                 kind=REROLL_VIEW_KIND,
                 lifetime=REROLL_LIFETIME_SECONDS,
-                state={"items": self.items_text},
+                state={"items": self.items_text, "owner_id": owner_id},
             )
         except Exception:
             pass
@@ -127,7 +136,7 @@ class RandomizeRerollView(ExpiringView):
                 message,
                 kind=REROLL_VIEW_KIND,
                 lifetime=REROLL_LIFETIME_SECONDS,
-                state={"items": self.items_text},
+                state={"items": self.items_text, "owner_id": owner_id},
             )
         except Exception:
             pass
@@ -150,8 +159,9 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         await interaction.response.send_message(t("randomize.too_few"), ephemeral=True)
         return
 
+    owner_id = interaction.user.id
     sequence, winner = _roulette_content(parsed)
-    view = RandomizeRerollView(items, disabled=True)
+    view = RandomizeRerollView(items, disabled=True, owner_id=owner_id)
     await interaction.response.send_message(
         f"{sequence[0]}\n\n{t('randomize.wheel_turning')}", view=view
     )
@@ -162,7 +172,7 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         message,
         kind=REROLL_VIEW_KIND,
         lifetime=REROLL_LIFETIME_SECONDS,
-        state={"items": items},
+        state={"items": items, "owner_id": owner_id},
     )
 
     await asyncio.sleep(1)
@@ -185,5 +195,5 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         message,
         kind=REROLL_VIEW_KIND,
         lifetime=REROLL_LIFETIME_SECONDS,
-        state={"items": items},
+        state={"items": items, "owner_id": owner_id},
     )
