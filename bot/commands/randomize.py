@@ -52,12 +52,13 @@ def _roulette_content(parsed: list[str]) -> tuple[list[str], str]:
 
 
 class RandomizeRerollButton(discord.ui.Button):
-    def __init__(self) -> None:
+    def __init__(self, *, disabled: bool = False) -> None:
         super().__init__(
             label=t("randomize.reroll_label"),
-            emoji=t("randomize.reroll_emoji"),
+            emoji="🎰",
             style=discord.ButtonStyle.secondary,
             custom_id=REROLL_CUSTOM_ID,
+            disabled=disabled,
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
@@ -69,27 +70,44 @@ class RandomizeRerollButton(discord.ui.Button):
 
 
 class RandomizeRerollView(ExpiringView):
-    def __init__(self, items_text: str) -> None:
+    def __init__(self, items_text: str = "", *, disabled: bool = False) -> None:
         super().__init__(timeout=REROLL_LIFETIME_SECONDS)
         self.items_text = items_text
-        self.add_item(RandomizeRerollButton())
+        self.add_item(RandomizeRerollButton(disabled=disabled))
+
+    def _set_reroll_disabled(self, disabled: bool) -> None:
+        for child in self.children:
+            if isinstance(child, discord.ui.Button) and getattr(child, "custom_id") == REROLL_CUSTOM_ID:
+                child.disabled = disabled
 
     async def reroll(self, interaction: discord.Interaction) -> None:
+        client = getattr(interaction, "client", None)
         parsed = parse_items(self.items_text)
         if len(parsed) < 2:
+            self._set_reroll_disabled(True)
             await interaction.response.edit_message(
-                content=t("randomize.too_few"), view=None
+                content=t("randomize.too_few"), view=self
             )
-            self.stop()
             return
 
         sequence, winner = _roulette_content(parsed)
+        self._set_reroll_disabled(True)
         await interaction.response.edit_message(
             content=f"{sequence[0]}\n\n{t('randomize.wheel_turning')}", view=self
         )
         message = interaction.message
         if message is None:
             return
+        try:
+            await track_view(
+                client,
+                message,
+                kind=REROLL_VIEW_KIND,
+                lifetime=REROLL_LIFETIME_SECONDS,
+                state={"items": self.items_text},
+            )
+        except Exception:
+            pass
 
         await asyncio.sleep(1)
         await message.edit(content=f"{sequence[1]}\n\n{t('randomize.wheel_turning')}")
@@ -98,9 +116,21 @@ class RandomizeRerollView(ExpiringView):
         await message.edit(content=f"{sequence[2]}\n\n{t('randomize.wheel_turning')}")
 
         await asyncio.sleep(1)
+        self._set_reroll_disabled(False)
         await message.edit(
-            content=f"{sequence[3]}\n\n{t('randomize.picking', item=winner)}"
+            content=f"{sequence[3]}\n\n{t('randomize.picking', item=winner)}",
+            view=self,
         )
+        try:
+            await track_view(
+                client,
+                message,
+                kind=REROLL_VIEW_KIND,
+                lifetime=REROLL_LIFETIME_SECONDS,
+                state={"items": self.items_text},
+            )
+        except Exception:
+            pass
 
 
 @app_commands.command(name="randomize", description=t("randomize.description"))
@@ -112,7 +142,7 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         return
 
     sequence, winner = _roulette_content(parsed)
-    view = RandomizeRerollView(items)
+    view = RandomizeRerollView(items, disabled=True)
     await interaction.response.send_message(
         f"{sequence[0]}\n\n{t('randomize.wheel_turning')}", view=view
     )
@@ -137,6 +167,14 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
     )
 
     await asyncio.sleep(1)
+    view._set_reroll_disabled(False)
     await message.edit(
         content=f"{sequence[3]}\n\n{t('randomize.picking', item=winner)}", view=view
+    )
+    await track_view(
+        interaction.client,
+        message,
+        kind=REROLL_VIEW_KIND,
+        lifetime=REROLL_LIFETIME_SECONDS,
+        state={"items": items},
     )

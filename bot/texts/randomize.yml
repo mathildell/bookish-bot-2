@@ -5,4 +5,4 @@ randomize:
   wheel_turning: "🔄 ‎ The wheel is turning..."
   picking: "Result: **%{item}**"
   reroll_label: "Reroll"
-  reroll_emoji: "🎰"
+  reroll_emoji: "<:slotmachine:1564739493678948503>"

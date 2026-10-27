@@ -34,7 +34,7 @@ from .commands.level import (
 )
 from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
-from .commands.randomize import randomize_command
+from .commands.randomize import RandomizeRerollView, randomize_command
 from .commands.reminders import (
     BUTTON_LIFETIME_SECONDS,
     REMINDER_VIEW_KIND,
@@ -329,6 +329,7 @@ async def run() -> None:
     bot.add_view(ReleaseListFallbackView())
     bot.add_view(ThemeSuggestView())
     bot.add_view(ThemeSuggestionReviewView())
+    bot.add_view(RandomizeRerollView(""))
     # Bot-wide settings are loaded from the database in on_ready; start with
     # the disabled/unset defaults so nothing fires before the first reload.
     bot.bot_updates_channel_id = 0
