@@ -361,9 +361,9 @@ class ThemeSuggestionReviewView(discord.ui.View):
         if name is None:
             name = f"User {suggestion.user_id}"
         try:
-            await service.add_card(
-                suggestion.title, 
-                credit_description(suggestion.description, name)
+            card = await service.add_card(
+                suggestion.title,
+                credit_description(suggestion.description, name),
             )
         except BiweeklyThemeError as exc:
             await interaction.followup.send(
@@ -372,6 +372,10 @@ class ThemeSuggestionReviewView(discord.ui.View):
             return
         await service.remove_suggestion(suggestion.id)
         embed = interaction.message.embeds[0] if interaction.message.embeds else new_embed(interaction.client)
+        for field in embed.fields:
+            if field.name == t("biweekly_theme.cards.review.prompt_field"):
+                field.value = f"{suggestion.title} (#{card.id})"
+                break
         embed.add_field(
             name=t("biweekly_theme.cards.review.approb_status"),
             value=t("biweekly_theme.cards.review.approved", user=interaction.user.mention),
