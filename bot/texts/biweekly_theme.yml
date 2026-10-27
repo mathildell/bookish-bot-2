@@ -14,9 +14,6 @@ biweekly_theme:
       description: "Set the role pinged when the theme is posted"
       param_role: "Role to ping when the theme is posted"
       success: "Bi-weekly themes will ping %{role}."
-    remove:
-      description: "Stop pinging a role"
-      success: "Bi-weekly themes no longer ping a role."
   schedule:
     group_description: "When the bi-weekly theme is posted"
     set:
@@ -24,14 +21,13 @@ biweekly_theme:
       param_day: "Day of the week (UTC)"
       param_hour: "Hour of the day (UTC, 0-23)"
       success: "Themes will be posted every other %{weekday} at %{hour}:00 UTC."
-  pause:
-    description: "Stop the bi-weekly theme from being posted"
-    success: "Bi-weekly themes are paused."
-  resume:
-    description: "Resume the bi-weekly theme"
-    success: "Bi-weekly themes are active again."
+  toggle:
+    description: "Pause or resume the bi-weekly theme"
+    success_active: "Bi-weekly themes are active again."
+    success_paused: "Bi-weekly themes are paused."
   force:
     description: "Post a bi-weekly theme right now"
+    param_card: "Card id to force (optional)"
     no_channel: "No channel is set yet. Use `/biweekly-theme channel set` first."
     no_cards: "The deck is empty. Add a theme with `/biweekly-theme cards add`."
     success: "Posted a theme card in %{channel}."
@@ -77,17 +73,50 @@ biweekly_theme:
       description: "List the cards in the deck"
       empty: "The deck is empty. Add a card with `/biweekly-theme cards add`."
       title: "Card #%{id}"
-      pending: "Waiting to be posted"
-      posted: "✅ ‎ Posted %{when}"
+    search:
+      description: "Search theme cards by prompt or description"
+      param_keyword: "Keyword to search for"
+      found: "Here’s what turned up for your search:"
+      not_found: "I couldn’t find a theme card matching **%{keyword}**."
+    suggest:
+      description: "Suggest a theme card for the deck"
+      param_prompt: "The suggested prompt"
+      param_description: "Extra text shown under the prompt (optional)"
+      modal_title: "Suggest a bi-weekly theme"
+      modal_prompt_label: "Prompt"
+      modal_description_label: "Description (optional)"
+      button_label: "Suggest"
+      button_emoji: "🎠"
+      success: "Thanks! Your suggestion was sent to the admins."
+      closed: "Suggestions are closed right now."
+      no_text: "Add a prompt before submitting your suggestion."
+    review:
+      title: "Theme suggestion"
+      prompt_field: "Prompt"
+      description_field: "Description"
+      suggester_field: "Suggested by"
+      approve: "Approve"
+      approve_emoji: "✅"
+      refuse: "Refuse"
+      refuse_emoji: "❌"
+      already_handled: "This suggestion has already been handled."
+      approved: "Approved by %{user}."
+      refused: "Refused by %{user}."
+      approve_success: "Added the suggestion to the deck."
+      no_feed: "The admins' updates channel isn't set, so suggestions can't be sent."
+      duplicate: "A card with that prompt is already in the deck."
 
   post:
     embed_title: "🗓️ ‎ This forthnight’s theme"
-    embed_description: "From **%{date_start}**, to **%{date_end}:** %{title}" 
+    embed_description: "From **%{date_start}**, to **%{date_end}:** %{title}"
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
   audit:
     pin: "Pinned this fortnight’s theme"
     unpin: "Unpinned the previous theme"
+
+  suggest:
+    credit: "Suggested by %{name}"
 
   errors:
     generic: "Something went wrong with that card."

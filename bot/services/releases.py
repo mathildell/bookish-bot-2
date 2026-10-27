@@ -31,6 +31,7 @@ from ..texts import t
 from .level import utcnow
 from .members import resolve_members
 from .release_sources import BookData, book_data_to_dict
+from .search import search_key
 
 logger = logging.getLogger("bh2.releases")
 
@@ -132,15 +133,6 @@ def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 1].rstrip() + "…"
-
-
-def search_key(value: str) -> str:
-    """Fold ``value`` for punctuation- and spacing-insensitive matching.
-
-    Only letters and digits survive (lower-cased), so ``"KJ Charles"`` and
-    ``"K. J. Charles"`` both fold to ``"kjcharles"``.
-    """
-    return "".join(_WORD_RE.findall((value or "").lower()))
 
 
 _REFERENCE_WORDS = 2

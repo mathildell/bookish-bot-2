@@ -67,7 +67,11 @@ from .commands.tickets import (
     resolve_ticket_channel,
     tickets_group,
 )
-from .commands.biweekly_theme import biweekly_theme_group
+from .commands.biweekly_theme import (
+    ThemeSuggestView,
+    ThemeSuggestionReviewView,
+    biweekly_theme_group,
+)
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import (
@@ -322,6 +326,8 @@ async def run() -> None:
     bot.add_view(XpLeaderboardFallbackView())
     bot.add_view(StreakLeaderboardFallbackView())
     bot.add_view(ReleaseListFallbackView())
+    bot.add_view(ThemeSuggestView())
+    bot.add_view(ThemeSuggestionReviewView())
     # Bot-wide settings are loaded from the database in on_ready; start with
     # the disabled/unset defaults so nothing fires before the first reload.
     bot.bot_updates_channel_id = 0
@@ -885,7 +891,9 @@ async def run() -> None:
             logger.warning("Theme is due but no channel is set")
             return
         try:
-            card = await biweekly_theme.post_card(channel, bot)
+            card = await biweekly_theme.post_card(
+                channel, bot, view=ThemeSuggestView()
+            )
         except ThemeImageError as exc:
             logger.warning("Could not create the theme image", exc_info=True)
             updates = await resolve_notify_channel(

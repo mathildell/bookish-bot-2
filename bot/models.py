@@ -903,6 +903,32 @@ class BiweeklyThemeCard(Base):
     )
 
 
+class BiweeklyThemeSuggestion(Base):
+    """A user suggestion for a bi-weekly theme card awaiting admin review."""
+
+    __tablename__ = "biweekly_theme_suggestions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The admin alert message id (unique) used to look up the suggestion.
+    message_id: Mapped[int] = mapped_column(
+        BigInteger, unique=True, nullable=False, index=True
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+
 class ViewMessage(Base):
     """A public message with components that expire.
 

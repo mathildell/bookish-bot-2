@@ -239,6 +239,22 @@ class BuildThemeEmbedTests(unittest.TestCase):
         )
 
 
+class CreditDescriptionTests(unittest.TestCase):
+    def test_credit_with_description(self) -> None:
+        result = theme_service.credit_description("Desc", "Alice")
+        self.assertEqual(result, f"Desc\n{t('biweekly_theme.suggest.credit', name='Alice')}")
+
+    def test_credit_without_description(self) -> None:
+        result = theme_service.credit_description(None, "Bob")
+        self.assertEqual(result, t("biweekly_theme.suggest.credit", name="Bob"))
+
+    def test_truncates_when_too_long(self) -> None:
+        long_desc = "x" * theme_service.CARD_DESCRIPTION_MAX_LENGTH
+        result = theme_service.credit_description(long_desc, "Carol")
+        self.assertLessEqual(len(result), theme_service.CARD_DESCRIPTION_MAX_LENGTH)
+        self.assertIn(t("biweekly_theme.suggest.credit", name="Carol"), result)
+
+
 class FormatPostedDateTests(unittest.TestCase):
     def test_date_is_readable(self) -> None:
         self.assertEqual(
@@ -291,6 +307,7 @@ class _FakeMessage:
         self.id = message_id
         self.pinned = False
         self.unpinned = False
+        self.edits: list[dict] = []
 
     async def pin(self, *, reason: str | None = None) -> None:
         self.pinned = True
@@ -298,6 +315,10 @@ class _FakeMessage:
     async def unpin(self, *, reason: str | None = None) -> None:
         self.pinned = False
         self.unpinned = True
+
+    async def edit(self, **kwargs) -> "_FakeMessage":
+        self.edits.append(kwargs)
+        return self
 
 
 class _FakeChannel:
@@ -366,6 +387,34 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
             "https://example.com/theme.png",
         )
 
+    async def test_force_card_posts_specific_card(self) -> None:
+        host = _FakeHost()
+        channel = _FakeChannel()
+        picked = card(id=7)
+        service = _Service(host, picked)
+        service.picked = None
+
+        async def fake_get_card(card_id: int):
+            if card_id == 7:
+                return picked
+            return None
+
+        service.get_card = fake_get_card  # type: ignore[method-assign]
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "theme.png"
+            path.write_bytes(b"png")
+            with patch.object(
+                theme_service, "render_theme", return_value=path
+            ):
+                posted = await service.post_card(
+                    channel,
+                    FakeClient(),
+                    posted_on=date(2026, 10, 19),
+                    card_id=7,
+                )
+        self.assertIs(posted, picked)
+        self.assertEqual(service.marked, [7])
+
     async def test_pins_the_new_card(self) -> None:
         channel = _FakeChannel()
         service = _Service(_FakeHost(), card())
@@ -388,6 +437,7 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(previous.pinned)
         self.assertTrue(newest.pinned)
         self.assertEqual(service.pinned_message_id, newest.id)
+        self.assertTrue(any(edit.get("view") is None for edit in previous.edits))
 
     async def test_pin_failure_leaves_the_post_untracked(self) -> None:
         channel = _FakeChannel()

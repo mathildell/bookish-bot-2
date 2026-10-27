@@ -14,13 +14,14 @@ import unicodedata
 from datetime import date, datetime
 
 import discord
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 
 from ..db import session_scope
-from ..models import BiweeklyThemeCard, BiweeklyThemeSetting
+from ..models import BiweeklyThemeCard, BiweeklyThemeSetting, BiweeklyThemeSuggestion
 from ..texts import t
 from .image_hosting import ImageHost
 from .level import utcnow
+from .search import search_key
 from .theme_images import (
     THEME_IMGBB_EXPIRATION_SECONDS,
     render_theme,
@@ -183,11 +184,32 @@ def build_theme_embed(
             "biweekly_theme.post.embed_description",
             date_start=start,
             date_end=end,
-            title=prompt
+            title=prompt,
         ),
     )
     embed.set_image(url=image_url)
     return embed
+
+
+def credit_description(description: str | None, name: str) -> str:
+    """Append the suggester credit to a description, truncating to fit."""
+    credit = t("biweekly_theme.suggest.credit", name=name)
+    if description:
+        candidate = f"{description}\n{credit}"
+        if len(candidate) > CARD_DESCRIPTION_MAX_LENGTH:
+            space = CARD_DESCRIPTION_MAX_LENGTH - len(f"\n{credit}")
+            if space < 0:
+                return credit[:CARD_DESCRIPTION_MAX_LENGTH]
+            trimmed = description[:space].rstrip()
+            candidate = f"{trimmed}\n{credit}" if trimmed else credit
+            if len(candidate) > CARD_DESCRIPTION_MAX_LENGTH:
+                candidate = credit[:CARD_DESCRIPTION_MAX_LENGTH]
+            return candidate
+        return candidate
+    candidate = credit
+    if len(candidate) > CARD_DESCRIPTION_MAX_LENGTH:
+        candidate = candidate[:CARD_DESCRIPTION_MAX_LENGTH]
+    return candidate
 
 
 # ------------------------------------------------------------------- service
@@ -360,6 +382,27 @@ class BiweeklyThemeService:
             )
             return list((await session.execute(statement)).scalars())
 
+    async def search_cards(self, keyword: str) -> list[BiweeklyThemeCard]:
+        needle = search_key(keyword)
+        if not needle:
+            return []
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(BiweeklyThemeCard).where(
+                        BiweeklyThemeCard.guild_id == self.guild_id
+                    )
+                )
+            ).scalars()
+            cards = list(rows)
+        matches: list[BiweeklyThemeCard] = []
+        for card in cards:
+            haystack = f"{card.title or ''} {card.description or ''}"
+            if needle in search_key(haystack):
+                matches.append(card)
+        matches.sort(key=lambda card: card.id)
+        return matches
+
     async def get_card(self, card_id: int) -> BiweeklyThemeCard | None:
         async with session_scope() as session:
             return await self._card(session, card_id)
@@ -509,6 +552,8 @@ class BiweeklyThemeService:
         client: discord.Client,
         *,
         posted_on: date | None = None,
+        card_id: int | None = None,
+        view: discord.ui.View | None = None,
     ) -> BiweeklyThemeCard | None:
         """Render and post the next theme; returns the card that was posted.
 
@@ -517,9 +562,14 @@ class BiweeklyThemeService:
         to a placeholder image.
         """
         async with self._post_lock:
-            card = await self.pick_card()
-            if card is None:
-                return None
+            if card_id is not None:
+                card = await self.get_card(card_id)
+                if card is None:
+                    raise CardNotFound(id=card_id)
+            else:
+                card = await self.pick_card()
+                if card is None:
+                    return None
             posted_on = posted_on or utcnow().date()
             start, end = theme_period(posted_on)
             path = None
@@ -544,6 +594,7 @@ class BiweeklyThemeService:
             message = await channel.send(
                 content=content,
                 embed=build_theme_embed(url, start, end, card.title, client),
+                view=view,
             )
             await self.mark_card_sent(card.id)
             await self._replace_pin(client, channel, message)
@@ -578,6 +629,10 @@ class BiweeklyThemeService:
         if previous is not None:
             try:
                 message = await previous.fetch_message(message_id)
+                try:
+                    await message.edit(view=None)
+                except discord.HTTPException:
+                    pass
                 await message.unpin(reason=t("biweekly_theme.audit.unpin"))
             except discord.NotFound:
                 pass
@@ -588,6 +643,57 @@ class BiweeklyThemeService:
                     exc_info=True,
                 )
         await self.set_pinned_post(None, None)
+
+    async def add_suggestion(
+        self,
+        user_id: int,
+        title: str,
+        description: str | None,
+        message_id: int,
+    ) -> BiweeklyThemeSuggestion:
+        clean_title = validate_title(title)
+        clean_description = validate_description(description)
+        async with session_scope() as session:
+            suggestion = BiweeklyThemeSuggestion(
+                guild_id=self.guild_id,
+                user_id=user_id,
+                title=clean_title,
+                description=clean_description,
+                message_id=message_id,
+            )
+            session.add(suggestion)
+            await session.commit()
+            await session.refresh(suggestion)
+        return suggestion
+
+    async def get_suggestion_by_message(
+        self, message_id: int
+    ) -> BiweeklyThemeSuggestion | None:
+        async with session_scope() as session:
+            return (
+                await session.execute(
+                    select(BiweeklyThemeSuggestion).where(
+                        BiweeklyThemeSuggestion.guild_id == self.guild_id,
+                        BiweeklyThemeSuggestion.message_id == message_id,
+                    )
+                )
+            ).scalar_one_or_none()
+
+    async def remove_suggestion(self, suggestion_id: int) -> bool:
+        async with session_scope() as session:
+            suggestion = (
+                await session.execute(
+                    select(BiweeklyThemeSuggestion).where(
+                        BiweeklyThemeSuggestion.id == suggestion_id,
+                        BiweeklyThemeSuggestion.guild_id == self.guild_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if suggestion is None:
+                return False
+            await session.delete(suggestion)
+            await session.commit()
+            return True
 
     async def _channel(
         self, client: discord.Client, channel_id: int | None

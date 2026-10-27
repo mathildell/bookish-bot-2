@@ -606,16 +606,16 @@ message at the given jump `link` (right-click a message → Copy Message Link).
 ```
 /biweekly-theme channel set
 /biweekly-theme role set
-/biweekly-theme role remove
 /biweekly-theme schedule set
-/biweekly-theme pause
-/biweekly-theme resume
-/biweekly-theme force
+/biweekly-theme toggle
+/biweekly-theme force [card]
 /biweekly-theme status
 /biweekly-theme cards add
 /biweekly-theme cards edit
 /biweekly-theme cards remove
 /biweekly-theme cards list
+/biweekly-theme cards search
+/biweekly-theme cards suggest
 ```
 **Permissions:** 🔒 Admin
 
