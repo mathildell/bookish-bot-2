@@ -372,19 +372,19 @@ class ThemeSuggestionReviewView(discord.ui.View):
             return
         await service.remove_suggestion(suggestion.id)
         embed = interaction.message.embeds[0] if interaction.message.embeds else new_embed(interaction.client)
-        for field in embed.fields:
-            if field.name == t("biweekly_theme.cards.review.prompt_field"):
-                field.value = f"{suggestion.title} (#{card.id})"
-                break
+        if embed.fields and embed.fields[0].name == t("biweekly_theme.cards.review.prompt_field"):
+            embed.set_field_at(
+                0, 
+                name=t("biweekly_theme.cards.review.prompt_field"), 
+                value=f"{suggestion.title} (#{card.id})", 
+                inline=False
+            )
         embed.add_field(
             name=t("biweekly_theme.cards.review.approb_status"),
             value=t("biweekly_theme.cards.review.approved", user=interaction.user.mention),
             inline=False,
         )
         await interaction.message.edit(embed=embed, view=None)
-        await interaction.followup.send(
-            t("biweekly_theme.cards.review.approve_success"), ephemeral=True
-        )
 
     @discord.ui.button(
         label=t("biweekly_theme.cards.review.refuse"),
