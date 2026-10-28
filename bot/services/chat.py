@@ -209,7 +209,7 @@ class ChatService:
         session = await self._get_session()
         url = f"{self.base_url}/chat/completions"
         
-        logger.info("POST: %{s}: %{s}", url, payload)
+        logger.info("POST: %s: %s", url, payload)
 
         async with self._lock:
             try:
