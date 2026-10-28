@@ -60,6 +60,7 @@ Implemented features:
   background, the default embed colour, the coupon fallback image and the buddy
   read forum channel + reference message link. This is the home for values that
   used to live in `config.yaml`.
+- **Chatbot** — `/chatbot` groups model selection, prompt overrides (persona/name/biography instructions), and member userinfo (moved from `/bio`). Member bios are auto-cleared when they leave the server.
 - **Bi-weekly themes** — admins maintain a deck of theme cards; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is uploaded to imgbb with a three-month expiry (tmpfiles fallback). Each post is pinned in the channel, unpinning the previous card's post. Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render/upload failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
   add|edit|remove|list`) that fire in a chosen timezone (defaulting to the

@@ -688,6 +688,17 @@ View and edit the bot's runtime settings.
 - `coupon_fallback_image` — image shown on a streak coupon when it cannot be
   rendered or uploaded (defaults to a GIF).
 
+## Chatbot
+
+```
+/chatbot model set model:
+/chatbot prompt set type: content:
+/chatbot userinfo set user: content:
+/chatbot userinfo list
+```
+**Permissions:** 🔒 Admin
+Configure the chatbot: pick the model, set persona/name/biography instructions, and manage member bios used for chat context.
+
 ***
 
 ## Utility

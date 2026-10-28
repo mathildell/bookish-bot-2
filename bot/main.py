@@ -17,11 +17,11 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.birthdays import birthday_group
-from .commands.bio import bio_group
 from .commands.booster import register_commands
 from .commands.bot import bot_group
 from .commands.bot_say import parse_message_link
 from .commands.chat import chat_command, handle_mention
+from .commands.chatbot import chatbot_group
 from .commands.intro import (
     IntroduceView,
     IntroRefreshView,
@@ -366,7 +366,7 @@ async def run() -> None:
     bot.tree.add_command(randomize_command, guild=guild)
     bot.tree.add_command(biweekly_theme_group, guild=guild)
     bot.tree.add_command(chat_command, guild=guild)
-    bot.tree.add_command(bio_group, guild=guild)
+    bot.tree.add_command(chatbot_group, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event
@@ -991,7 +991,12 @@ async def run() -> None:
         chat_svc = getattr(bot, "chat", None)
         if chat_svc is not None:
             try:
-                chat_svc.configure(getattr(bot_settings, "chat_model", None))
+                chat_svc.configure(
+                    getattr(bot_settings, "chat_model", None),
+                    getattr(bot_settings, "chat_persona", None),
+                    getattr(bot_settings, "chat_prompt_name", None),
+                    getattr(bot_settings, "chat_prompt_info", None),
+                )
             except Exception:
                 pass
 

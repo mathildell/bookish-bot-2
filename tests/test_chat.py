@@ -9,14 +9,14 @@ class TestChat(unittest.TestCase):
     def test_build_system_prompt_no_bio(self) -> None:
         svc = ChatService({})
         prompt = svc.build_system_prompt("Dez", None)
-        self.assertIn("You are the resident bot", prompt)
-        self.assertIn("called Dez", prompt)
+        self.assertIn("bookish Discord server", prompt)
+        self.assertIn("Dez is an exact display name", prompt)
         self.assertNotIn("What you remember about them", prompt)
 
     def test_build_system_prompt_with_bio(self) -> None:
         svc = ChatService({})
         prompt = svc.build_system_prompt("Dez", "Hates poetry picks")
-        self.assertIn("called Dez", prompt)
+        self.assertIn("Dez is an exact display name", prompt)
         self.assertIn("What you remember about them: Hates poetry picks", prompt)
 
     def test_truncate_reply_at_sentence(self) -> None:

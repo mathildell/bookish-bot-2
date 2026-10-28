@@ -37,12 +37,28 @@ class ChatService:
         self._models: list[str] = []
         self._models_at: float = 0.0
         self._model_details: dict[str, dict] = {}
+        self._persona_override: str | None = None
+        self._prompt_name_override: str | None = None
+        self._prompt_info_override: str | None = None
 
-    def configure(self, model: str | None = None) -> None:
-        if model and model.strip():
-            self.model = model.strip()
+    def configure(
+        self,
+        model: str | None = None,
+        persona: str | None = None,
+        prompt_name: str | None = None,
+        prompt_info: str | None = None,
+    ) -> None:
+        if model and str(model).strip():
+            self.model = str(model).strip()
         else:
             self.model = self._default_model
+        self._persona_override = persona.strip() if persona and str(persona).strip() else None
+        self._prompt_name_override = (
+            prompt_name.strip() if prompt_name and str(prompt_name).strip() else None
+        )
+        self._prompt_info_override = (
+            prompt_info.strip() if prompt_info and str(prompt_info).strip() else None
+        )
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -143,16 +159,36 @@ class ChatService:
         self._cooldowns[key] = now
         return True
 
-    def build_system_prompt(self, display_name: str | None, bio: str | None, override: str | None = None) -> str:
-        if override and override.strip():
-            persona = override.strip()
-        else:
-            persona = t("chat.persona")
-        parts = [persona]
-        if display_name:
+    def build_system_prompt(
+        self,
+        display_name: str | None,
+        bio: str | None,
+        persona: str | None = None,
+        prompt_name: str | None = None,
+        prompt_info: str | None = None,
+    ) -> str:
+        persona_text = (
+            persona.strip()
+            if persona and str(persona).strip()
+            else (self._persona_override or t("chat.persona"))
+        )
+        parts = [persona_text]
+        name_text = prompt_name if prompt_name and str(prompt_name).strip() else self._prompt_name_override
+        if name_text and str(name_text).strip() and display_name:
+            try:
+                parts.append(str(name_text).format(name=display_name))
+            except Exception:
+                parts.append(t("chat.prompt_name", name=display_name))
+        elif display_name:
             parts.append(t("chat.prompt_name", name=display_name))
-        if bio and bio.strip():
-            parts.append(t("chat.prompt_info", info=bio.strip()))
+        info_text = prompt_info if prompt_info and str(prompt_info).strip() else self._prompt_info_override
+        if info_text and str(info_text).strip() and bio and str(bio).strip():
+            try:
+                parts.append(str(info_text).format(info=str(bio).strip()))
+            except Exception:
+                parts.append(t("chat.prompt_info", info=str(bio).strip()))
+        elif bio and str(bio).strip():
+            parts.append(t("chat.prompt_info", info=str(bio).strip()))
         system_prompt = "\n\n".join(parts)
         return system_prompt
 
@@ -187,13 +223,13 @@ class ChatService:
             return truncated[:last].strip()
         return text[:limit].rstrip() + "..."
 
-    async def chat(self, guild_id: int, user_id: int, display_name: str | None, bio: str | None, user_message: str, system_prompt: str | None = None) -> str | None:
+    async def chat(self, guild_id: int, user_id: int, display_name: str | None, bio: str | None, user_message: str) -> str | None:
         if not self._check_cooldown(guild_id, user_id):
             raise ChatCooldownError()
         user_message = (user_message or "").strip()
         if not user_message:
             return None
-        system = self.build_system_prompt(display_name, bio, override=system_prompt)
+        system = self.build_system_prompt(display_name, bio)
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": user_message},

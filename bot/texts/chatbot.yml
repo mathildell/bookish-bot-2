@@ -1,0 +1,40 @@
+chatbot:
+  group_description: "Configure the chatbot"
+  model:
+    group_description: "Model settings"
+    set:
+      description: "Set the chat model"
+      param_model: "Model to use"
+      missing: "Model is required."
+      invalid: "That model is not available."
+      success: "Chat model set to %{model}."
+  prompt:
+    group_description: "Prompt settings"
+    set:
+      description: "Set chatbot prompt text"
+      param_type: "Which prompt to update"
+      param_content: "Prompt content (supports %{name} and %{info} where applicable)"
+      missing: "Content is required."
+      invalid_type: "Unknown prompt type."
+      success_persona: "Bot's persona updated."
+      success_name: "Names instructions updated."
+      success_info: "Biography instructions updated."
+    type_persona: "Bot's persona"
+    type_name: "Names instructions"
+    type_info: "Biography instructions"
+  userinfo:
+    group_description: "Member userinfo for the chatbot"
+    set:
+      description: "Set or clear a member's bio (use 'none' to clear)"
+      param_user: "Member to update"
+      param_content: "Bio text (third person, facts/attitude, ~30 words). Use 'none' to clear."
+      success: "Updated bio for %{member}"
+      cleared: "Cleared bio for %{member}"
+      no_bio: "%{member} has no bio to clear."
+      too_long: "Bio must be 500 characters or less."
+    list:
+      description: "List member bios"
+      empty: "No bios set."
+      title: "Member bios"
+      member: "Member"
+      bio: "Bio"

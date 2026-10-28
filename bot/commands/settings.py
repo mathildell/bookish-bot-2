@@ -41,10 +41,6 @@ GEN_CHAT_CHANNEL = "gen_chat_channel_id"
 BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
 ADMIN_TEST_CHANNEL = "admin_test_channel_id"
 COUPON_FALLBACK_IMAGE = "coupon_fallback_image"
-CHAT_MODEL = "chat_model"
-CHAT_SYSTEM_PROMPT = "chat_system_prompt"
-
-MAX_CHOICES = 25
 
 # Interpretation of each key's value.
 _KINDS = {
@@ -61,8 +57,6 @@ _KINDS = {
     BUDDY_READ_MESSAGE_LINK: "message_link",
     ADMIN_TEST_CHANNEL: "channel",
     COUPON_FALLBACK_IMAGE: "url",
-    CHAT_MODEL: "text",
-    CHAT_SYSTEM_PROMPT: "text",
 }
 
 SETTING_KEYS = tuple(_KINDS)
@@ -188,19 +182,6 @@ def _current_value(
     if kind == "message_link":
         link = settings.reference_message_link
         return link or t("settings.list.value_none"), ""
-    if kind == "text":
-        if key == CHAT_MODEL:
-            chat = getattr(interaction.client, "chat", None)
-            model = getattr(settings, "chat_model", None) or (getattr(chat, "model", None) if chat else None)
-            return model or t("settings.list.value_none"), ""
-        if key == CHAT_SYSTEM_PROMPT:
-            prompt = getattr(settings, "chat_system_prompt", None)
-            if not prompt:
-                return t("settings.list.value_none"), ""
-            preview = prompt.replace("\n", " ")
-            if len(preview) > 80:
-                preview = preview[:77] + "..."
-            return preview, ""
     return settings.default_embed_color or t("settings.list.value_none"), ""
 
 
@@ -208,35 +189,6 @@ def current_display(interaction: discord.Interaction, key: str) -> str:
     """Render the current value of a setting key for inline use."""
     value, unit = _current_value(interaction, key)
     return f"{value} {unit}" if unit else value
-
-
-async def chat_model_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[str]]:
-    try:
-        if getattr(interaction.namespace, "key", None) != CHAT_MODEL:
-            return []
-    except Exception:
-        return []
-    chat = getattr(interaction.client, "chat", None)
-    if chat is None:
-        return []
-    try:
-        detailed = await chat.list_models_detailed()
-    except Exception:
-        return []
-    needle = (current or "").strip().lower()
-    matches = []
-    for display, value in detailed:
-        if needle and needle not in display.lower() and needle not in value.lower():
-            continue
-        matches.append(app_commands.Choice(name=display[:100], value=value))
-        if len(matches) >= MAX_CHOICES:
-            break
-    if not matches and detailed:
-        for display, value in detailed[:MAX_CHOICES]:
-            matches.append(app_commands.Choice(name=display[:100], value=value))
-    return matches
 
 
 def current_value_line(interaction: discord.Interaction, key: str) -> str:
@@ -345,20 +297,6 @@ async def apply_value(
         parsed = parse_message_link(link) if link else None
         interaction.client.reference_channel_id = parsed[0] if parsed else 0
         interaction.client.reference_message_id = parsed[1] if parsed else 0
-    elif kind == "text":
-        text = raw.strip()
-        if text.lower() == CLEAR:
-            text = None
-        if key == CHAT_MODEL:
-            await interaction.client.bot_settings.set_chat_model(text)
-            chat = getattr(interaction.client, "chat", None)
-            if chat is not None:
-                try:
-                    chat.configure(text)
-                except Exception:
-                    pass
-        elif key == CHAT_SYSTEM_PROMPT:
-            await interaction.client.bot_settings.set_chat_system_prompt(text)
     else:
         color = parse_color(raw)
         stored = f"#{color.value:06x}" if color is not None else None
@@ -398,7 +336,6 @@ async def list_settings(interaction: discord.Interaction) -> None:
     key=t("settings.edit.param_key"),
     value=t("settings.edit.param_value"),
 )
-@app_commands.autocomplete(value=chat_model_autocomplete)
 async def edit(
     interaction: discord.Interaction, key: str, value: str
 ) -> None:

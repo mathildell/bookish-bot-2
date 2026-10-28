@@ -34,10 +34,27 @@ def strip_bot_mentions(content: str, bot_id: int) -> str:
     content = _MENTION_RE.sub(repl, content)
     return " ".join(content.split()).strip()
 
+
 def add_metadata_to_message(username: str, content: str) -> str:
     content = content or ""
     username = username or ""
     return f"{{username: {username}, message: {content}}}"
+
+
+def _configure_chat(client: discord.Client) -> None:
+    chat_service = getattr(client, "chat", None)
+    settings = getattr(client, "bot_settings", None)
+    if chat_service is None or settings is None:
+        return
+    try:
+        chat_service.configure(
+            getattr(settings, "chat_model", None),
+            getattr(settings, "chat_persona", None),
+            getattr(settings, "chat_prompt_name", None),
+            getattr(settings, "chat_prompt_info", None),
+        )
+    except Exception:
+        pass
 
 
 async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
@@ -45,14 +62,9 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         return
     chat_service = getattr(bot, "chat", None)
     profiles = getattr(bot, "member_profiles", None)
-    settings = getattr(bot, "bot_settings", None)
     if chat_service is None or profiles is None:
         return
-    if settings is not None and chat_service is not None:
-        try:
-            chat_service.configure(settings.chat_model)
-        except Exception:
-            pass
+    _configure_chat(bot)
     content = strip_bot_mentions(message.content, bot.user.id)
 
     if not content:
@@ -62,19 +74,22 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
             pass
         return
     else:
-        # Add the username for the bot
-        content =  add_metadata_to_message(message.author.display_name, content)
+        content = add_metadata_to_message(message.author.display_name, content)
 
     bio = None
     try:
-        if profiles is not None:
-            bio = await profiles.bio_for(message.author.id)
+        bio = await profiles.bio_for(message.author.id)
     except Exception:
         bio = None
-    override = getattr(settings, "chat_system_prompt", None) if settings is not None else None
     try:
         async with message.channel.typing():
-            reply = await chat_service.chat(message.guild.id, message.author.id, message.author.display_name, bio, content, system_prompt=override)
+            reply = await chat_service.chat(
+                message.guild.id,
+                message.author.id,
+                message.author.display_name,
+                bio,
+                content,
+            )
         if reply:
             await message.reply(reply, mention_author=False)
         else:
@@ -107,26 +122,26 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
 async def chat_command(interaction: discord.Interaction, message: str) -> None:
     chat_service = getattr(interaction.client, "chat", None)
     profiles = getattr(interaction.client, "member_profiles", None)
-    settings = getattr(interaction.client, "bot_settings", None)
     display_name = interaction.user.display_name
-    message =  add_metadata_to_message(display_name, message)
+    message = add_metadata_to_message(display_name, message)
     if chat_service is None or profiles is None:
         await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
         return
-    if settings is not None and chat_service is not None:
-        try:
-            chat_service.configure(settings.chat_model)
-        except Exception:
-            pass
+    _configure_chat(interaction.client)
     bio = None
     try:
         bio = await profiles.bio_for(interaction.user.id)
     except Exception:
         bio = None
-    override = getattr(settings, "chat_system_prompt", None) if settings is not None else None
     try:
         await interaction.response.defer(thinking=True)
-        reply = await chat_service.chat(interaction.guild.id if interaction.guild else 0, interaction.user.id, display_name, bio, message, system_prompt=override)
+        reply = await chat_service.chat(
+            interaction.guild.id if interaction.guild else 0,
+            interaction.user.id,
+            display_name,
+            bio,
+            message,
+        )
         if reply:
             await interaction.followup.send(reply)
         else:

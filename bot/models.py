@@ -703,8 +703,10 @@ class BotSetting(Base):
     )
     # Local AI chat model (overrides config)
     chat_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    # Local AI system prompt (overrides built-in)
-    chat_system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Local AI prompt overrides (overrides built-in chat.* texts)
+    chat_persona: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chat_prompt_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chat_prompt_info: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
