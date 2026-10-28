@@ -49,17 +49,17 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         except Exception:
             pass
     content = strip_bot_mentions(message.content, bot.user.id)
-    if content:
-        # Add the username for the bot
-        content = "{" + f"username: {message.author.display_name}, message: {content}" + "}"
-    else:
+
+    if not content:
         try:
             await message.reply(t("chat.empty_ping"), mention_author=False)
         except Exception:
             pass
         return
-
-
+    else:
+        # Add the username for the bot
+        content = f"{{username: {message.author.display_name}, message: {content}}}"
+        
     bio = None
     try:
         if profiles is not None:
