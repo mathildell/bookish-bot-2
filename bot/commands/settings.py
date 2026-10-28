@@ -198,7 +198,9 @@ def _current_value(
             if not prompt:
                 return t("settings.list.value_none"), ""
             preview = prompt.replace("\n", " ")
-            return prompt, ""
+            if len(preview) > 80:
+                preview = preview[:77] + "..."
+            return preview, ""
     return settings.default_embed_color or t("settings.list.value_none"), ""
 
 
