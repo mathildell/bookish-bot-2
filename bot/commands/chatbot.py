@@ -211,17 +211,22 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
     await interaction.response.defer(ephemeral=True)
     rows = await interaction.client.member_profiles.all()
     if not rows:
-        await interaction.followup.send(t("chatbot.userinfo.list.empty"), ephemeral=True)
+        embed = new_embed(interaction.client)
+        embed.title = t("chatbot.userinfo.list.title")
+        embed.description = t("chatbot.userinfo.list.empty")
+        await interaction.followup.send(embed=embed, ephemeral=True)
         return
     members = await resolve_members(interaction.guild, [row.user_id for row in rows])
     member_map = {m.id: m for m in members if m is not None}
-    embeds: list[discord.Embed] = []
+    blocks = []
     for row in rows:
         member = member_map.get(row.user_id)
-        embed = new_embed(interaction.client)
         name = member.display_name if member is not None else f"Unknown ({row.user_id})"
-        embed.title = name
-        embed.description = row.bio
-        embeds.append(embed)
-    pages = list(chunked(embeds, EMBEDS_PER_PAGE))
-    await send_paginated(interaction, pages=pages, total_results=len(embeds))
+        blocks.append(f"### {name}\n{row.bio}")
+    pages = []
+    for chunk in chunked(blocks, EMBEDS_PER_PAGE):
+        embed = new_embed(interaction.client)
+        embed.title = t("chatbot.userinfo.list.title")
+        embed.description = "\n\n".join(chunk)
+        pages.append([embed])
+    await send_paginated(interaction, pages=pages, total_results=len(blocks))
