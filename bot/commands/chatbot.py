@@ -8,7 +8,7 @@ from discord import app_commands
 from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
-from .listing import EMBEDS_PER_PAGE, chunked, new_embed, send_paginated
+from .listing import EMBEDS_PER_PAGE, chunked, new_embed, send_paginated, set_transparent_image
 
 chatbot_group = app_commands.Group(
     name="chatbot",
