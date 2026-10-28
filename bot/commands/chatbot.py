@@ -99,6 +99,22 @@ async def model_set(interaction: discord.Interaction, model: str) -> None:
     await interaction.response.send_message(t("chatbot.model.set.success", model=model), ephemeral=True)
 
 
+@prompt_group.command(name="list", description=t("chatbot.prompt.list.description"))
+async def prompt_list(interaction: discord.Interaction) -> None:
+    if not await require_admin(interaction):
+        return
+    settings = interaction.client.bot_settings
+    persona = getattr(settings, "chat_persona", None)
+    prompt_name = getattr(settings, "chat_prompt_name", None)
+    prompt_info = getattr(settings, "chat_prompt_info", None)
+    embed = new_embed(interaction.client)
+    embed.title = t("chatbot.prompt.list.title")
+    embed.add_field(name=t("chatbot.prompt.type_persona"), value=persona or t("chatbot.prompt.list.builtin"), inline=False)
+    embed.add_field(name=t("chatbot.prompt.type_name"), value=prompt_name or t("chatbot.prompt.list.builtin"), inline=False)
+    embed.add_field(name=t("chatbot.prompt.type_info"), value=prompt_info or t("chatbot.prompt.list.builtin"), inline=False)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 @prompt_group.command(name="set", description=t("chatbot.prompt.set.description"))
 @app_commands.choices(
     type=[

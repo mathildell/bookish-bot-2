@@ -7,9 +7,13 @@ chatbot:
       param_model: "Model to use"
       missing: "Model is required."
       invalid: "That model is not available."
-      success: "Chat model set to %{model}."
+      success: "Chat model set to `%{model}`"
   prompt:
     group_description: "Prompt settings"
+    list:
+      description: "Show current prompt settings"
+      title: "Chatbot prompts"
+      builtin: "(built-in)"
     set:
       description: "Set chatbot prompt text"
       param_type: "Which prompt to update"
