@@ -230,6 +230,6 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
         embed.description = "\n".join(chunk)
         pages.append([embed])
         
-    embed.colour = discord.Colour(getattr(client, "default_embed_color", None))
-    set_transparent_image(embed, client)
+    embed.colour = discord.Colour(getattr(interaction.client, "default_embed_color", None))
+    set_transparent_image(embed, interaction.client)
     await send_paginated(interaction, pages=pages, total_results=len(blocks))
