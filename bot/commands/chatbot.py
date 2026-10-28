@@ -227,6 +227,6 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
     for chunk in chunked(blocks, EMBEDS_PER_PAGE):
         embed = new_embed(interaction.client)
         embed.title = t("chatbot.userinfo.list.title")
-        embed.description = "\n\n".join(chunk)
+        embed.description = "\n".join(chunk)
         pages.append([embed])
     await send_paginated(interaction, pages=pages, total_results=len(blocks))

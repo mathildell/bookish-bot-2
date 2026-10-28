@@ -320,7 +320,7 @@ async def list_settings(interaction: discord.Interaction) -> None:
     for chunk in chunked(blocks, 8):
         embed = new_embed(interaction.client)
         embed.title = t("settings.list.title")
-        embed.description = "\n\n".join(chunk)
+        embed.description = "\n".join(chunk)
         pages.append([embed])
     await send_paginated(interaction, pages=pages, total_results=len(blocks))
 
