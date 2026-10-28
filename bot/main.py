@@ -17,9 +17,11 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from .commands.birthdays import birthday_group
+from .commands.bio import bio_group
 from .commands.booster import register_commands
 from .commands.bot import bot_group
 from .commands.bot_say import parse_message_link
+from .commands.chat import chat_command, handle_mention
 from .commands.intro import (
     IntroduceView,
     IntroRefreshView,
@@ -84,10 +86,12 @@ from .services import level as level_service
 from .services.birthdays import BirthdayService
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
+from .services.chat import ChatService
 from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
 from .services.intro import IntroService
 from .services.level import WeeklyLeaderboardService
 from .services.level_rewards import LevelRewardService, sync_member_roles
+from .services.member_profiles import MemberProfileService
 from .services.members import resolve_members
 from .services.reference import post_reference
 from .services.release_sources import BookScrapeError, ReleaseScraper
@@ -286,6 +290,8 @@ async def run() -> None:
     view_messages = ViewMessageService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))
     release_scraper = ReleaseScraper()
+    member_profiles = MemberProfileService(int(config.guild_id))
+    chat_service = ChatService(config.get("ai"))
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -309,6 +315,8 @@ async def run() -> None:
     bot.view_messages = view_messages
     bot.coupons = coupons
     bot.release_scraper = release_scraper
+    bot.member_profiles = member_profiles
+    bot.chat = chat_service
     # Persistent button on the intro sticky message (works after restarts).
     bot.add_view(IntroduceView())
     # Persistent refresh button on every intro embed (shares one custom id).
@@ -357,6 +365,8 @@ async def run() -> None:
     bot.tree.add_command(ping_command, guild=guild)
     bot.tree.add_command(randomize_command, guild=guild)
     bot.tree.add_command(biweekly_theme_group, guild=guild)
+    bot.tree.add_command(chat_command, guild=guild)
+    bot.tree.add_command(bio_group, guild=guild)
 
     # ------------------------ message reactor ------------------------
     @bot.event
@@ -371,6 +381,14 @@ async def run() -> None:
         await _award_message_xp(bot, message)
 
         if not message.content:
+            return
+
+        # Bot mention chat
+        if bot.user is not None and bot.user in message.mentions:
+            try:
+                await handle_mention(message, bot)
+            except Exception:
+                logger.exception("Mention handling failed")
             return
 
         used_emojis: set[str] = set()
@@ -431,6 +449,12 @@ async def run() -> None:
                         logger.exception("Failed to post birthday cleanup notice")
         except Exception:
             logger.exception("Failed to clean up birthday data on member leave")
+        try:
+            profiles = getattr(bot, "member_profiles", None)
+            if profiles is not None:
+                await profiles.delete_for_member(member.id)
+        except Exception:
+            logger.exception("Failed to clean up member profile on leave")
 
 
 
@@ -1063,5 +1087,11 @@ async def run() -> None:
     except KeyboardInterrupt:
         await bot.close()
     finally:
+        try:
+            chat = getattr(bot, "chat", None)
+            if chat is not None and hasattr(chat, "close"):
+                await chat.close()
+        except Exception:
+            pass
         await release_scraper.close()
         await close_db()

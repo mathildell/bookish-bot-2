@@ -22,3 +22,13 @@ mysql:
   username: "bookish"
   password: "bookish"
 
+# Local AI (Ollama/llama.cpp OpenAI-compatible)
+ai:
+  base_url: "http://127.0.0.1:11434/v1"
+  model: "qwen2.5:3b"
+  timeout_seconds: 60
+  cooldown_seconds: 10
+  max_tokens: 200
+  temperature: 0.8
+  num_ctx: 4096
+
