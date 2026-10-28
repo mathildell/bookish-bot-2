@@ -150,7 +150,7 @@ class ChatService:
             persona = t("chat.persona")
         parts = [persona]
         if display_name:
-            parts.append(t("chat.prompt_name"), name=display_name)
+            parts.append(t("chat.prompt_name", name=display_name))
         if bio and bio.strip():
             parts.append(t("chat.prompt_info", info=bio.strip()))
         system_prompt = "\n\n".join(parts)
