@@ -112,6 +112,7 @@ async def prompt_list(interaction: discord.Interaction) -> None:
     embed.add_field(name=t("chatbot.prompt.type_persona"), value=persona or t("chatbot.prompt.list.builtin"), inline=False)
     embed.add_field(name=t("chatbot.prompt.type_name"), value=prompt_name or t("chatbot.prompt.list.builtin"), inline=False)
     embed.add_field(name=t("chatbot.prompt.type_info"), value=prompt_info or t("chatbot.prompt.list.builtin"), inline=False)
+    set_transparent_image(embed, interaction.client)
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
