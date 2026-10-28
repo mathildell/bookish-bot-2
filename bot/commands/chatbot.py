@@ -230,6 +230,7 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
         embed.description = "\n".join(chunk)
         pages.append([embed])
 
+    chat = getattr(interaction.client, "chat", None)
     settings = getattr(interaction.client, "bot_settings", None)
     chat.configure(
         model,
