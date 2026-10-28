@@ -26,6 +26,8 @@ class BotSettingsService:
         self._reference_message_link: str | None = None
         self._admin_test_channel_id: int | None = None
         self._coupon_fallback_image: str | None = None
+        self._chat_model: str | None = None
+        self._chat_system_prompt: str | None = None
 
     @property
     def updates_channel_id(self) -> int | None:
@@ -59,6 +61,14 @@ class BotSettingsService:
     def coupon_fallback_image(self) -> str | None:
         return self._coupon_fallback_image
 
+    @property
+    def chat_model(self) -> str | None:
+        return self._chat_model
+
+    @property
+    def chat_system_prompt(self) -> str | None:
+        return self._chat_system_prompt
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._find(session)
@@ -82,6 +92,8 @@ class BotSettingsService:
         self._coupon_fallback_image = (
             row.coupon_fallback_image if row else None
         )
+        self._chat_model = row.chat_model if row else None
+        self._chat_system_prompt = row.chat_system_prompt if row else None
 
     async def set_updates_channel(self, channel_id: int | None) -> None:
         await self._update(updates_channel_id=channel_id)
@@ -114,6 +126,14 @@ class BotSettingsService:
     async def set_coupon_fallback_image(self, image: str | None) -> None:
         await self._update(coupon_fallback_image=image)
         self._coupon_fallback_image = image
+
+    async def set_chat_model(self, model: str | None) -> None:
+        await self._update(chat_model=model)
+        self._chat_model = model
+
+    async def set_chat_system_prompt(self, prompt: str | None) -> None:
+        await self._update(chat_system_prompt=prompt)
+        self._chat_system_prompt = prompt
 
     async def _find(self, session) -> BotSetting | None:
         return (

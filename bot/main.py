@@ -988,6 +988,12 @@ async def run() -> None:
         bot.coupon_fallback_image = (
             bot_settings.coupon_fallback_image or DEFAULT_FALLBACK_IMAGE
         )
+        chat_svc = getattr(bot, "chat", None)
+        if chat_svc is not None:
+            try:
+                chat_svc.configure(getattr(bot_settings, "chat_model", None))
+            except Exception:
+                pass
 
         await tickets.reload()
         logger.info("Ticket channel: %s", tickets.channel_id)

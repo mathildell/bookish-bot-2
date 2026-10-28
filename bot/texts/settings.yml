@@ -15,6 +15,8 @@ settings:
     review_repost_cooldown_days: "Review repost cooldown"
     transparent_embed_image: "Transparent embed image"
     weekly_leaderboard_hour: "Hour for weekly leaderboard"
+    chat_model: "Chat model"
+    chat_system_prompt: "Chat system prompt"
   list:
     description: "Show the bot’s settings"
     title: "Settings"
@@ -39,6 +41,8 @@ settings:
       buddy_read_message_link: "-# Message reposted into new forum threads."
       admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
       coupon_fallback_image: "-# Image shown on a streak coupon when it cannot be generated or uploaded."
+      chat_model: "-# Model name for /chat and mentions (overrides config). Use 'none' to clear."
+      chat_system_prompt: "-# System prompt for /chat and mentions (overrides built-in). Use 'none' to clear."
   edit:
     description: "Change one of the bot’s settings"
     param_key: "Which setting to change"
@@ -52,3 +56,4 @@ settings:
       url: "paste an http(s) URL, or 'none' to clear it"
       color: "paste a hex color like #97a97c, or 'none' to clear it"
       message_link: "paste a Discord message link, or 'none' to clear it"
+      text: "enter text, or 'none' to clear it"
