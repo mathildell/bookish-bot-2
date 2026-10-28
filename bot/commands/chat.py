@@ -34,6 +34,11 @@ def strip_bot_mentions(content: str, bot_id: int) -> str:
     content = _MENTION_RE.sub(repl, content)
     return " ".join(content.split()).strip()
 
+def add_metadata_to_message(username: str, content: str) -> str:
+    content = content or ""
+    username = username or ""
+    return f"{{username: {username}, message: {content}}}"
+
 
 async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     if message.guild is None or bot.user is None:
@@ -58,8 +63,8 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         return
     else:
         # Add the username for the bot
-        content = f"{{username: {message.author.display_name}, message: {content}}}"
-        
+        content =  add_metadata_to_message(message.author.display_name, content)
+
     bio = None
     try:
         if profiles is not None:
@@ -103,6 +108,8 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
     chat_service = getattr(interaction.client, "chat", None)
     profiles = getattr(interaction.client, "member_profiles", None)
     settings = getattr(interaction.client, "bot_settings", None)
+    display_name = interaction.user.display_name
+    message =  add_metadata_to_message(display_name, message)
     if chat_service is None or profiles is None:
         await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
         return
@@ -119,7 +126,7 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
     override = getattr(settings, "chat_system_prompt", None) if settings is not None else None
     try:
         await interaction.response.defer(thinking=True)
-        reply = await chat_service.chat(interaction.guild.id if interaction.guild else 0, interaction.user.id, interaction.user.display_name, bio, message, system_prompt=override)
+        reply = await chat_service.chat(interaction.guild.id if interaction.guild else 0, interaction.user.id, display_name, bio, message, system_prompt=override)
         if reply:
             await interaction.followup.send(reply)
         else:
