@@ -33,8 +33,6 @@ from .listing import (
     send_paginated,
     set_transparent_image,
 )
-from .views import ExpiringView
-
 logger = logging.getLogger("bh2.biweekly_theme")
 
 biweekly_theme_group = app_commands.Group(

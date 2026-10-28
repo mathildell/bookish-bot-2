@@ -14,20 +14,6 @@ def _boosts(interaction: discord.Interaction):
     return interaction.client.xp_boosts
 
 
-def _is_channel(obj: discord.abc.GuildChannel | discord.Thread) -> bool:
-    return isinstance(
-        obj,
-        (
-            discord.TextChannel,
-            discord.VoiceChannel,
-            discord.StageChannel,
-            discord.ForumChannel,
-            discord.CategoryChannel,
-            discord.Thread,
-        ),
-    )
-
-
 def register_boosts_group(xp_group: app_commands.Group) -> None:
     boosts_group = app_commands.Group(
         name="boosts",

@@ -249,7 +249,7 @@ class ChatService:
         session = await self._get_session()
         url = f"{self.base_url}/chat/completions"
         
-        logger.info("POST: %s: %s", url, payload)
+        logger.debug("Chat request to %s (model %s)", url, self.model)
 
         async with self._lock:
             try:

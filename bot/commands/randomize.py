@@ -8,12 +8,14 @@ import random
 import discord
 from discord import app_commands
 
-from ..texts import t
-from .views import ExpiringView, message_author_id, track_view
+from ..texts import t, t_list
+from .views import ExpiringView, message_author_id, track_view, tracked_row
 
 REROLL_CUSTOM_ID = "randomize:reroll"
 REROLL_LIFETIME_SECONDS = 2 * 60 * 60
 REROLL_VIEW_KIND = "randomize"
+
+_ROULETTE_FRAMES = t_list("randomize.roulette_frames")
 
 
 def parse_items(value: str) -> list[str]:
@@ -26,18 +28,6 @@ def parse_items(value: str) -> list[str]:
         if item:
             items.append(item)
     return items
-
-
-_ROULETTE_FRAMES = [
-    "🔳 🔳 ⬜\n🔳 ↗️ 🔳\n🔳 🔳 🔳",
-    "🔳 🔳 🔳\n🔳 ➡️ ⬜\n🔳 🔳 🔳",
-    "🔳 🔳 🔳\n🔳 ↘️ 🔳\n🔳 🔳 ⬜",
-    "🔳 🔳 🔳\n🔳 ⬇️ 🔳\n🔳 ⬜ 🔳",
-    "🔳 🔳 🔳\n🔳 ↙️ 🔳\n⬜ 🔳 🔳",
-    "🔳 🔳 🔳\n⬜ ⬅️ 🔳\n🔳 🔳 🔳",
-    "⬜ 🔳 🔳\n🔳 ↖️ 🔳\n🔳 🔳 🔳",
-    "🔳 ⬜ 🔳\n🔳 ⬆️ 🔳\n🔳 🔳 🔳",
-]
 
 
 def _roulette_content(parsed: list[str]) -> tuple[list[str], str]:
@@ -63,10 +53,19 @@ class RandomizeRerollButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
-        if not isinstance(view, RandomizeRerollView):
-            await interaction.response.defer(ephemeral=True)
+        if isinstance(view, RandomizeRerollView):
+            await view.reroll(interaction)
             return
-        await view.reroll(interaction)
+        allowed, row = await tracked_row(interaction)
+        if not allowed or row is None:
+            return
+        state = getattr(row, "state", None) or {}
+        restored = RandomizeRerollView(
+            state.get("items", ""),
+            disabled=True,
+            owner_id=state.get("owner_id"),
+        )
+        await restored.reroll(interaction)
 
 
 class RandomizeRerollView(ExpiringView):

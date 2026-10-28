@@ -226,15 +226,20 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
     blocks = []
     for row in rows:
         member = member_map.get(row.user_id)
-        name = member.display_name if member is not None else f"Unknown ({row.user_id})"
-        blocks.append(f"### {name}\n{row.bio}")
+        name = (
+            member.display_name
+            if member is not None
+            else t("chatbot.userinfo.list.unknown_member", id=row.user_id)
+        )
+        blocks.append(
+            t("chatbot.userinfo.list.block", member=name, bio=row.bio)
+        )
     pages = []
     for chunk in chunked(blocks, EMBEDS_PER_PAGE):
         embed = new_embed(interaction.client)
         embed.title = t("chatbot.userinfo.list.title")
         embed.description = "\n".join(chunk)
+        set_transparent_image(embed, interaction.client)
         pages.append([embed])
 
-    embed.colour = getattr(interaction.client, "default_embed_color", None)
-    set_transparent_image(embed, interaction.client)
     await send_paginated(interaction, pages=pages, total_results=len(blocks))

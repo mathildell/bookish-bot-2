@@ -954,12 +954,25 @@ class BirthdayService:
             )
 
             try:
-                await channel.send(
-                    content=t(
-                        "birthday.announcement", 
+                general_chat = getattr(
+                    getattr(client, "bot_settings", None),
+                    "gen_chat_channel_id",
+                    None,
+                )
+                content = (
+                    t(
+                        "birthday.announcement",
                         mentions=mentions,
-                        channel=f"<#{client.bot_settings.gen_chat_channel_id}>"
-                    ),
+                        channel=f"<#{general_chat}>",
+                    )
+                    if general_chat
+                    else t(
+                        "birthday.announcement_no_channel",
+                        mentions=mentions,
+                    )
+                )
+                await channel.send(
+                    content=content,
                     embeds=[embed for _, embed in chunk],
                 )
             except discord.HTTPException:

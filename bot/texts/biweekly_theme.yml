@@ -103,9 +103,7 @@ biweekly_theme:
       approb_status: "Approbation status"
       approved: "✅ ‎ Approved by %{user}"
       refused: "❌ ‎ Refused by %{user}"
-      approve_success: "Added the suggestion to the deck."
       no_feed: "The admins' updates channel isn't set, so suggestions can't be sent."
-      duplicate: "A card with that prompt is already in the deck."
 
   post:
     embed_title: "🗓️ ‎ This forthnight’s theme"

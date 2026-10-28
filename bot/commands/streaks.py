@@ -28,9 +28,9 @@ from ..services.streaks import (
     StreakGoal,
     StreakLog,
     display_level,
-    search_timezones,
     valid_timezone,
 )
+from ..services.timezones import search_timezones
 from ..texts import t, t_choice
 from .checks import in_admin_test_channel, require_admin
 from .listing import new_embed, placement, set_author, set_transparent_image
@@ -92,8 +92,8 @@ def _icons() -> dict[str, str]:
 
 
 def _format_hour(hour: int) -> str:
-    suffix = "AM" if hour < 12 else "PM"
-    return f"{hour % 12 or 12}:00 {suffix}"
+    key = "components.time.hour_am" if hour < 12 else "components.time.hour_pm"
+    return t(key, hour=hour % 12 or 12)
 
 
 def _reminder_text(goal: StreakGoal) -> str:
@@ -106,13 +106,24 @@ def _format_date(day: _date) -> str:
 
 
 def _format_date_short(day: _date) -> str:
-    return day.strftime("%b %d, %Y")
+    return t(
+        "components.date.month_day_year",
+        month=t(f"components.months_short.{day.month}"),
+        day=f"{day.day:02d}",
+        year=day.year,
+    )
 
 
 def _format_local_datetime(now: datetime) -> str:
-    hour = now.hour % 12 or 12
-    suffix = "AM" if now.hour < 12 else "PM"
-    return f"{now.strftime('%b %d, %Y')} {hour}:{now.minute:02d}{suffix}"
+    key = (
+        "components.time.short_am"
+        if now.hour < 12
+        else "components.time.short_pm"
+    )
+    return (
+        f"{_format_date_short(now.date())} "
+        + t(key, hour=now.hour % 12 or 12, minute=f"{now.minute:02d}")
+    )
 
 
 def _format_local_now(timezone: str) -> str:

@@ -42,8 +42,8 @@ def _flatten(tree: dict, prefix: tuple[str, ...] = ()):  # noqa: ANN202
 
 
 @lru_cache(maxsize=1)
-def _load_texts() -> dict[str, str]:
-    texts: dict[str, str] = {}
+def _load_texts() -> dict[str, str | list[str]]:
+    texts: dict[str, str | list[str]] = {}
     for path in sorted(TEXTS_DIR.glob("*.yml")):
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         texts.update(dict(_flatten(data)))
@@ -73,6 +73,20 @@ def t(key: str, **variables) -> str:
         raise MissingText(f"{key} is not a string")
 
     return _interpolate(text, variables) if variables else text
+
+
+def t_list(key: str) -> list[str]:
+    """Return a non-empty list of texts stored under ``key``."""
+    try:
+        value = _load_texts()[key]
+    except KeyError as exc:
+        raise MissingText(key) from exc
+
+    if isinstance(value, list) and value and all(
+        isinstance(entry, str) for entry in value
+    ):
+        return list(value)
+    raise MissingText(f"{key} is not a non-empty list of strings")
 
 
 def t_choice_template(key: str) -> str:

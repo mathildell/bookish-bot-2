@@ -30,6 +30,11 @@ birthday:
     Please send happy wishes to %{mentions} in %{channel}! :balloon: 
     ‎
 
+  announcement_no_channel: |
+    ## :gift: :birthday: ‎ We're celebrating a birthday today!
+    Please send happy wishes to %{mentions}! :balloon: 
+    ‎
+
   set:
     description: "Set your birthday"
     param_date: "Your birthday (start typing to search)"
@@ -84,7 +89,6 @@ birthday:
     messages_button_emoji: "💬"
     images_button: "Images"
     images_button_emoji: "🖼️"
-    id_field: "ID"
     add:
       description: "Add birthday content (message or image URL)"
       param_content: "Message text or direct http(s) image URL"

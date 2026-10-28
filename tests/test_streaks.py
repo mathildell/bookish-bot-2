@@ -22,6 +22,7 @@ from bot.commands import streaks as command_streaks
 from bot.services import coupons
 from bot.services import image_hosting
 from bot.services import streaks
+from bot.services.timezones import search_timezones
 from bot.texts import MissingText, t, t_choice
 
 
@@ -496,12 +497,12 @@ class TimezoneTests(unittest.TestCase):
         self.assertIsNone(streaks.valid_timezone(""))
 
     def test_search_matches_city(self) -> None:
-        results = streaks.search_timezones("toronto")
+        results = search_timezones("toronto")
         values = [value for value, _ in results]
         self.assertIn("America/Toronto", values)
 
     def test_search_empty_returns_popular(self) -> None:
-        self.assertTrue(streaks.search_timezones(""))
+        self.assertTrue(search_timezones(""))
 
 
 class RescueWindowTests(unittest.TestCase):

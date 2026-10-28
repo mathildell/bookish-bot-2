@@ -36,7 +36,7 @@ from .commands.level import (
 )
 from .commands.listing import parse_hex_colour, set_transparent_image
 from .commands.ping import ping_command
-from .commands.randomize import RandomizeRerollFallbackView, RandomizeRerollView, randomize_command
+from .commands.randomize import RandomizeRerollFallbackView, randomize_command
 from .commands.reminders import (
     BUTTON_LIFETIME_SECONDS,
     REMINDER_VIEW_KIND,
@@ -105,7 +105,7 @@ from .services.view_messages import ViewMessageService
 from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
 from .services.image_hosting import ImageHost
 from .services.xp_boosts import XpBoostService, apply_boost, boost_percent
-from .texts import interpolate, t, t_choice, t_choice_template
+from .texts import interpolate, t, t_choice_template
 
 logger = logging.getLogger("bh2")
 

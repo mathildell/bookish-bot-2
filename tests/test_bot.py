@@ -2988,7 +2988,9 @@ class SettingsDisplayTests(unittest.TestCase):
 
     def test_description_lists_each_setting(self) -> None:
         interaction = self._Interaction()
-        description = settings_cmds.build_description(interaction)
+        description = "\n".join(
+            settings_cmds.build_setting_blocks(interaction)
+        )
         for key in settings_cmds.SETTING_KEYS:
             self.assertIn(settings_cmds.setting_label(key), description)
         self.assertIn("-# ", description)

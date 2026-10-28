@@ -210,6 +210,7 @@ streaks:
     invalid_amount: "`%{raw}` doesn’t appear to be a number I can log. Try `30`, `+10` or `-5`."
     amount_positive: "That’s some big brain strategy :brain: but your goal has to be more than zero."
     invalid_timezone: "`%{timezone}` isn’t a timezone I recognise; please try looking up a metropolis near you instead."
+    invalid_reminder: "That isn’t a reminder option I recognise. Use `/streak edit` to pick a new one."
     invalid_date: "`%{raw}` isn’t a date I can work with, please use `YYYY-MM-DD`."
     wrong_channel: "Oops, this isn’t the streak channel! Try there instead: %{channel}."
     already_registered: "You already have a streak going. Use `/streak edit` to change it instead."

@@ -20,7 +20,7 @@ from ..services.coupons import DEFAULT_FALLBACK_IMAGE
 from ..texts import t
 from .bot_say import parse_message_link
 from .checks import require_admin
-from .listing import EMBEDS_PER_PAGE, chunked, new_embed, parse_hex_colour, send_paginated
+from .listing import chunked, new_embed, parse_hex_colour, send_paginated
 
 settings_group = app_commands.Group(
     name="settings",
@@ -199,22 +199,6 @@ def current_value_line(interaction: discord.Interaction, key: str) -> str:
     if unit:
         return t("settings.list.value_unit", value=value, unit=unit)
     return t("settings.list.value", value=value)
-
-
-def build_description(interaction: discord.Interaction) -> str:
-    """Build the list embed's description: heading + value + note per setting."""
-    blocks = []
-    for key in sorted(SETTING_KEYS, key=lambda k: setting_label(k).lower()):
-        blocks.append(
-            "\n".join(
-                (
-                    t("settings.list.heading", label=setting_label(key)),
-                    current_value_line(interaction, key),
-                    t(f"settings.list.info.{key}"),
-                )
-            )
-        )
-    return "\n".join(blocks)
 
 
 def build_setting_blocks(interaction: discord.Interaction) -> list[str]:

@@ -13,7 +13,7 @@ import importlib.util
 import sys
 import tempfile
 import unittest
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch

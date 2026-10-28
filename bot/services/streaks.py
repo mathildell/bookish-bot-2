@@ -25,9 +25,10 @@ from sqlalchemy import delete, select
 
 from ..db import session_scope
 from ..models import Streak, StreakGoal, StreakLog, StreakSetting
+from ..texts import t
 from . import level as level_service
 from .level import utcnow
-from .timezones import local_now, search_timezones, valid_timezone
+from .timezones import local_now, valid_timezone
 
 LEVEL_THRESHOLD = 5
 XP_BASE = 200
@@ -78,6 +79,10 @@ class InvalidTimezone(StreakError):
     key = "streaks.errors.invalid_timezone"
 
 
+class InvalidReminder(StreakError):
+    key = "streaks.errors.invalid_reminder"
+
+
 # ----------------------------------------------------------------- pure rules
 
 
@@ -100,7 +105,12 @@ def display_level(days_logged: int) -> int:
 
 def format_date(day: date) -> str:
     """Render a date as the plain "October 13, 2026" the feature shows."""
-    return day.strftime("%B %d, %Y")
+    return t(
+        "components.date.month_day_year",
+        month=t(f"components.months.{day.month}"),
+        day=f"{day.day:02d}",
+        year=day.year,
+    )
 
 
 def window_xp(level: int, successes: int) -> int:
@@ -634,7 +644,7 @@ class StreakService:
         custom_hour: int | None,
     ) -> StreakGoal:
         if reminder not in REMINDERS:
-            raise InvalidAmount(reminder=reminder)
+            raise InvalidReminder(reminder=reminder)
         zone = valid_timezone(timezone)
         if zone is None:
             raise InvalidTimezone(timezone=timezone)
@@ -642,7 +652,7 @@ class StreakService:
             custom_hour is None
             or not CUSTOM_HOUR_MIN <= custom_hour <= CUSTOM_HOUR_MAX
         ):
-            raise InvalidAmount(reminder=reminder)
+            raise InvalidReminder(reminder=reminder)
         unit = (unit or "").strip()
         if not unit:
             raise InvalidAmount(raw=unit)

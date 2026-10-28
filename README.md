@@ -175,10 +175,11 @@ List configured XP boosts.
 
 ## Book reviews
 
-Members link their Goodreads reviews RSS feed; the bot polls the feeds every
-5 minutes and posts new reviews to the configured channel. Each review is
+Members link their Goodreads reviews RSS feed; the bot used to poll the feeds
+every 5 minutes and post new reviews to the configured channel. Each review is
 posted at most once every 24 hours. Reviews already on the feed when it is
-linked are never posted.
+linked are never posted. Polling is currently paused because Goodreads retired
+its RSS feeds; the stored feeds and `/reviews repost` still work.
 
 ```
 /reviews feed add url: [user:]
@@ -476,7 +477,7 @@ option autocompletes them:
 
 | repeat | schedule examples |
 |---|---|
-| `once` | `2026-10-29 at 14:00`, `thursday at 2pm`, `tomorrow at 9am` |
+| `once` | `2026-10-29 at 14:00`, `thursday at 2pm`, `tomorrow at 9am`, `in 30 minutes` |
 | `daily` | `at 2pm`, `every day at 2pm` |
 | `weekly` | `on monday at 2pm`, `every monday at 2pm` |
 | `monthly` | `on the 15th at 2pm`, `on the last day of the month at 2pm`, `2 days before the end of the month at 2pm` |
@@ -488,18 +489,19 @@ offsets count back from the last day, so `2 days before the end` is the 29th in
 a 31-day month.
 
 ```
-/reminder add message: schedule: [repeat:] [timezone:]
+/reminder add message: schedule: [repeat:] [timezone:] [channel:] [role:]
 ```
-**Permissions:** Everyone
+**Permissions:** Everyone (own channel only) / 🔒 Admin (another channel or role)
 Create a reminder in the current channel. `repeat` is `once` (default),
 `daily`, `weekly`, `monthly` or `interval`.
 
 ```
-/reminder edit reminder: [message:] [schedule:] [repeat:] [timezone:]
+/reminder edit reminder: [message:] [schedule:] [repeat:] [timezone:] [channel:] [role:]
 ```
 **Permissions:** Admin (anyone) / Members (self only)
 Change a reminder; giving a schedule reschedules it from the moment of the
-edit. Changing `repeat` requires a new schedule.
+edit. Changing `repeat` requires a new schedule. `channel` and `role` are
+admin-only.
 
 ```
 /reminder remove reminder:
@@ -604,18 +606,18 @@ message at the given jump `link` (right-click a message → Copy Message Link).
 ## Bi-weekly themes
 
 ```
-/biweekly-theme channel set
-/biweekly-theme role set
-/biweekly-theme schedule set
+/biweekly-theme channel set channel:
+/biweekly-theme role set role:
+/biweekly-theme schedule set day: hour:
 /biweekly-theme toggle
-/biweekly-theme force [card]
+/biweekly-theme force [card:]
 /biweekly-theme status
-/biweekly-theme cards add
-/biweekly-theme cards edit
-/biweekly-theme cards remove
+/biweekly-theme cards add title: [description:]
+/biweekly-theme cards edit card: [title:] [description:]
+/biweekly-theme cards remove card:
 /biweekly-theme cards list
-/biweekly-theme cards search
-/biweekly-theme cards suggest
+/biweekly-theme cards search keyword:
+/biweekly-theme cards suggest prompt: [description:]
 ```
 **Permissions:** 🔒 Admin
 
@@ -681,6 +683,8 @@ View and edit the bot's runtime settings.
 - `default_embed_color` — default colour applied to every embed the bot sends.
 - `buddy_read_channel_id` — forum channel where new threads get the reference
   message reposted and pinned.
+- `gen_chat_channel_id` — channel where birthday announcements point members to
+  send happy wishes.
 - `buddy_read_message_link` — jump link to the message reposted into new forum
   threads (right-click the message → Copy Message Link).
 - `admin_test_channel_id` — channel where channel-locked commands (like
@@ -691,13 +695,21 @@ View and edit the bot's runtime settings.
 ## Chatbot
 
 ```
+/chat message:
+```
+**Permissions:** Everyone
+Chat with the bot. It also answers when it is mentioned in a message; an empty
+mention gets a prompt to actually say something.
+
+```
 /chatbot model set model:
+/chatbot prompt list
 /chatbot prompt set type: content:
 /chatbot userinfo set user: content:
 /chatbot userinfo list
 ```
 **Permissions:** 🔒 Admin
-Configure the chatbot: pick the model, set persona/name/biography instructions, and manage member bios used for chat context.
+Configure the chatbot: pick the model, set persona/name/biography instructions, and manage member bios used for chat context. `prompt list` shows the current persona and prompt overrides.
 
 ***
 
@@ -710,7 +722,9 @@ Configure the chatbot: pick the model, set persona/name/biography instructions, 
 Check that the bot is awake; replies with the round-trip latency.
 
 ```
-/randomize items:<items>
+/randomize items:
 ```
 **Permissions:** Everyone
-Pick a random item from a comma-separated list (duplicates are weighted); reply is public as `I pick: <item>`.
+Pick a random item from a comma-separated list (duplicates are weighted); the
+reply shows `Result: **<item>**`. Use the Reroll button to spin again for two
+hours.

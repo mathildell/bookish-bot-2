@@ -14,7 +14,7 @@ import unicodedata
 from datetime import date, datetime
 
 import discord
-from sqlalchemy import delete, select, update
+from sqlalchemy import select, update
 
 from ..db import session_scope
 from ..models import BiweeklyThemeCard, BiweeklyThemeSetting, BiweeklyThemeSuggestion

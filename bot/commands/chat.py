@@ -8,17 +8,12 @@ import re
 import discord
 from discord import app_commands
 
-from ..services.chat import ChatCooldownError, ChatError, ChatTimeoutError, ChatUnavailableError
+from ..services.chat import ChatCooldownError, ChatTimeoutError, ChatUnavailableError
 from ..texts import t
 
 logger = logging.getLogger(__name__)
 
 _MENTION_RE = re.compile(r"<@!?(\d+)>")
-
-
-class ChatCog:
-    def __init__(self, bot_id: int) -> None:
-        self.bot_id = bot_id
 
 
 def strip_bot_mentions(content: str, bot_id: int) -> str:
@@ -147,7 +142,12 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
         else:
             await interaction.followup.send(t("chat.unavailable"))
     except ChatCooldownError:
-        await interaction.response.send_message(t("chat.cooldown"), ephemeral=True)
+        try:
+            await interaction.followup.send(t("chat.cooldown"), ephemeral=True)
+        except Exception:
+            await interaction.response.send_message(
+                t("chat.cooldown"), ephemeral=True
+            )
     except ChatTimeoutError:
         try:
             await interaction.followup.send(t("chat.timeout"))

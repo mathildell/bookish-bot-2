@@ -40,5 +40,5 @@ chatbot:
       description: "List member bios"
       empty: "No bios set."
       title: "Member bios"
-      member: "Member"
-      bio: "Bio"
+      block: "### %{member}\n%{bio}"
+      unknown_member: "Unknown member (%{id})"
