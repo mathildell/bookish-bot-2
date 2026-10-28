@@ -176,7 +176,9 @@ class ChatService:
         name_text = prompt_name if prompt_name and str(prompt_name).strip() else self._prompt_name_override
         if name_text and str(name_text).strip() and display_name:
             try:
-                parts.append(str(name_text).format(name=display_name))
+                text = str(name_text)
+                text = text.replace("%{name}", display_name)
+                parts.append(text)
             except Exception:
                 parts.append(t("chat.prompt_name", name=display_name))
         elif display_name:
@@ -184,7 +186,9 @@ class ChatService:
         info_text = prompt_info if prompt_info and str(prompt_info).strip() else self._prompt_info_override
         if info_text and str(info_text).strip() and bio and str(bio).strip():
             try:
-                parts.append(str(info_text).format(info=str(bio).strip()))
+                text = str(info_text)
+                text = text.replace("%{info}", str(bio).strip())
+                parts.append(text)
             except Exception:
                 parts.append(t("chat.prompt_info", info=str(bio).strip()))
         elif bio and str(bio).strip():
