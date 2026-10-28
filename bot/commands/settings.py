@@ -20,7 +20,7 @@ from ..services.coupons import DEFAULT_FALLBACK_IMAGE
 from ..texts import t
 from .bot_say import parse_message_link
 from .checks import require_admin
-from .listing import new_embed, parse_hex_colour
+from .listing import EMBEDS_PER_PAGE, chunked, new_embed, parse_hex_colour, send_paginated
 
 settings_group = app_commands.Group(
     name="settings",
@@ -265,6 +265,21 @@ def build_description(interaction: discord.Interaction) -> str:
     return "\n".join(blocks)
 
 
+def build_setting_blocks(interaction: discord.Interaction) -> list[str]:
+    blocks = []
+    for key in sorted(SETTING_KEYS, key=lambda k: setting_label(k).lower()):
+        blocks.append(
+            "\n".join(
+                (
+                    t("settings.list.heading", label=setting_label(key)),
+                    current_value_line(interaction, key),
+                    t(f"settings.list.info.{key}"),
+                )
+            )
+        )
+    return blocks
+
+
 async def apply_value(
     interaction: discord.Interaction, key: str, raw: str
 ) -> None:
@@ -355,10 +370,21 @@ async def apply_value(
 async def list_settings(interaction: discord.Interaction) -> None:
     if not await require_admin(interaction):
         return
-    embed = new_embed(interaction.client)
-    embed.title = t("settings.list.title")
-    embed.description = build_description(interaction)
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.defer(ephemeral=True)
+    blocks = build_setting_blocks(interaction)
+    if not blocks:
+        embed = new_embed(interaction.client)
+        embed.title = t("settings.list.title")
+        embed.description = ""
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        return
+    pages = []
+    for chunk in chunked(blocks, 8):
+        embed = new_embed(interaction.client)
+        embed.title = t("settings.list.title")
+        embed.description = "\n\n".join(chunk)
+        pages.append([embed])
+    await send_paginated(interaction, pages=pages, total_results=len(blocks))
 
 
 @settings_group.command(name="edit", description=t("settings.edit.description"))
