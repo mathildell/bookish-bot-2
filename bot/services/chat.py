@@ -153,7 +153,9 @@ class ChatService:
             parts.append(f"The person talking to you is called {display_name}.")
         if bio and bio.strip():
             parts.append(f"What you remember about them: {bio.strip()}")
-        return "\n\n".join(parts)
+        system_prompt = "\n\n".join(parts)
+        logger.info("System prompt: %s", system_prompt)
+        return system_prompt
 
     @staticmethod
     def extract_reply(payload: dict[str, Any]) -> str:
