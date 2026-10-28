@@ -10,5 +10,4 @@ chat:
   cooldown: "Give me a moment, I'm thinking..."
   empty_ping: "Say something if you want me to bother with you."
   timeout: "Took too long. Try again in a moment."
-  unavailable: "Can't think right now. Try again later."
-  thinking: "..."
+  unavailable: "Oops, can't think right now. Try again later."
