@@ -1049,8 +1049,9 @@ async def run() -> None:
 
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
-        if not poll_reviews.is_running():
-            poll_reviews.start()
+        # Goodreads retired RSS feeds; review polling paused.
+        # if not poll_reviews.is_running():
+        #     poll_reviews.start()
         if not post_releases.is_running():
             post_releases.start()
         if not purge_releases.is_running():

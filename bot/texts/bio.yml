@@ -4,9 +4,9 @@ bio:
     description: "Set or clear a member's bio (use 'none' to clear)"
     param_member: "Member to update"
     param_bio: "Bio text (third person, facts/attitude, ~30 words). Use 'none' to clear."
-    success: "Updated bio for %<member>s."
-    cleared: "Cleared bio for %<member>s."
-    no_bio: "%<member>s has no bio to clear."
+    success: "Updated bio for %{member}"
+    cleared: "Cleared bio for %{member}"
+    no_bio: "%{member} has no bio to clear."
     too_long: "Bio must be 500 characters or less."
   list:
     description: "List member bios"
