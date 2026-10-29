@@ -2,7 +2,7 @@ randomize:
   description: "Pick a random item from a comma-separated list"
   param_items: "Items separated by commas, e.g. tea, coffee, water"
   too_few: "Give me at least two comma-separated items."
-  wheel_turning: "🔄 ‎ The wheel is turning..."
+  wheel_turning: "🔄 ‎ The wheel is spinning..."
   picking: "Result: **%{item}**"
   reroll_label: "Reroll"
   reroll_emoji: "<:slotmachine:1564739493678948503>"
