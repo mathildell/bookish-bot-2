@@ -74,7 +74,7 @@ Implemented features:
   month's end. Admins can post a reminder in another channel and ping a role
   alongside its owner. Each post carries Mark completed and Snooze buttons (2h
   lifetime) usable by the owner and members with the pinged role; the snooze
-  picker chooses 1-10 minutes/hours/days, deletes the original post, and the
+  popup chooses 1-30 minutes/hours/days, deletes the original post, and the
   reposted reminder is titled `Snoozed: …`. `/reminder list` shows every reminder
   to admins and the member's own to everyone else. Reminders missed while
   offline post if at most 24h late.

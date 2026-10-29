@@ -636,9 +636,35 @@ class ReminderActionsViewTests(unittest.TestCase):
         self.assertEqual(reminder_cmds.BUTTON_LIFETIME_SECONDS, 2 * 60 * 60)
 
 
-class SnoozePickerViewTests(unittest.TestCase):
-    def test_picker_offers_units_and_amounts(self) -> None:
-        view = reminder_cmds.SnoozePickerView(
+class SnoozeStartTests(unittest.IsolatedAsyncioTestCase):
+    async def test_snooze_button_opens_the_modal(self) -> None:
+        message = SimpleNamespace(
+            content="<@42>",
+            embeds=[SimpleNamespace(title="Task")],
+            channel=SimpleNamespace(id=7),
+        )
+        interaction = SimpleNamespace(
+            client=SimpleNamespace(view_messages=None),
+            message=message,
+            user=SimpleNamespace(id=42, roles=[]),
+            channel_id=7,
+            response=SimpleNamespace(send_modal=AsyncMock()),
+        )
+        view = reminder_cmds.ReminderActionsView(1, 42, "Task")
+        await view.start_snooze(interaction)
+        interaction.response.send_modal.assert_awaited_once()
+        modal = interaction.response.send_modal.await_args.args[0]
+        self.assertIsInstance(modal, reminder_cmds.SnoozeModal)
+        self.assertEqual(modal.reminder_id, 1)
+        self.assertEqual(modal.owner_id, 42)
+        self.assertEqual(modal.channel_id, 7)
+        self.assertEqual(modal.task_text, "Task")
+        self.assertIs(modal.original_message, message)
+
+
+class SnoozeModalTests(unittest.IsolatedAsyncioTestCase):
+    def _modal(self) -> reminder_cmds.SnoozeModal:
+        return reminder_cmds.SnoozeModal(
             reminder_id=1,
             owner_id=42,
             role_id=None,
@@ -646,33 +672,73 @@ class SnoozePickerViewTests(unittest.TestCase):
             channel_id=7,
             original_message=None,
         )
-        buttons = [
-            child
-            for child in view.children
-            if isinstance(child, discord.ui.Button)
-        ]
-        selects = [
-            child
-            for child in view.children
-            if isinstance(child, discord.ui.Select)
-        ]
+
+    def _interaction(self) -> SimpleNamespace:
+        service = SimpleNamespace(snooze=AsyncMock())
+        return SimpleNamespace(
+            client=SimpleNamespace(reminders=service),
+            response=SimpleNamespace(send_message=AsyncMock()),
+        )
+
+    def test_modal_offers_amount_and_units(self) -> None:
+        modal = self._modal()
+        self.assertEqual(modal.title, t("reminders.snooze.modal_title"))
         self.assertEqual(
-            [button.unit for button in buttons],
+            modal.timeout, reminder_cmds.SNOOZE_MODAL_LIFETIME_SECONDS
+        )
+        self.assertEqual(len(modal.children), 2)
+        amount = modal.amount_input.component
+        self.assertIsInstance(amount, discord.ui.TextInput)
+        self.assertEqual(amount.default, "1")
+        self.assertEqual(amount.max_length, 2)
+        unit = modal.unit_input.component
+        self.assertIsInstance(unit, discord.ui.Select)
+        self.assertEqual(
+            [option.value for option in unit.options],
             list(reminder_cmds.SNOOZE_UNITS),
         )
         self.assertEqual(
-            [button.label for button in buttons],
+            [option.label for option in unit.options],
             [
                 t(f"reminders.snooze.units.{unit}")
                 for unit in reminder_cmds.SNOOZE_UNITS
             ],
         )
-        self.assertEqual(len(selects), 1)
-        self.assertEqual(
-            [option.value for option in selects[0].options],
-            [str(amount) for amount in range(1, 11)],
+        self.assertEqual(reminder_cmds.SNOOZE_MAX_AMOUNT, 30)
+
+    async def test_invalid_amount_is_rejected(self) -> None:
+        modal = self._modal()
+        modal.amount_input.component._value = "31"
+        interaction = self._interaction()
+        await modal.on_submit(interaction)
+        interaction.response.send_message.assert_awaited_once_with(
+            t("reminders.snooze.invalid_amount", max=30),
+            ephemeral=True,
         )
-        self.assertEqual(view.amount, 1)
+        interaction.client.reminders.snooze.assert_not_awaited()
+
+    async def test_submit_snoozes_for_the_chosen_delay(self) -> None:
+        modal = self._modal()
+        modal.amount_input.component._value = "2"
+        modal.unit_input.component._values = ["hours"]
+        interaction = self._interaction()
+        await modal.on_submit(interaction)
+        interaction.client.reminders.snooze.assert_awaited_once_with(
+            reminder_id=1,
+            user_id=42,
+            channel_id=7,
+            message="Task",
+            delay=timedelta(hours=2),
+            role_id=None,
+        )
+        interaction.response.send_message.assert_awaited_once_with(
+            t(
+                "reminders.snooze.success",
+                amount=2,
+                unit=t("reminders.snooze.unit.hours"),
+            ),
+            ephemeral=True,
+        )
 
 
 class ReminderPermissionTests(unittest.IsolatedAsyncioTestCase):

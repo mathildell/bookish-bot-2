@@ -256,8 +256,8 @@ class _SnoozeButton(discord.ui.Button):
 
 
 SNOOZE_UNITS = ("minutes", "hours", "days")
-SNOOZE_MAX_AMOUNT = 10
-SNOOZE_PICKER_LIFETIME_SECONDS = 5 * 60
+SNOOZE_MAX_AMOUNT = 30
+SNOOZE_MODAL_LIFETIME_SECONDS = 15 * 60
 _SNOOZE_UNIT_TEXT = {
     "minutes": ("minute", "minutes"),
     "hours": ("hour", "hours"),
@@ -344,8 +344,8 @@ class _ReminderActions:
             return
         state, row = await self._state(interaction)
         message = interaction.message
-        picker = SnoozePickerView(
-            reminder_id=_reminder_id(row),
+        modal = SnoozeModal(
+            reminder_id=self.reminder_id or _reminder_id(row),
             owner_id=state.owner_id or interaction.user.id,
             role_id=state.role_id,
             task_text=state.task_text,
@@ -356,51 +356,11 @@ class _ReminderActions:
             ),
             original_message=message,
         )
-        await interaction.response.send_message(
-            t("reminders.snooze.prompt", task=state.task_text),
-            view=picker,
-            ephemeral=True,
-        )
+        await interaction.response.send_modal(modal)
 
 
-class _SnoozeUnitButton(discord.ui.Button):
-    def __init__(self, unit: str) -> None:
-        super().__init__(
-            label=t(f"reminders.snooze.units.{unit}"),
-            style=discord.ButtonStyle.secondary,
-            row=0,
-        )
-        self.unit = unit
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        view = self.view
-        assert isinstance(view, SnoozePickerView)
-        await view.snooze(interaction, self.unit)
-
-
-class _SnoozeAmountSelect(discord.ui.Select):
-    def __init__(self) -> None:
-        super().__init__(
-            placeholder=t("reminders.snooze.amount_placeholder"),
-            options=[
-                discord.SelectOption(label=str(amount), value=str(amount))
-                for amount in range(1, SNOOZE_MAX_AMOUNT + 1)
-            ],
-            row=1,
-        )
-
-    async def callback(self, interaction: discord.Interaction) -> None:
-        view = self.view
-        assert isinstance(view, SnoozePickerView)
-        view.amount = int(self.values[0])
-        await interaction.response.edit_message(
-            content=t("reminders.snooze.chosen", amount=view.amount),
-            view=view,
-        )
-
-
-class SnoozePickerView(discord.ui.View):
-    """Ephemeral picker choosing how long to snooze a reminder for."""
+class SnoozeModal(discord.ui.Modal):
+    """Modal choosing how long to snooze a reminder for."""
 
     def __init__(
         self,
@@ -412,36 +372,73 @@ class SnoozePickerView(discord.ui.View):
         channel_id: int,
         original_message: discord.Message | None,
     ) -> None:
-        super().__init__(timeout=SNOOZE_PICKER_LIFETIME_SECONDS)
+        super().__init__(
+            title=t("reminders.snooze.modal_title"),
+            timeout=SNOOZE_MODAL_LIFETIME_SECONDS,
+        )
         self.reminder_id = reminder_id
         self.owner_id = owner_id
         self.role_id = role_id
         self.task_text = task_text
         self.channel_id = channel_id
         self.original_message = original_message
-        self.amount = 1
-        for unit in SNOOZE_UNITS:
-            self.add_item(_SnoozeUnitButton(unit))
-        self.add_item(_SnoozeAmountSelect())
+        self.amount_input = discord.ui.Label(
+            text=t(
+                "reminders.snooze.amount_label",
+                max=SNOOZE_MAX_AMOUNT,
+            ),
+            component=discord.ui.TextInput(
+                placeholder=t("reminders.snooze.amount_placeholder"),
+                default="1",
+                max_length=2,
+            ),
+        )
+        self.unit_input = discord.ui.Label(
+            text=t("reminders.snooze.unit_label"),
+            component=discord.ui.Select(
+                placeholder=t("reminders.snooze.unit_placeholder"),
+                options=[
+                    discord.SelectOption(
+                        label=t(f"reminders.snooze.units.{unit}"),
+                        value=unit,
+                        default=unit == "minutes",
+                    )
+                    for unit in SNOOZE_UNITS
+                ],
+            ),
+        )
+        self.add_item(self.amount_input)
+        self.add_item(self.unit_input)
 
-    async def snooze(
-        self, interaction: discord.Interaction, unit: str
-    ) -> None:
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        raw = self.amount_input.component.value.strip()
+        try:
+            amount = int(raw)
+        except ValueError:
+            amount = 0
+        if not 1 <= amount <= SNOOZE_MAX_AMOUNT:
+            await interaction.response.send_message(
+                t("reminders.snooze.invalid_amount", max=SNOOZE_MAX_AMOUNT),
+                ephemeral=True,
+            )
+            return
+
+        unit = self.unit_input.component.values[0]
         await _service(interaction).snooze(
             reminder_id=self.reminder_id,
             user_id=self.owner_id,
             channel_id=self.channel_id,
             message=self.task_text,
-            delay=timedelta(**{unit: self.amount}),
+            delay=timedelta(**{unit: amount}),
             role_id=self.role_id,
         )
-        await interaction.response.edit_message(
-            content=t(
+        await interaction.response.send_message(
+            t(
                 "reminders.snooze.success",
-                amount=self.amount,
-                unit=_snooze_unit_name(unit, self.amount),
+                amount=amount,
+                unit=_snooze_unit_name(unit, amount),
             ),
-            view=None,
+            ephemeral=True,
         )
         if self.original_message is not None:
             await delete_view(interaction.client, self.original_message.id)
@@ -452,7 +449,6 @@ class SnoozePickerView(discord.ui.View):
                     "Could not delete the snoozed reminder message",
                     exc_info=True,
                 )
-        self.stop()
 
 
 class ReminderActionsView(_ReminderActions, ExpiringView):

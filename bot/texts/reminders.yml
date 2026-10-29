@@ -74,10 +74,13 @@ reminders:
     snooze: "Snooze"
     snooze_emoji: "⏰"
   snooze:
-    prompt: "How long should I snooze “%{task}” for? Pick a number, then minutes, hours or days."
-    chosen: "**%{amount}** selected. Now pick minutes, hours or days."
+    modal_title: "Snooze reminder"
+    amount_label: "Amount (1-%{max})"
+    amount_placeholder: "e.g. 15"
+    unit_label: "Unit"
+    unit_placeholder: "Choose a unit"
     success: "Snoozed for **%{amount} %{unit}**."
-    amount_placeholder: "How many?"
+    invalid_amount: "Use a whole number from 1 to %{max}."
     units:
       minutes: "Minutes"
       hours: "Hours"

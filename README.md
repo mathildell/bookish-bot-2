@@ -462,9 +462,9 @@ channel where the reminder was created. Every fire comes with **Mark completed**
 and **Snooze** buttons usable only by the reminder's owner and, when the
 reminder pings a role, members with that role; they disappear after two hours.
 Completing strikes the reminder title through and closes the buttons early.
-Snoozing opens a private picker to choose how long to delay the reminder for
-(1–10 minutes, hours or days) and deletes the original post; the reminder is
-then reposted when the snooze runs out, with `Snoozed: ` added to its title
+Snoozing opens a private popup to choose an amount (1–30) and minutes,
+hours or days, and deletes the original post; the reminder is then reposted
+when the snooze runs out, with `Snoozed: ` added to its title
 (snoozes survive bot restarts). Reminders missed while the bot was offline post
 if they are at most 24 hours late.
 
