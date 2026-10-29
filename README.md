@@ -246,8 +246,9 @@ changed and the URL no longer matches the stored book.
 **Permissions:** Everyone
 Search tracked books by title or author, or pass a member mention/id to list all
 the books that member added. Text matching ignores case and punctuation, so
-`KJ Charles` also finds `K. J. Charles`. Matches are listed (paginated when
-there are many); if nothing matches, the bot says so and explains how to add it.
+`KJ Charles` also finds `K. J. Charles`. Releases that have already been
+announced are left out. Matches are listed (paginated when there are many); if
+nothing matches, the bot says so and explains how to add it.
 
 ```
 /releases list
@@ -255,12 +256,6 @@ there are many); if nothing matches, the bot says so and explains how to add it.
 **Permissions:** Everyone
 Paginated list of upcoming releases, with prev/next buttons and a "jump to
 month" dropdown covering the next year.
-
-```
-/releases view book:
-```
-**Permissions:** Everyone
-Show one tracked book by its numeric id or handle.
 
 ```
 /releases remove book:
@@ -464,11 +459,14 @@ have earned and note that it did not reach their pool.
 
 Set one-off or recurring reminders; when one fires, the bot pings you in the
 channel where the reminder was created. Every fire comes with **Mark completed**
-and **Snooze 1 hour** buttons usable only by you; they disappear after two
-hours. Completing strikes the reminder title through and closes the buttons
-early; snoozing reposts the same ping an hour later (snoozes survive bot
-restarts). Reminders missed while the bot was offline post if they are at most
-24 hours late.
+and **Snooze** buttons usable only by the reminder's owner and, when the
+reminder pings a role, members with that role; they disappear after two hours.
+Completing strikes the reminder title through and closes the buttons early.
+Snoozing opens a private picker to choose how long to delay the reminder for
+(1–10 minutes, hours or days) and deletes the original post; the reminder is
+then reposted when the snooze runs out, with `Snoozed: ` added to its title
+(snoozes survive bot restarts). Reminders missed while the bot was offline post
+if they are at most 24 hours late.
 
 A reminder is a message, a repeat kind and one schedule phrase. Schedules are
 read in the reminder's timezone, which defaults to your streak timezone (or UTC
@@ -512,9 +510,11 @@ Delete one of your reminders.
 ```
 /reminder list [user:]
 ```
-**Permissions:** 🔒 Admin
-List your reminders with their schedules and next run times, or another
-member's reminders.
+**Permissions:** Everyone (own reminders) / 🔒 Admin (everyone's, or another
+member's)
+List reminders with their schedules and next run times. Without `user`, admins
+see every reminder in the server and members see their own; `user` is
+admin-only.
 
 ***
 
@@ -606,6 +606,14 @@ message at the given jump `link` (right-click a message → Copy Message Link).
 ## Bi-weekly themes
 
 ```
+/biweekly-theme cards search keyword:
+/biweekly-theme cards suggest prompt: [description:]
+```
+**Permissions:** Everyone
+Search the deck of theme cards, or suggest a new one. Suggestions are posted to
+the admins' updates channel, where admins approve or refuse them.
+
+```
 /biweekly-theme channel set channel:
 /biweekly-theme role set role:
 /biweekly-theme schedule set day: hour:
@@ -616,8 +624,6 @@ message at the given jump `link` (right-click a message → Copy Message Link).
 /biweekly-theme cards edit card: [title:] [description:]
 /biweekly-theme cards remove card:
 /biweekly-theme cards list
-/biweekly-theme cards search keyword:
-/biweekly-theme cards suggest prompt: [description:]
 ```
 **Permissions:** 🔒 Admin
 

@@ -13,6 +13,7 @@ import asyncio
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import discord
 
@@ -378,10 +379,12 @@ class StalenessTests(unittest.TestCase):
             reminder_service.is_stale(utc(2026, 10, 19, 14), utc(2026, 10, 20, 15))
         )
 
-    def test_snoozes_fire_one_hour_later(self) -> None:
+    def test_snooze_due_at_adds_the_delay(self) -> None:
         self.assertEqual(
-            reminder_service.snooze_due_at(utc(2026, 10, 20, 15)),
-            utc(2026, 10, 20, 16),
+            reminder_service.snooze_due_at(
+                utc(2026, 10, 20, 15), timedelta(hours=2)
+            ),
+            utc(2026, 10, 20, 17),
         )
 
 
@@ -606,18 +609,14 @@ class EmbedTests(unittest.TestCase):
         self.assertIsNone(embed.footer.text)
         self.assertEqual(embed.colour, discord.Colour.green())
 
-    def test_snoozed_embed_reports_the_repost_time(self) -> None:
-        when = datetime(2026, 10, 20, 16, tzinfo=timezone.utc)
-        embed = reminder_cmds.snoozed_embed(self.Client(), "Water", when)
-        self.assertEqual(embed.title, "Water")
+
+class SnoozedTitleTests(unittest.TestCase):
+    def test_snoozed_title_prefixes_once(self) -> None:
+        title = reminder_cmds.snoozed_title("Water")
         self.assertEqual(
-            embed.description,
-            t(
-                "reminders.post.snoozed_description",
-                time=discord.utils.format_dt(when, "t"),
-            ),
+            title, t("reminders.post.snoozed_title", task="Water")
         )
-        self.assertIsNone(embed.footer.text)
+        self.assertEqual(reminder_cmds.snoozed_title(title), title)
 
 
 class ReminderActionsViewTests(unittest.TestCase):
@@ -635,6 +634,75 @@ class ReminderActionsViewTests(unittest.TestCase):
         view = reminder_cmds.ReminderActionsView(1, 42, "Task")
         self.assertEqual(view.timeout, reminder_cmds.BUTTON_LIFETIME_SECONDS)
         self.assertEqual(reminder_cmds.BUTTON_LIFETIME_SECONDS, 2 * 60 * 60)
+
+
+class SnoozePickerViewTests(unittest.TestCase):
+    def test_picker_offers_units_and_amounts(self) -> None:
+        view = reminder_cmds.SnoozePickerView(
+            reminder_id=1,
+            owner_id=42,
+            role_id=None,
+            task_text="Task",
+            channel_id=7,
+            original_message=None,
+        )
+        buttons = [
+            child
+            for child in view.children
+            if isinstance(child, discord.ui.Button)
+        ]
+        selects = [
+            child
+            for child in view.children
+            if isinstance(child, discord.ui.Select)
+        ]
+        self.assertEqual(
+            [button.unit for button in buttons],
+            list(reminder_cmds.SNOOZE_UNITS),
+        )
+        self.assertEqual(
+            [button.label for button in buttons],
+            [
+                t(f"reminders.snooze.units.{unit}")
+                for unit in reminder_cmds.SNOOZE_UNITS
+            ],
+        )
+        self.assertEqual(len(selects), 1)
+        self.assertEqual(
+            [option.value for option in selects[0].options],
+            [str(amount) for amount in range(1, 11)],
+        )
+        self.assertEqual(view.amount, 1)
+
+
+class ReminderPermissionTests(unittest.IsolatedAsyncioTestCase):
+    def _interaction(self, user, content: str):
+        return SimpleNamespace(
+            client=SimpleNamespace(view_messages=None),
+            message=SimpleNamespace(content=content, embeds=[]),
+            user=user,
+            response=SimpleNamespace(send_message=AsyncMock()),
+        )
+
+    async def test_owner_may_use_the_buttons(self) -> None:
+        view = reminder_cmds.ReminderActionsView(1, 42, "Task")
+        interaction = self._interaction(SimpleNamespace(id=42), "<@42>")
+        self.assertTrue(await view.interaction_check(interaction))
+
+    async def test_role_holder_may_use_the_buttons(self) -> None:
+        view = reminder_cmds.ReminderActionsView(1, 42, "Task")
+        user = SimpleNamespace(id=99, roles=[SimpleNamespace(id=5)])
+        interaction = self._interaction(user, "<@42> <@&5>")
+        self.assertTrue(await view.interaction_check(interaction))
+
+    async def test_other_members_are_denied(self) -> None:
+        view = reminder_cmds.ReminderActionsView(1, 42, "Task")
+        user = SimpleNamespace(id=99, roles=[])
+        interaction = self._interaction(user, "<@42> <@&5>")
+        self.assertFalse(await view.interaction_check(interaction))
+        interaction.response.send_message.assert_awaited_once_with(
+            t("reminders.errors.not_allowed"), ephemeral=True
+        )
 
 
 class ParseTimeTests(unittest.TestCase):

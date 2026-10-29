@@ -766,7 +766,7 @@ class Reminder(Base):
 
 
 class ReminderSnooze(Base):
-    """A one-off repost of a reminder, pushed an hour by the snooze button."""
+    """A one-off repost of a reminder, delayed by the snooze picker."""
 
     __tablename__ = "reminder_snoozes"
 

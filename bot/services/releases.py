@@ -638,12 +638,16 @@ class ReleaseService:
                 )
             ).scalar_one_or_none()
 
-    async def search(self, keyword: str) -> list[BookRelease]:
+    async def search(
+        self, keyword: str, *, include_announced: bool = False
+    ) -> list[BookRelease]:
         """Books matching ``keyword``.
 
         The keyword is either a title/author fragment (matched ignoring case,
         punctuation and spacing, so ``"KJ Charles"`` finds ``"K. J. Charles"``)
         or a member mention/numeric id, which returns that member's releases.
+        Books whose release has already been announced are left out unless
+        ``include_announced`` is set.
         """
         user_id = parse_user_id(keyword)
         needle = None if user_id is not None else search_key(keyword)
@@ -660,6 +664,8 @@ class ReleaseService:
             books = list(rows)
         matches: list[BookRelease] = []
         for book in books:
+            if not include_announced and book.announcement_sent:
+                continue
             if user_id is not None:
                 if book.discord_user_id == user_id:
                     matches.append(book)

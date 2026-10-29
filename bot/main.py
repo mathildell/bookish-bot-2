@@ -45,6 +45,7 @@ from .commands.reminders import (
     reminder_embed,
     reminders_group,
     schedule_description,
+    snoozed_title,
 )
 from .commands.releases import ReleaseListFallbackView, releases_group
 from .commands.reviews import reviews_group
@@ -630,8 +631,11 @@ async def run() -> None:
         description: str | None,
         reminder_id: int | None,
         role_id: int | None = None,
+        snoozed: bool = False,
     ) -> discord.Message | None:
         """Ping the owner in ``channel`` with the reminder embed and buttons."""
+        if snoozed:
+            task_text = snoozed_title(task_text)
         view = ReminderActionsView(
             reminder_id, user_id, task_text, role_id=role_id
         )
@@ -699,6 +703,7 @@ async def run() -> None:
                     description=None,
                     reminder_id=snooze.source_reminder_id,
                     role_id=snooze.role_id,
+                    snoozed=True,
                 )
             await reminders.discard_snooze(snooze)
 

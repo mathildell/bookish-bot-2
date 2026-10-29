@@ -36,7 +36,6 @@ MONTH_END_MAX_OFFSET = 27
 
 # Snoozed/missed reminders older than this are dropped instead of posted.
 STALE_AFTER = timedelta(hours=24)
-SNOOZE_DELAY = timedelta(hours=1)
 
 _WEEKDAY_PATTERN = "|".join(
     sorted(
@@ -530,8 +529,8 @@ def is_stale(moment: datetime, now: datetime) -> bool:
     return now - moment > STALE_AFTER
 
 
-def snooze_due_at(now: datetime) -> datetime:
-    return now + SNOOZE_DELAY
+def snooze_due_at(now: datetime, delay: timedelta) -> datetime:
+    return now + delay
 
 
 # ------------------------------------------------------------------- service
@@ -880,6 +879,7 @@ class ReminderService:
         user_id: int,
         channel_id: int,
         message: str,
+        delay: timedelta,
         role_id: int | None = None,
         now: datetime | None = None,
     ) -> ReminderSnooze:
@@ -891,7 +891,7 @@ class ReminderService:
             channel_id=channel_id,
             message=message,
             role_id=role_id,
-            due_at=snooze_due_at(now),
+            due_at=snooze_due_at(now, delay),
         )
         async with session_scope() as session:
             session.add(snooze)

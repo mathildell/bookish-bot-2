@@ -506,7 +506,7 @@ async def update_release(
     else:
         target = await service.find_by_source(data.source, data.source_id)
         if target is None:
-            matches = await service.search(data.title)
+            matches = await service.search(data.title, include_announced=True)
             target = matches[0] if matches else None
     if target is None:
         await interaction.followup.send(
@@ -593,25 +593,6 @@ async def list_releases(interaction: discord.Interaction) -> None:
         lifetime=RELEASE_LIST_LIFETIME_SECONDS,
         state={"page": 0},
         author_id=interaction.user.id,
-    )
-
-
-@releases_group.command(name="view", description=t("releases.view.description"))
-@app_commands.describe(book=t("releases.view.param_book"))
-async def view_release(interaction: discord.Interaction, book: str) -> None:
-    await interaction.response.defer(ephemeral=True)
-    target = await _resolve_book(_service(interaction), book)
-    if target is None:
-        await interaction.followup.send(
-            t("releases.view.not_found", query=book), ephemeral=True
-        )
-        return
-    member = (
-        await resolve_members(interaction.guild, [target.discord_user_id])
-    )[0]
-    await interaction.followup.send(
-        embed=build_book_embed(target, member, interaction.client),
-        ephemeral=True,
     )
 
 

@@ -10,7 +10,7 @@ reminders:
     param_channel: "Post in another channel instead (admins only)"
     param_role: "Also ping a role when it posts (admins only)"
     param_reminder: "Which reminder (start typing to search)"
-    param_user: "Whose reminders to list"
+    param_user: "Whose reminders to list (admins only)"
     summary_field: "Schedule"
     next_field: "Next run"
     channel_field: "Channel"
@@ -59,22 +59,40 @@ reminders:
     success: "Removed reminder %{id}"
     not_found: "I couldn’t find reminder %{id}."
   list:
-    description: "List members’ reminders"
+    description: "List your reminders, or every reminder in the server"
     empty: "You don’t have any reminders yet. Use `/reminder add` to create one."
     empty_user: "%{user} doesn’t have any reminders."
+    empty_all: "There are no reminders in the server yet."
 
   post:
     completed_title: "✅ ~~%{task}~~"
     completed_description: "Completed"
-    snoozed_description: "Snoozed until %{time}"
+    snoozed_title: "Snoozed: %{task}"
   buttons:
     complete: "Mark completed"
     complete_emoji: "✅"
-    snooze: "Snooze 1 hour"
+    snooze: "Snooze"
     snooze_emoji: "⏰"
+  snooze:
+    prompt: "How long should I snooze “%{task}” for? Pick a number, then minutes, hours or days."
+    chosen: "**%{amount}** selected. Now pick minutes, hours or days."
+    success: "Snoozed for **%{amount} %{unit}**."
+    amount_placeholder: "How many?"
+    units:
+      minutes: "Minutes"
+      hours: "Hours"
+      days: "Days"
+    unit:
+      minute: "minute"
+      minutes: "minutes"
+      hour: "hour"
+      hours: "hours"
+      day: "day"
+      days: "days"
 
   errors:
     generic: "Something went wrong with that reminder."
+    not_allowed: "Only the reminder’s owner or a member with the pinged role can use these buttons."
     missing_schedule: "Tell me when to fire. For **%{repeat}** reminders, use %{examples}."
     invalid_schedule: "I couldn’t read that schedule. For **%{repeat}** reminders, use %{examples}."
     invalid_time: "I couldn’t read that time. Use `2pm` or `14:00`."

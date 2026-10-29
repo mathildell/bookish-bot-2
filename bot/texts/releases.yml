@@ -36,10 +36,6 @@ releases:
     param_keyword: "Keyword, or a member mention/id, to search for"
     found: "Here’s what turned up for your search:"
     not_found: "I couldn’t find a book matching **%{keyword}**. Maybe you should add it with `/releases add url:`"
-  view:
-    description: "Show one tracked book"
-    param_book: "Numeric id or handle of the tracked book"
-    not_found: "No tracked book matching **%{query}**."
   list:
     description: "List upcoming releases"
     empty: "No upcoming releases are tracked yet."

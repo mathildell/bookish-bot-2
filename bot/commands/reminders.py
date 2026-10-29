@@ -1,14 +1,15 @@
 """Reminder commands (``/reminder ...``).
 
 Members create one-off or recurring reminders in a channel; when one fires the
-owner is pinged and can complete it or snooze it for an hour.
+owner is pinged and can complete it or snooze it by a chosen amount of time.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord import app_commands
@@ -22,10 +23,8 @@ from ..services.reminders import (
     KIND_ONCE,
     KIND_WEEKLY,
     KINDS,
-    SNOOZE_DELAY,
     Reminder,
     ReminderService,
-    utcnow,
 )
 from ..services.timezones import search_timezones
 from ..services.weekdays import WEEKDAY_NAMES
@@ -39,7 +38,9 @@ from .listing import (
     set_author,
     set_transparent_image,
 )
-from .views import ExpiringView, delete_interaction_view, tracked_row
+from .views import ExpiringView, delete_interaction_view, delete_view, tracked_row
+
+logger = logging.getLogger("bh2.reminders")
 
 BUTTON_LIFETIME_SECONDS = 2 * 60 * 60
 REMINDER_VIEW_KIND = "reminder"
@@ -154,15 +155,12 @@ def completed_embed(client: discord.Client, task_text: str) -> discord.Embed:
     return embed
 
 
-def snoozed_embed(
-    client: discord.Client, task_text: str, snoozed_until: datetime
-) -> discord.Embed:
-    when = discord.utils.format_dt(snoozed_until.replace(tzinfo=timezone.utc), "t")
-    return reminder_embed(
-        client,
-        task_text,
-        description=t("reminders.post.snoozed_description", time=when),
-    )
+def snoozed_title(task_text: str) -> str:
+    """Prefix a snoozed reminder's title, without prefixing it twice."""
+    prefix = t("reminders.post.snoozed_title", task="")
+    if task_text.startswith(prefix):
+        return task_text
+    return t("reminders.post.snoozed_title", task=task_text)
 
 
 def _confirmation_embed(
@@ -254,7 +252,27 @@ class _SnoozeButton(discord.ui.Button):
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
         assert isinstance(view, _ReminderActions)
-        await view.snooze_for_an_hour(interaction)
+        await view.start_snooze(interaction)
+
+
+SNOOZE_UNITS = ("minutes", "hours", "days")
+SNOOZE_MAX_AMOUNT = 10
+SNOOZE_PICKER_LIFETIME_SECONDS = 5 * 60
+_SNOOZE_UNIT_TEXT = {
+    "minutes": ("minute", "minutes"),
+    "hours": ("hour", "hours"),
+    "days": ("day", "days"),
+}
+
+
+def _has_role(user: discord.abc.User, role_id: int) -> bool:
+    roles = getattr(user, "roles", None) or []
+    return any(getattr(role, "id", None) == role_id for role in roles)
+
+
+def _snooze_unit_name(unit: str, amount: int) -> str:
+    singular, plural = _SNOOZE_UNIT_TEXT[unit]
+    return t(f"reminders.snooze.unit.{singular if amount == 1 else plural}")
 
 
 class _ReminderActions:
@@ -272,12 +290,15 @@ class _ReminderActions:
 
         state = _message_state(interaction.message)
         owner_id = self.owner_id or state.owner_id
-        if owner_id is not None and interaction.user.id != owner_id:
-            await interaction.response.send_message(
-                t("components.not_author"), ephemeral=True
-            )
-            return False
-        return True
+        role_id = self.role_id if self.role_id is not None else state.role_id
+        if owner_id is not None and interaction.user.id == owner_id:
+            return True
+        if role_id is not None and _has_role(interaction.user, role_id):
+            return True
+        await interaction.response.send_message(
+            t("reminders.errors.not_allowed"), ephemeral=True
+        )
+        return False
 
     async def _state(
         self, interaction: discord.Interaction
@@ -317,29 +338,121 @@ class _ReminderActions:
             self.stop()
         await delete_interaction_view(interaction)
 
-    async def snooze_for_an_hour(self, interaction: discord.Interaction) -> None:
+    async def start_snooze(self, interaction: discord.Interaction) -> None:
         allowed, _ = await tracked_row(interaction)
         if not allowed:
             return
         state, row = await self._state(interaction)
-        now = utcnow()
-        await _service(interaction).snooze(
+        message = interaction.message
+        picker = SnoozePickerView(
             reminder_id=_reminder_id(row),
-            user_id=state.owner_id or interaction.user.id,
-            channel_id=interaction.message.channel.id,
-            message=state.task_text,
+            owner_id=state.owner_id or interaction.user.id,
             role_id=state.role_id,
-            now=now,
+            task_text=state.task_text,
+            channel_id=(
+                message.channel.id
+                if message is not None
+                else interaction.channel_id
+            ),
+            original_message=message,
         )
-        if self.timeout is not None:
-            self.stop()
+        await interaction.response.send_message(
+            t("reminders.snooze.prompt", task=state.task_text),
+            view=picker,
+            ephemeral=True,
+        )
+
+
+class _SnoozeUnitButton(discord.ui.Button):
+    def __init__(self, unit: str) -> None:
+        super().__init__(
+            label=t(f"reminders.snooze.units.{unit}"),
+            style=discord.ButtonStyle.secondary,
+            row=0,
+        )
+        self.unit = unit
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view = self.view
+        assert isinstance(view, SnoozePickerView)
+        await view.snooze(interaction, self.unit)
+
+
+class _SnoozeAmountSelect(discord.ui.Select):
+    def __init__(self) -> None:
+        super().__init__(
+            placeholder=t("reminders.snooze.amount_placeholder"),
+            options=[
+                discord.SelectOption(label=str(amount), value=str(amount))
+                for amount in range(1, SNOOZE_MAX_AMOUNT + 1)
+            ],
+            row=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        view = self.view
+        assert isinstance(view, SnoozePickerView)
+        view.amount = int(self.values[0])
         await interaction.response.edit_message(
-            embed=snoozed_embed(
-                interaction.client, state.task_text, now + SNOOZE_DELAY
+            content=t("reminders.snooze.chosen", amount=view.amount),
+            view=view,
+        )
+
+
+class SnoozePickerView(discord.ui.View):
+    """Ephemeral picker choosing how long to snooze a reminder for."""
+
+    def __init__(
+        self,
+        *,
+        reminder_id: int | None,
+        owner_id: int,
+        role_id: int | None,
+        task_text: str,
+        channel_id: int,
+        original_message: discord.Message | None,
+    ) -> None:
+        super().__init__(timeout=SNOOZE_PICKER_LIFETIME_SECONDS)
+        self.reminder_id = reminder_id
+        self.owner_id = owner_id
+        self.role_id = role_id
+        self.task_text = task_text
+        self.channel_id = channel_id
+        self.original_message = original_message
+        self.amount = 1
+        for unit in SNOOZE_UNITS:
+            self.add_item(_SnoozeUnitButton(unit))
+        self.add_item(_SnoozeAmountSelect())
+
+    async def snooze(
+        self, interaction: discord.Interaction, unit: str
+    ) -> None:
+        await _service(interaction).snooze(
+            reminder_id=self.reminder_id,
+            user_id=self.owner_id,
+            channel_id=self.channel_id,
+            message=self.task_text,
+            delay=timedelta(**{unit: self.amount}),
+            role_id=self.role_id,
+        )
+        await interaction.response.edit_message(
+            content=t(
+                "reminders.snooze.success",
+                amount=self.amount,
+                unit=_snooze_unit_name(unit, self.amount),
             ),
             view=None,
         )
-        await delete_interaction_view(interaction)
+        if self.original_message is not None:
+            await delete_view(interaction.client, self.original_message.id)
+            try:
+                await self.original_message.delete()
+            except discord.HTTPException:
+                logger.debug(
+                    "Could not delete the snoozed reminder message",
+                    exc_info=True,
+                )
+        self.stop()
 
 
 class ReminderActionsView(_ReminderActions, ExpiringView):
@@ -693,31 +806,45 @@ def _list_embed(
     name="list", description=t("reminders.list.description")
 )
 @app_commands.describe(user=t("reminders.shared.param_user"))
-@app_commands.default_permissions(manage_guild=True)
 async def list_reminders(
     interaction: discord.Interaction, user: discord.User | None = None
 ) -> None:
-    if not await require_admin(interaction):
+    if user is not None and not await require_admin(interaction):
         return
-    target = user if user is not None else interaction.user
+    if user is not None:
+        target: discord.User | None = user
+        user_id: int | None = user.id
+    elif is_admin(interaction):
+        target = None
+        user_id = None
+    else:
+        target = interaction.user
+        user_id = interaction.user.id
 
     await interaction.response.defer(ephemeral=True)
-    rows = await _service(interaction).list_for(user_id=target.id)
+    rows = await _service(interaction).list_for(user_id=user_id)
     if not rows:
-        key = (
-            "reminders.list.empty"
-            if target.id == interaction.user.id
-            else "reminders.list.empty_user"
-        )
-        await interaction.followup.send(
-            t(key, user=target.mention), ephemeral=True
-        )
+        if target is None:
+            await interaction.followup.send(
+                t("reminders.list.empty_all"), ephemeral=True
+            )
+        elif target.id == interaction.user.id:
+            await interaction.followup.send(
+                t("reminders.list.empty"), ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                t("reminders.list.empty_user", user=target.mention),
+                ephemeral=True,
+            )
         return
 
-    members = await resolve_members(interaction.guild, [target.id])
-    member = members[0]
+    members = await resolve_members(
+        interaction.guild, [reminder.user_id for reminder in rows]
+    )
     embeds = [
-        _list_embed(interaction.client, reminder, member) for reminder in rows
+        _list_embed(interaction.client, reminder, member)
+        for reminder, member in zip(rows, members)
     ]
     await send_paginated(
         interaction,
