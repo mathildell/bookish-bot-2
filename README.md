@@ -180,16 +180,17 @@ profile's recent updates (spaced out between members), and for each new review
 it fetches the review page with a dedicated dummy Goodreads account to get the
 full text, precise rating, shelves/tags and cover. Each review is posted at most
 once every 24 hours; reviews already on the profile when it is linked are never
-posted. Spoilers stay hidden and are shown as `(view spoiler)`.
+posted. Spoilers stay hidden and are shown as `(view spoiler)`. The embed footer
+reads `<name>’s shelf`, or `<name>’s bookshelf: <tags>`, prefixed with a star
+when a tag is an ARC.
 
 Set the browser `Cookie` header of a dedicated (dummy) Goodreads account with
 `/settings edit` (`Goodreads session cookie`). It is stored in the bot database
 and never shown by `/settings list`. When the cookie expires, new reviews are
 held and the admins' updates channel is notified once a day; paste a fresh
-`Cookie` header to resume. Without a cookie the feature runs in degraded mode:
-reviews are still posted from the profile updates, but without the review
-page's full text, precise rating, shelves and cover, and the admins' updates
-channel is notified once a day.
+`Cookie` header to resume. Without a cookie nothing is posted at all: new
+reviews are held until one is set, and the admins' updates channel is notified
+once a day.
 
 Upgrading from the retired RSS feeds? Run
 `.venv/bin/python scripts/migrate_review_profiles.py` once; it normalizes saved

@@ -33,9 +33,11 @@ reviews:
     not_found: "No posted review matching %{entry} was found in the profile’s recent updates."
     no_channel: "No review channel is set, so entry %{entry} can’t be reposted."
     auth_failed: "The Goodreads session cookie has expired, so the review was not reposted. Update it with `/settings edit`."
+    no_cookie: "No Goodreads session cookie is set yet, so reviews can’t be fetched or reposted. Set one with `/settings edit`."
   embed:
     untitled_book: "Untitled"
-    unknown_shelf: "Goodreads"
+    shelf_none: "%{user}’s shelf"
+    shelf_tags: "%{user}’s bookshelf: %{tags}"
     shelf_arc: "🌟 %{shelf}"
     unknown_member: "Unknown member"
     author_none: "Unknown"
@@ -53,4 +55,4 @@ reviews:
     auth_failed_title: "Goodreads session expired"
     auth_failed_description: "The configured Goodreads cookie can no longer read review pages, so new reviews are on hold. Update it with `/settings edit`."
     missing_cookie_title: "Goodreads cookie not set"
-    missing_cookie_description: "No Goodreads session cookie is configured, so reviews are posted in degraded mode from profile updates only, without the full text, precise rating and shelves. Set one with `/settings edit`."
+    missing_cookie_description: "No Goodreads session cookie is configured, so new reviews are on hold and nothing is posted until one is set with `/settings edit`."

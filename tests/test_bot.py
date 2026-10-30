@@ -16,7 +16,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import discord
 
@@ -1535,7 +1535,6 @@ SIGN_IN_HTML = """
 class ParseProfileUpdatesTests(unittest.TestCase):
     def test_parses_a_review_with_text(self) -> None:
         feed = reviews_service.parse_profile_updates(PROFILE_HTML)
-        self.assertEqual(feed.bookshelf, "Goodreads")
         self.assertEqual(len(feed.entries), 1)
         entry = feed.entries[0]
         self.assertEqual(entry.entry_id, "111")
@@ -1794,44 +1793,75 @@ class FormatRatingTests(unittest.TestCase):
 
 
 class FormatShelfTests(unittest.TestCase):
-    def test_shelves_are_joined_after_the_bookshelf(self) -> None:
+    def test_tags_are_joined_after_the_bookshelf(self) -> None:
         self.assertEqual(
             reviews_service.format_shelf(
-                "alice's bookshelf", ["5-stars-read", "fav"]
+                "alice", ["5-stars-read", "fav"]
             ),
-            "alice's bookshelf: 5-stars-read, fav",
+            "alice’s bookshelf: 5-stars-read, fav",
         )
 
-    def test_no_shelves_shows_just_the_bookshelf(self) -> None:
+    def test_no_tags_shows_just_the_shelf(self) -> None:
         self.assertEqual(
-            reviews_service.format_shelf("alice's bookshelf", []),
-            "alice's bookshelf",
+            reviews_service.format_shelf("alice", []),
+            "alice’s shelf",
         )
 
     def test_arc_shelf_gets_star(self) -> None:
         self.assertEqual(
-            reviews_service.format_shelf("alice's bookshelf", ["arc"]),
+            reviews_service.format_shelf("alice", ["arc"]),
             t(
                 "reviews.embed.shelf_arc",
-                shelf="alice's bookshelf: arc",
+                shelf="alice’s bookshelf: arc",
             ),
         )
 
     def test_arc_variants_get_star(self) -> None:
-        for shelf in ("ARC", "arcs", "ARCs"):
-            self.assertEqual(
-                reviews_service.format_shelf("alice's bookshelf", [shelf]),
-                t(
-                    "reviews.embed.shelf_arc",
-                    shelf=f"alice's bookshelf: {shelf}",
-                ),
+        for shelf in ("ARC", "arcs", "ARCs", "e-ARC", "arc-copy"):
+            text = reviews_service.format_shelf("alice", [shelf])
+            self.assertTrue(
+                text.startswith("🌟 "),
+                f"{shelf!r} should be starred, got {text!r}",
             )
 
-    def test_non_arc_shelves_are_unchanged(self) -> None:
+    def test_arc_beside_other_tags_still_gets_star(self) -> None:
         self.assertEqual(
-            reviews_service.format_shelf("alice's bookshelf", ["arcade"]),
-            "alice's bookshelf: arcade",
+            reviews_service.format_shelf("alice", ["fav", "ARCs"]),
+            "🌟 alice’s bookshelf: fav, ARCs",
         )
+
+    def test_non_arc_tags_are_unchanged(self) -> None:
+        self.assertEqual(
+            reviews_service.format_shelf("alice", ["arcade"]),
+            "alice’s bookshelf: arcade",
+        )
+
+
+class ReviewPollCookieTests(unittest.IsolatedAsyncioTestCase):
+    def _service(self) -> reviews_service.ReviewService:
+        return reviews_service.ReviewService(guild_id=1)
+
+    async def test_no_cookie_holds_every_review(self) -> None:
+        service = self._service()
+        feed = SimpleNamespace(
+            discord_user_id=7,
+            feed_url="https://www.goodreads.com/user/show/7",
+            feed_since=None,
+        )
+        with patch.object(
+            service, "all_feeds", AsyncMock(return_value=[feed])
+        ):
+            # No guild/channel/client: returning early must not touch them.
+            result = await service.post_new_reviews(None, None, None)
+        self.assertTrue(result.missing_cookie)
+        self.assertFalse(result.auth_failed)
+        self.assertEqual(result.posted, 0)
+
+    async def test_no_feeds_needs_no_cookie(self) -> None:
+        service = self._service()
+        with patch.object(service, "all_feeds", AsyncMock(return_value=[])):
+            result = await service.post_new_reviews(None, None, None)
+        self.assertFalse(result.missing_cookie)
 
 
 class ShouldPostTests(unittest.TestCase):
@@ -1941,7 +1971,6 @@ class BuildReviewEmbedTests(unittest.TestCase):
 
     def _feed(self) -> FeedData:
         return FeedData(
-            bookshelf="mtrics's bookshelf",
             logo_url="https://www.goodreads.com/logo.jpg",
             entries=[],
         )
@@ -1970,7 +1999,7 @@ class BuildReviewEmbedTests(unittest.TestCase):
             embed.footer.text,
             t(
                 "reviews.embed.shelf_arc",
-                shelf="mtrics's bookshelf: arc, 5-stars-read",
+                shelf="Alice’s bookshelf: arc, 5-stars-read",
             ),
         )
         self.assertEqual(embed.footer.icon_url, "https://www.goodreads.com/logo.jpg")

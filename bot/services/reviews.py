@@ -31,6 +31,7 @@ logger = logging.getLogger("bh2.reviews")
 
 FEED_COOLDOWN = timedelta(hours=24)
 REVIEW_FIELD_LIMIT = 1024
+FOOTER_LIMIT = 2048
 GOODREADS_HOST = "goodreads.com"
 GOODREADS_BASE = "https://www.goodreads.com"
 PROFILE_FETCH_DELAY = 10.0
@@ -54,7 +55,7 @@ _ENTRY_ID_RE = re.compile(r"/review/show/(\d+)")
 _PROFILE_ID_RE = re.compile(
     r"/(?:user/show|user/delayable_user_show|review/list_rss|review/list)/(\d+)"
 )
-_ARC_SHELF_RE = re.compile(r"\b(arc|arcs)\b", re.IGNORECASE)
+_ARC_SHELF_RE = re.compile(r"\barcs?\b", re.IGNORECASE)
 _FINISHED_READING_RE = re.compile(
     r"^(.*?)\s*[–-]\s*Finished Reading(?:\s*\([^)]*\))?$"
 )
@@ -82,9 +83,8 @@ class FeedEntry:
 
 @dataclass(frozen=True)
 class FeedData:
-    """A parsed profile update page: its footer label and review entries."""
+    """A parsed profile update page: its logo and review entries."""
 
-    bookshelf: str
     logo_url: str | None
     entries: list[FeedEntry]
 
@@ -253,11 +253,7 @@ def parse_profile_updates(html_text: str) -> FeedData:
             )
         )
         seen.add(entry_id)
-    return FeedData(
-        bookshelf=t("reviews.embed.unknown_shelf"),
-        logo_url=FALLBACK_LOGO_URL,
-        entries=entries,
-    )
+    return FeedData(logo_url=FALLBACK_LOGO_URL, entries=entries)
 
 
 def _review_page_rating(soup: BeautifulSoup) -> str:
@@ -386,16 +382,23 @@ def format_date_read(value: datetime | None) -> str:
     return f"<t:{timestamp}:D>"
 
 
-def format_shelf(bookshelf: str, shelves: list[str]) -> str:
-    """Render the footer label: the bookshelf plus the book's shelves.
+def format_shelf(owner: str, shelves: list[str]) -> str:
+    """Render the footer: the member's shelf, plus its tags when present.
 
-    The shelves are joined with commas; the whole label is starred when the
-    book sits on an ARC shelf. A book with no shelves shows just the bookshelf.
+    The tags are joined with commas; the whole label is starred when the book
+    sits on an ARC shelf.
     """
-    name = f"{bookshelf}: {', '.join(shelves)}" if shelves else bookshelf
+    if shelves:
+        text = t(
+            "reviews.embed.shelf_tags",
+            user=owner,
+            tags=", ".join(shelves),
+        )
+    else:
+        text = t("reviews.embed.shelf_none", user=owner)
     if any(_ARC_SHELF_RE.search(shelf) for shelf in shelves):
-        return t("reviews.embed.shelf_arc", shelf=name)
-    return name
+        text = t("reviews.embed.shelf_arc", shelf=text)
+    return _truncate(text, FOOTER_LIMIT)
 
 
 def _truncate(value: str, limit: int = REVIEW_FIELD_LIMIT) -> str:
@@ -479,8 +482,14 @@ def build_review_embed(
     )
 
     embed.set_footer(
-        text=format_shelf(feed.bookshelf, entry.shelves)
-        or t("reviews.embed.unknown_shelf"),
+        text=format_shelf(
+            discord.utils.escape_markdown(
+                member.display_name
+                if member is not None
+                else t("reviews.embed.unknown_member")
+            ),
+            entry.shelves,
+        ),
         icon_url=feed.logo_url,
     )
 
@@ -830,9 +839,11 @@ class ReviewService:
             feeds = [feed for feed in feeds if feed.discord_user_id == only[0]]
         if not feeds:
             return PollResult()
-        # Without a cookie the profile updates can still be posted, but without
-        # the review page's full text, precise rating and shelves.
-        missing_cookie = not self._cookie
+        # Without the session cookie the full review cannot be read, so hold
+        # every post until an admin configures one.
+        cookie = self._cookie
+        if not cookie:
+            return PollResult(missing_cookie=True)
         members = await resolve_members(
             guild, [feed.discord_user_id for feed in feeds]
         )
@@ -884,38 +895,36 @@ class ReviewService:
                                 feed.discord_user_id,
                             )
                             continue
-                        enriched = entry
-                        if not missing_cookie:
-                            try:
-                                review_html = await fetch_review_page(
-                                    http, entry.link, self._cookie
-                                )
-                            except ReviewAuthError:
-                                logger.warning(
-                                    "Goodreads session expired while reading "
-                                    "review %s",
-                                    entry.entry_id,
-                                )
-                                result = replace(result, auth_failed=True)
-                                stop = True
-                                break
-                            except (aiohttp.ClientError, TimeoutError) as exc:
-                                logger.warning(
-                                    "Could not read review %s, will retry: %s",
-                                    entry.entry_id,
-                                    exc,
-                                )
-                                await asyncio.sleep(REVIEW_FETCH_DELAY)
-                                continue
-                            if not review_page_has_content(review_html):
-                                logger.warning(
-                                    "Could not parse review %s, will retry",
-                                    entry.entry_id,
-                                )
-                                await asyncio.sleep(REVIEW_FETCH_DELAY)
-                                continue
-                            enriched = parse_review_page(review_html, entry)
+                        try:
+                            review_html = await fetch_review_page(
+                                http, entry.link, cookie
+                            )
+                        except ReviewAuthError:
+                            logger.warning(
+                                "Goodreads session expired while reading "
+                                "review %s",
+                                entry.entry_id,
+                            )
+                            result = replace(result, auth_failed=True)
+                            stop = True
+                            break
+                        except (aiohttp.ClientError, TimeoutError) as exc:
+                            logger.warning(
+                                "Could not read review %s, will retry: %s",
+                                entry.entry_id,
+                                exc,
+                            )
                             await asyncio.sleep(REVIEW_FETCH_DELAY)
+                            continue
+                        if not review_page_has_content(review_html):
+                            logger.warning(
+                                "Could not parse review %s, will retry",
+                                entry.entry_id,
+                            )
+                            await asyncio.sleep(REVIEW_FETCH_DELAY)
+                            continue
+                        enriched = parse_review_page(review_html, entry)
+                        await asyncio.sleep(REVIEW_FETCH_DELAY)
                         embed = build_review_embed(enriched, data, member, client)
                         try:
                             await channel.send(embed=embed)
@@ -939,6 +948,4 @@ class ReviewService:
                 await asyncio.sleep(PROFILE_FETCH_DELAY)
                 if stop:
                     break
-        if missing_cookie:
-            result = replace(result, missing_cookie=True)
         return result

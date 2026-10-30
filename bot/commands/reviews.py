@@ -180,6 +180,12 @@ async def repost(
     await interaction.response.defer(ephemeral=True)
 
     service = _service(interaction)
+    if not service.goodreads_session_cookie:
+        await interaction.followup.send(
+            t("reviews.repost.no_cookie"), ephemeral=True
+        )
+        return
+
     if not await service.force_repost(target.id, entry_id):
         await interaction.followup.send(
             t("reviews.repost.not_found", entry=entry_id), ephemeral=True

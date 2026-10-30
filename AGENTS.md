@@ -22,8 +22,8 @@ Implemented features:
   configured channel (each entry at most once per 24h). New reviews are enriched
   from the review page using a dedicated account's saved cookie (`/settings`),
   giving full text, precise rating, shelves/tags and cover; spoilers stay
-  redacted as `(view spoiler)`. Without a cookie the feature posts in degraded
-  mode from profile data.
+  redacted as `(view spoiler)`. Without a cookie nothing is posted: new reviews
+  are held until an admin sets one.
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
   headless browser) and announce them: an overview on the 1st of each month and
   the day's releases every day. Releases are pruned from the database after a
