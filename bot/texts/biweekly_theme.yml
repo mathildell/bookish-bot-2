@@ -108,7 +108,7 @@ biweekly_theme:
   post:
     heading: "## 🗓️ ‎ Forthnight’s theme: *%{title}*"
     second_heading: "### %{desc}"
-    explanation: "-# [Canva template](<https://canva.link/o1c5eu0lborxhy6>) ・ [Concept & rules](<https://discord.com/channels/1405910078342565979/1564395888078491658/1564396086435778612>)"
+    explanation: "-# [Canva template](<https://canva.link/o1c5eu0lborxhy6>) :arrow_upper_right: ・ [Concept & rules](<https://discord.com/channels/1405910078342565979/1564395888078491658/1564396086435778612>)"
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
   audit:
