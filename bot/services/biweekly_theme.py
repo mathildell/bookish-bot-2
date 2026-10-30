@@ -169,10 +169,10 @@ def build_post_content(title: str, description: str, role_id: int | None = None)
     lines: list[str] = []
     if role_id:
         lines.append(f"-# <@&{role_id}>")
-    lines.append(t("biweekly_theme.post.heading"))
-    lines.append(t("biweekly_theme.post.second_heading", title=title))
+    lines.append(t("biweekly_theme.post.heading", title=title))
     if description:
-        lines.append(description)
+        lines.append(t("biweekly_theme.post.second_heading", desc=description))
+    lines.append(t("biweekly_theme.post.explanation"))
     return "\n".join(lines)
 
 

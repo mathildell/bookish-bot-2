@@ -106,8 +106,9 @@ biweekly_theme:
       no_feed: "The admins' updates channel isn't set, so suggestions can't be sent."
 
   post:
-    heading: "## 🗓️ ‎ This forthnight’s theme"
-    second_heading: "### %{title}"
+    heading: "## 🗓️ ‎ This forthnight’s theme: %{title}"
+    second_heading: "### %{desc}"
+    explanation: "-# [Canva template](<https://canva.link/o1c5eu0lborxhy6>) ・ [Concept & rules](<https://discord.com/channels/1405910078342565979/1564395888078491658/1564396086435778612>)"
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
   audit:
