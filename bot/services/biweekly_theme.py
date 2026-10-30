@@ -173,6 +173,7 @@ def build_post_content(title: str, description: str, role_id: int | None = None)
     if description:
         lines.append(t("biweekly_theme.post.second_heading", desc=description))
     lines.append(t("biweekly_theme.post.explanation"))
+    lines.append(" ‎ ")
     return "\n".join(lines)
 
 
