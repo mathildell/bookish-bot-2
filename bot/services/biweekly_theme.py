@@ -19,14 +19,9 @@ from sqlalchemy import select, update
 from ..db import session_scope
 from ..models import BiweeklyThemeCard, BiweeklyThemeSetting, BiweeklyThemeSuggestion
 from ..texts import t
-from .image_hosting import ImageHost
 from .level import utcnow
 from .search import search_key
-from .theme_images import (
-    THEME_IMGBB_EXPIRATION_SECONDS,
-    render_theme,
-    theme_period,
-)
+from .theme_images import render_theme, theme_period
 
 CARD_TITLE_MAX_LENGTH = 256
 CARD_DESCRIPTION_MAX_LENGTH = 2000
@@ -77,7 +72,7 @@ class InvalidHour(BiweeklyThemeError):
 
 
 class ThemeImageError(BiweeklyThemeError):
-    """Rendering or uploading a theme image failed; there is no fallback."""
+    """Rendering a theme image failed; there is no fallback."""
 
     key = "biweekly_theme.errors.image_failed"
 
@@ -169,26 +164,16 @@ def format_posted_date(day: date) -> str:
     return f"{day.strftime('%B')} {day.day}, {day.year}"
 
 
-def build_theme_embed(
-    image_url: str,
-    start: str,
-    end: str,
-    prompt: str,
-    client: discord.Client,
-) -> discord.Embed:
-    """The embed a posted theme shows: a fixed title and the generated image."""
-    embed = discord.Embed(
-        title=t("biweekly_theme.post.embed_title"),
-        colour=getattr(client, "default_embed_color", None),
-        description=t(
-            "biweekly_theme.post.embed_description",
-            date_start=start,
-            date_end=end,
-            title=prompt,
-        ),
-    )
-    embed.set_image(url=image_url)
-    return embed
+def build_post_content(title: str, description: str, role_id: int | None = None) -> str:
+    """The message body posted alongside the rendered theme card."""
+    lines: list[str] = []
+    if role_id:
+        lines.append(f"-# <@&{role_id}>")
+    lines.append(t("biweekly_theme.post.heading"))
+    lines.append(t("biweekly_theme.post.second_heading", title=title))
+    if description:
+        lines.append(description)
+    return "\n".join(lines)
 
 
 def credit_description(description: str | None, name: str) -> str:
@@ -218,11 +203,8 @@ def credit_description(description: str | None, name: str) -> str:
 class BiweeklyThemeService:
     """Settings plus the card deck behind the bi-weekly theme posts."""
 
-    def __init__(
-        self, guild_id: int, image_host: ImageHost | None = None
-    ) -> None:
+    def __init__(self, guild_id: int) -> None:
         self.guild_id = guild_id
-        self._image_host = image_host or ImageHost()
         self._channel_id: int | None = None
         self._role_id: int | None = None
         self._weekday: int | None = None
@@ -558,8 +540,8 @@ class BiweeklyThemeService:
         """Render and post the next theme; returns the card that was posted.
 
         The card is only retired once Discord accepted the message. A failed
-        render or upload raises :class:`ThemeImageError` without falling back
-        to a placeholder image.
+        render raises :class:`ThemeImageError` without falling back to a
+        placeholder image.
         """
         async with self._post_lock:
             if card_id is not None:
@@ -572,7 +554,6 @@ class BiweeklyThemeService:
                     return None
             posted_on = posted_on or utcnow().date()
             start, end = theme_period(posted_on)
-            path = None
             try:
                 path = render_theme(
                     prompt=card.title,
@@ -580,22 +561,17 @@ class BiweeklyThemeService:
                     start=start,
                     end=end,
                 )
-                url = await self._image_host.upload(
-                    path,
-                    expiration_seconds=THEME_IMGBB_EXPIRATION_SECONDS,
-                )
             except Exception as exc:
                 raise ThemeImageError(card=card, cause=exc) from exc
+            try:
+                message = await channel.send(
+                    content=build_post_content(card.title, card.description, self._role_id),
+                    file=discord.File(path, filename="biweekly-theme.png"),
+                    view=view,
+                )
             finally:
-                if path is not None:
-                    path.unlink(missing_ok=True)
+                path.unlink(missing_ok=True)
 
-            content = f"<@&{self._role_id}>" if self._role_id else None
-            message = await channel.send(
-                content=content,
-                embed=build_theme_embed(url, start, end, card.title, client),
-                view=view,
-            )
             await self.mark_card_sent(card.id)
             await self._replace_pin(client, channel, message)
             return card

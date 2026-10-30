@@ -11,7 +11,7 @@ guild_id: 123456789012345678
 # (members with Manage Server can manage anyone; 0 disables the role)
 booster_role_id: 0
 
-# imgbb API key used for generated coupons and theme images (falls back to tmpfiles)
+# imgbb API key used for generated streak coupons (falls back to tmpfiles)
 imgbb_api_key: ""
 
 # MySQL database (the compose file provisions these defaults)

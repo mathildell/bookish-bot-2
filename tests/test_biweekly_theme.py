@@ -217,25 +217,19 @@ class ThemePeriodTests(unittest.TestCase):
         )
 
 
-class BuildThemeEmbedTests(unittest.TestCase):
-    def test_uses_the_generated_image(self) -> None:
-        embed = theme_service.build_theme_embed(
-            "https://example.com/theme.png",
-            "Oct 20, 2026",
-            "Nov 2, 2026",
-            "A prompt",
-            FakeClient(),
-        )
-        self.assertEqual(embed.title, t("biweekly_theme.post.embed_title"))
-        self.assertEqual(embed.image.url, "https://example.com/theme.png")
+class BuildPostContentTests(unittest.TestCase):
+    def test_heading_and_title_without_a_role(self) -> None:
+        content = theme_service.build_post_content("A prompt")
         self.assertEqual(
-            embed.description,
-            t(
-                "biweekly_theme.post.embed_description",
-                date_start="Oct 20, 2026",
-                date_end="Nov 2, 2026",
-                title="A prompt",
-            ),
+            content,
+            f"{t('biweekly_theme.post.heading')}\nA prompt",
+        )
+
+    def test_role_is_pinged_in_subtext(self) -> None:
+        content = theme_service.build_post_content("A prompt", role_id=42)
+        self.assertEqual(
+            content,
+            f"-# <@&42>\n{t('biweekly_theme.post.heading')}\nA prompt",
         )
 
 
@@ -292,15 +286,6 @@ class ThemeRenderTests(unittest.TestCase):
             path.unlink(missing_ok=True)
 
 
-class _FakeHost:
-    def __init__(self) -> None:
-        self.expirations: list[int] = []
-
-    async def upload(self, path: Path, *, expiration_seconds: int) -> str:
-        self.expirations.append(expiration_seconds)
-        return "https://example.com/theme.png"
-
-
 class _FakeMessage:
     def __init__(self, channel, message_id: int) -> None:
         self.channel = channel
@@ -344,8 +329,8 @@ class _FakeChannel:
 
 
 class _Service(theme_service.BiweeklyThemeService):
-    def __init__(self, image_host=None, picked=None) -> None:
-        super().__init__(10, image_host)
+    def __init__(self, picked=None) -> None:
+        super().__init__(10)
         self.picked = picked
         self.marked: list[int] = []
 
@@ -361,11 +346,10 @@ class _Service(theme_service.BiweeklyThemeService):
 
 
 class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
-    async def test_uploads_with_three_month_expiry_and_posts(self) -> None:
-        host = _FakeHost()
+    async def test_attaches_the_rendered_image_and_posts(self) -> None:
         channel = _FakeChannel()
         picked = card()
-        service = _Service(host, picked)
+        service = _Service(picked)
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "theme.png"
             path.write_bytes(b"png")
@@ -377,21 +361,24 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
                     FakeClient(),
                     posted_on=date(2026, 10, 19),
                 )
+            self.assertFalse(path.exists())
 
         self.assertIs(posted, picked)
-        self.assertEqual(host.expirations, [90 * 24 * 3600])
         self.assertEqual(service.marked, [picked.id])
         self.assertEqual(len(channel.sent), 1)
+        sent = channel.sent[0]
         self.assertEqual(
-            channel.sent[0]["embed"].image.url,
-            "https://example.com/theme.png",
+            sent["content"],
+            theme_service.build_post_content(picked.title),
         )
+        self.assertNotIn("embed", sent)
+        self.assertEqual(sent["file"].filename, "biweekly-theme.png")
+        sent["file"].close()
 
     async def test_force_card_posts_specific_card(self) -> None:
-        host = _FakeHost()
         channel = _FakeChannel()
         picked = card(id=7)
-        service = _Service(host, picked)
+        service = _Service(picked)
         service.picked = None
 
         async def fake_get_card(card_id: int):
@@ -415,9 +402,22 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(posted, picked)
         self.assertEqual(service.marked, [7])
 
+    async def test_pings_the_configured_role(self) -> None:
+        channel = _FakeChannel()
+        picked = card()
+        service = _Service(picked)
+        service._role_id = 42
+
+        await self._post(service, channel)
+
+        self.assertEqual(
+            channel.sent[0]["content"],
+            f"-# <@&42>\n{theme_service.build_post_content(picked.title)}",
+        )
+
     async def test_pins_the_new_card(self) -> None:
         channel = _FakeChannel()
-        service = _Service(_FakeHost(), card())
+        service = _Service(card())
 
         message = await self._post(service, channel)
 
@@ -427,7 +427,7 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_unpins_the_previous_card(self) -> None:
         channel = _FakeChannel()
-        service = _Service(_FakeHost(), card())
+        service = _Service(card())
         previous = await self._post(service, channel)
         self.assertTrue(previous.pinned)
 
@@ -441,7 +441,7 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_pin_failure_leaves_the_post_untracked(self) -> None:
         channel = _FakeChannel()
-        service = _Service(_FakeHost(), card())
+        service = _Service(card())
 
         with patch.object(
             _FakeMessage,
@@ -455,10 +455,9 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(service.pinned_message_id)
 
     async def test_render_failure_has_no_fallback(self) -> None:
-        host = _FakeHost()
         channel = _FakeChannel()
         picked = card()
-        service = _Service(host, picked)
+        service = _Service(picked)
 
         with patch.object(
             theme_service,
@@ -471,7 +470,6 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(caught.exception.card, picked)
         self.assertEqual(channel.sent, [])
         self.assertEqual(service.marked, [])
-        self.assertEqual(host.expirations, [])
 
     async def _post(self, service: _Service, channel: _FakeChannel):
         with tempfile.TemporaryDirectory() as folder:
@@ -485,6 +483,7 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
                     FakeClient(),
                     posted_on=date(2026, 10, 19),
                 )
+        channel.sent[-1]["file"].close()
         return channel.messages[max(channel.messages)]
 
 

@@ -104,7 +104,6 @@ from .services.streaks import Reminder, StreakService
 from .services.tickets import TicketService
 from .services.view_messages import ViewMessageService
 from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
-from .services.image_hosting import ImageHost
 from .services.xp_boosts import XpBoostService, apply_boost, boost_percent
 from .texts import interpolate, t, t_choice_template
 
@@ -285,8 +284,7 @@ async def run() -> None:
     birthdays = BirthdayService(int(config.guild_id))
     tickets = TicketService(int(config.guild_id))
     weekly = WeeklyLeaderboardService(int(config.guild_id))
-    image_host = ImageHost(config.get("imgbb_api_key"))
-    biweekly_theme = BiweeklyThemeService(int(config.guild_id), image_host)
+    biweekly_theme = BiweeklyThemeService(int(config.guild_id))
     bot_settings = BotSettingsService(int(config.guild_id))
     view_messages = ViewMessageService(int(config.guild_id))
     coupons = CouponService(config.get("imgbb_api_key"))

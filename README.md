@@ -631,7 +631,8 @@ A theme is drawn at random from an admin-maintained deck and posted every two
 weeks in the configured channel at a fixed UTC weekday and hour. The post pings
 an optional role. The card's prompt (and optional description) is rendered in
 white onto the shared image template with the theme period, which runs from the
-day after posting through the following 13 days. Once a card has been posted it
+day after posting through the following 13 days, and the image is attached
+directly to the message. Once a card has been posted it
 is retired until every card in the deck has been sent, at which point the deck
 resets and cards can be posted again. If the bot is offline when a scheduled run
 is due it is skipped (admins can post one manually with `/biweekly-theme force`),
@@ -639,10 +640,8 @@ and a manual post consumes a card without changing the schedule marker. Card
 titles are deduplicated without case, accents or extra whitespace. Commands
 accept a card by its numeric id or by selecting it from the autocomplete list.
 
-If the image cannot be rendered or uploaded, admins are notified once in the
-updates channel and that run is skipped; there is no fallback image. Generated
-theme images are uploaded to imgbb with a three-month expiry, falling back to
-tmpfiles when imgbb is unavailable.
+If the image cannot be rendered, admins are notified once in the
+updates channel and that run is skipped; there is no fallback image.
 
 ## Settings
 

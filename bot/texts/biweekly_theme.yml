@@ -106,8 +106,8 @@ biweekly_theme:
       no_feed: "The admins' updates channel isn't set, so suggestions can't be sent."
 
   post:
-    embed_title: "🗓️ ‎ This forthnight’s theme"
-    embed_description: "From **%{date_start}**, to **%{date_end}:** %{title}"
+    heading: "## 🗓️ ‎ This forthnight’s theme"
+    second_heading: "### %{title}"
     failed_title: "Bi-weekly theme image failed"
     failed_description: "Couldn’t create the image for the theme “%{title}”. This run was skipped; the theme stays in the deck.\n\nError: %{error}"
   audit:

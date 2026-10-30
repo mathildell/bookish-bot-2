@@ -15,8 +15,6 @@ _ASSETS = Path(__file__).resolve().parents[2] / "assets"
 TEMPLATE = _ASSETS / "weeklytheme" / "template.png"
 FONT_REGULAR = _ASSETS / "fonts" / "FlowerBee.ttf"
 
-THEME_IMGBB_EXPIRATION_SECONDS = 90 * 24 * 3600
-
 DATE_FROM_CENTER = (640, 193)
 DATE_FROM_MAX_WIDTH = 230
 DATE_TO_CENTER = (1110, 193)
