@@ -14,8 +14,9 @@ from ..services.booster_role import resolve_notify_channel
 from ..services.members import resolve_members
 from ..services.reviews import (
     ReviewService,
-    is_goodreads_feed_url,
+    is_goodreads_profile_url,
     normalize_entry_id,
+    normalize_profile_url,
 )
 from ..texts import t
 from .checks import is_admin, require_admin
@@ -67,13 +68,14 @@ async def add_feed(
         )
         return
 
-    if not is_goodreads_feed_url(url):
+    if not is_goodreads_profile_url(url):
         await interaction.response.send_message(
             t("reviews.feed.add.invalid_url"), ephemeral=True
         )
         return
 
-    _, changed = await _service(interaction).set_feed(target.id, url.strip())
+    profile_url = normalize_profile_url(url) or url.strip()
+    _, changed = await _service(interaction).set_feed(target.id, profile_url)
     key = (
         "reviews.feed.add.success_reset"
         if changed
@@ -191,14 +193,19 @@ async def repost(
         )
         return
 
-    reposted = await service.repost_entry(
+    result = await service.repost_entry(
         interaction.guild,
         channel,
         interaction.client,
         discord_user_id=target.id,
         entry_id=entry_id,
     )
-    if not reposted:
+    if result.auth_failed:
+        await interaction.followup.send(
+            t("reviews.repost.auth_failed"), ephemeral=True
+        )
+        return
+    if not result.posted:
         await interaction.followup.send(
             t("reviews.repost.not_found", entry=entry_id), ephemeral=True
         )

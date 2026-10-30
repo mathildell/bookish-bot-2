@@ -9,6 +9,7 @@ settings:
     buddy_read_message_link: "Buddy read message"
     coupon_fallback_image: "Coupon fallback image"
     default_embed_color: "Default embed color"
+    goodreads_session_cookie: "Goodreads session cookie"
     purge_book_releases: "Purge released books after"
     purge_streak_logs: "Purge streak logs after"
     releases_post_hour: "Hour for releases announcement"
@@ -25,6 +26,7 @@ settings:
     unit_days: "day%{s}"
     unit_hour: "UTC"
     value_none: "none"
+    value_set: "set"
     info:
       purge_book_releases: "-# Time the books are kept in the releases table after the release announcement was posted."
       purge_streak_logs: "-# Time a streak’s daily log is kept before it is purged (streak totals persist)."
@@ -39,12 +41,14 @@ settings:
       buddy_read_message_link: "-# Message reposted into new forum threads."
       admin_test_channel_id: "-# Channel where channel-locked commands work regardless of their lock."
       coupon_fallback_image: "-# Image shown on a streak coupon when it cannot be generated or uploaded."
+      goodreads_session_cookie: "-# Browser Cookie header from a dedicated (dummy) Goodreads account, not your main account. It is used to read full review pages; the value is stored in the bot database and never shown."
   edit:
     description: "Change one of the bot’s settings"
     param_key: "Which setting to change"
     param_value: "The new value"
     success: "%{label} is now %{value}."
     invalid_value: "'%{value}' is not valid: %{expected}."
+    invalid_secret: "That cookie header is not valid. Paste the browser Cookie header, or 'none' to clear it."
     expected:
       days: "pick a whole number of days between %{min} and %{max}"
       hour: "pick an hour between %{min_hour} and %{max_hour} (UTC)"
@@ -52,3 +56,4 @@ settings:
       url: "paste an http(s) URL, or 'none' to clear it"
       color: "paste a hex color like #97a97c, or 'none' to clear it"
       message_link: "paste a Discord message link, or 'none' to clear it"
+      secret: "paste the Cookie header from a logged-in Goodreads session, or 'none' to clear it"

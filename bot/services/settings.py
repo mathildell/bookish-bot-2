@@ -30,6 +30,7 @@ class BotSettingsService:
         self._chat_persona: str | None = None
         self._chat_prompt_name: str | None = None
         self._chat_prompt_info: str | None = None
+        self._goodreads_session_cookie: str | None = None
 
     @property
     def updates_channel_id(self) -> int | None:
@@ -79,6 +80,10 @@ class BotSettingsService:
     def chat_prompt_info(self) -> str | None:
         return self._chat_prompt_info
 
+    @property
+    def goodreads_session_cookie(self) -> str | None:
+        return self._goodreads_session_cookie
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._find(session)
@@ -106,6 +111,9 @@ class BotSettingsService:
         self._chat_persona = row.chat_persona if row else None
         self._chat_prompt_name = row.chat_prompt_name if row else None
         self._chat_prompt_info = row.chat_prompt_info if row else None
+        self._goodreads_session_cookie = (
+            row.goodreads_session_cookie if row else None
+        )
 
     async def set_updates_channel(self, channel_id: int | None) -> None:
         await self._update(updates_channel_id=channel_id)
@@ -154,6 +162,10 @@ class BotSettingsService:
     async def set_chat_prompt_info(self, prompt: str | None) -> None:
         await self._update(chat_prompt_info=prompt)
         self._chat_prompt_info = prompt
+
+    async def set_goodreads_session_cookie(self, cookie: str | None) -> None:
+        await self._update(goodreads_session_cookie=cookie)
+        self._goodreads_session_cookie = cookie
 
     async def _find(self, session) -> BotSetting | None:
         return (

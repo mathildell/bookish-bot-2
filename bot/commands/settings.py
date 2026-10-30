@@ -41,6 +41,7 @@ GEN_CHAT_CHANNEL = "gen_chat_channel_id"
 BUDDY_READ_MESSAGE_LINK = "buddy_read_message_link"
 ADMIN_TEST_CHANNEL = "admin_test_channel_id"
 COUPON_FALLBACK_IMAGE = "coupon_fallback_image"
+GOODREADS_SESSION_COOKIE = "goodreads_session_cookie"
 
 # Interpretation of each key's value.
 _KINDS = {
@@ -57,6 +58,7 @@ _KINDS = {
     BUDDY_READ_MESSAGE_LINK: "message_link",
     ADMIN_TEST_CHANNEL: "channel",
     COUPON_FALLBACK_IMAGE: "url",
+    GOODREADS_SESSION_COOKIE: "secret",
 }
 
 SETTING_KEYS = tuple(_KINDS)
@@ -139,6 +141,18 @@ def parse_message_link_setting(raw: str) -> str | None:
     return text
 
 
+def parse_secret(raw: str) -> str | None:
+    """Parse a pasted cookie header, or ``None`` for the clear literal."""
+    text = raw.strip()
+    if text.lower() == CLEAR:
+        return None
+    if text.lower().startswith("cookie:"):
+        text = text[len("cookie:") :].strip()
+    if not text or "\n" in text or "\r" in text or "=" not in text:
+        raise ValueError(raw)
+    return text
+
+
 def _current_days(interaction: discord.Interaction, key: str) -> int:
     if key == PURGE_BOOK_RELEASES:
         return interaction.client.releases.purge_days
@@ -182,6 +196,11 @@ def _current_value(
     if kind == "message_link":
         link = settings.reference_message_link
         return link or t("settings.list.value_none"), ""
+    if kind == "secret":
+        cookie = getattr(settings, "goodreads_session_cookie", None)
+        if cookie:
+            return t("settings.list.value_set"), ""
+        return t("settings.list.value_none"), ""
     return settings.default_embed_color or t("settings.list.value_none"), ""
 
 
@@ -194,7 +213,7 @@ def current_display(interaction: discord.Interaction, key: str) -> str:
 def current_value_line(interaction: discord.Interaction, key: str) -> str:
     """Render one setting's value as a ``Value: ...`` line."""
     value, unit = _current_value(interaction, key)
-    if _KINDS[key] == "channel":
+    if _KINDS[key] in ("channel", "secret"):
         return t("settings.list.value_plain", value=value)
     if unit:
         return t("settings.list.value_unit", value=value, unit=unit)
@@ -281,6 +300,12 @@ async def apply_value(
         parsed = parse_message_link(link) if link else None
         interaction.client.reference_channel_id = parsed[0] if parsed else 0
         interaction.client.reference_message_id = parsed[1] if parsed else 0
+    elif kind == "secret":
+        cookie = parse_secret(raw)
+        await interaction.client.bot_settings.set_goodreads_session_cookie(
+            cookie
+        )
+        interaction.client.reviews.set_goodreads_session_cookie(cookie)
     else:
         color = parse_color(raw)
         stored = f"#{color.value:06x}" if color is not None else None
@@ -328,8 +353,10 @@ async def edit(
     try:
         await apply_value(interaction, key, value)
     except ValueError:
-        await interaction.response.send_message(
-            t(
+        if _KINDS[key] == "secret":
+            message = t("settings.edit.invalid_secret")
+        else:
+            message = t(
                 "settings.edit.invalid_value",
                 value=value,
                 expected=t(
@@ -339,9 +366,8 @@ async def edit(
                     min_hour=MIN_HOUR,
                     max_hour=MAX_HOUR,
                 ),
-            ),
-            ephemeral=True,
-        )
+            )
+        await interaction.response.send_message(message, ephemeral=True)
         return
     kind = _KINDS[key]
     if kind == "hour":

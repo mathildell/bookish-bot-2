@@ -175,29 +175,45 @@ List configured XP boosts.
 
 ## Book reviews
 
-Members link their Goodreads reviews RSS feed; the bot used to poll the feeds
-every 5 minutes and post new reviews to the configured channel. Each review is
-posted at most once every 24 hours. Reviews already on the feed when it is
-linked are never posted. Polling is currently paused because Goodreads retired
-its RSS feeds; the stored feeds and `/reviews repost` still work.
+Members link their Goodreads profile. Every 30 minutes the bot reads the
+profile's recent updates (spaced out between members), and for each new review
+it fetches the review page with a dedicated dummy Goodreads account to get the
+full text, precise rating, shelves/tags and cover. Each review is posted at most
+once every 24 hours; reviews already on the profile when it is linked are never
+posted. Spoilers stay hidden and are shown as `(view spoiler)`.
+
+Set the browser `Cookie` header of a dedicated (dummy) Goodreads account with
+`/settings edit` (`Goodreads session cookie`). It is stored in the bot database
+and never shown by `/settings list`. When the cookie expires, new reviews are
+held and the admins' updates channel is notified once a day; paste a fresh
+`Cookie` header to resume. Without a cookie the feature runs in degraded mode:
+reviews are still posted from the profile updates, but without the review
+page's full text, precise rating, shelves and cover, and the admins' updates
+channel is notified once a day.
+
+Upgrading from the retired RSS feeds? Run
+`.venv/bin/python scripts/migrate_review_profiles.py` once; it normalizes saved
+feeds to profile URLs and resets each tracking window so old reviews are not
+posted as a backlog.
 
 ```
 /reviews feed add url: [user:]
 ```
 **Permissions:** Admin (anyone) / Everyone (self only)
-Link a member's Goodreads `list_rss` reviews feed.
+Link a member's Goodreads profile (legacy `list_rss` URLs are accepted and
+normalized).
 
 ```
 /reviews feed remove [user:]
 ```
 **Permissions:** Admin (anyone) / Everyone (self only)
-Unlink a member's Goodreads reviews feed.
+Unlink a member's Goodreads profile.
 
 ```
 /reviews feed list
 ```
 **Permissions:** 🔒 Admin
-Paginated list of every registered Goodreads reviews feed.
+Paginated list of every registered Goodreads profile.
 
 ```
 /reviews channel set channel:
@@ -209,8 +225,8 @@ Set the channel where review updates are posted.
 /reviews repost entry: [user:]
 ```
 **Permissions:** 🔒 Admin
-Force the bot to repost a review immediately, even if the Goodreads feed entry
-has not changed.
+Force the bot to repost a review immediately, even if the profile update has
+not changed. The review must still be in the profile's recent updates.
 
 ***
 

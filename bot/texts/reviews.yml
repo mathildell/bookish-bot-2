@@ -2,23 +2,23 @@
 reviews:
   group_description: "Share members’ new Goodreads reviews"
   feed:
-    group_description: "Manage a member’s Goodreads reviews feed"
+    group_description: "Manage a member’s Goodreads reviews profile"
     add:
-      description: "Link a Goodreads reviews RSS feed"
-      param_url: "Goodreads 'list_rss' reviews feed URL"
-      param_user: "Member to set the feed for (admins only; defaults to you)"
-      success: "Saved %{user}’s Goodreads feed."
-      success_reset: "Saved %{user}’s Goodreads feed. Existing reviews won’t be posted, only new ones."
-      invalid_url: "That doesn’t look like a Goodreads reviews RSS feed. Go to My Books, then get the shelf’s RSS link by clicking on the little icon under the table, then grab the URL and paste it here."
+      description: "Link a Goodreads profile"
+      param_url: "Goodreads profile URL (legacy list_rss URLs also work)"
+      param_user: "Member to set the profile for (admins only; defaults to you)"
+      success: "Saved %{user}’s Goodreads profile."
+      success_reset: "Saved %{user}’s Goodreads profile. Existing reviews won’t be posted, only new ones."
+      invalid_url: "That doesn’t look like a Goodreads profile URL. Open your Goodreads profile and copy the address from the browser, then paste it here."
     remove:
-      description: "Unlink a Goodreads reviews RSS feed"
-      param_user: "Member whose feed to remove (admins only; defaults to you)"
-      success: "Removed %{user}’s Goodreads feed."
-      not_found: "%{user} has no Goodreads feed registered."
+      description: "Unlink a Goodreads profile"
+      param_user: "Member whose profile to remove (admins only; defaults to you)"
+      success: "Removed %{user}’s Goodreads profile."
+      not_found: "%{user} has no Goodreads profile registered."
     list:
-      description: "List every registered Goodreads reviews feed"
-      empty: "No Goodreads feeds are registered."
-      url_field: "Feed URL"
+      description: "List every registered Goodreads profile"
+      empty: "No Goodreads profiles are registered."
+      url_field: "Profile URL"
   channel:
     group_description: "Where review updates are posted"
     set:
@@ -30,8 +30,9 @@ reviews:
     param_entry: "Goodreads review URL or review id"
     param_user: "Member whose review to repost (admins only; defaults to you)"
     success: "Reposted %{user}’s review %{entry}."
-    not_found: "No posted review matching %{entry} was found."
+    not_found: "No posted review matching %{entry} was found in the profile’s recent updates."
     no_channel: "No review channel is set, so entry %{entry} can’t be reposted."
+    auth_failed: "The Goodreads session cookie has expired, so the review was not reposted. Update it with `/settings edit`."
   embed:
     untitled_book: "Untitled"
     unknown_shelf: "Goodreads"
@@ -47,3 +48,9 @@ reviews:
     rating_none: "No rating"
     date_read_none: "Unknown"
     review_empty: "(no review text)"
+    view_spoiler: "(view spoiler)"
+  errors:
+    auth_failed_title: "Goodreads session expired"
+    auth_failed_description: "The configured Goodreads cookie can no longer read review pages, so new reviews are on hold. Update it with `/settings edit`."
+    missing_cookie_title: "Goodreads cookie not set"
+    missing_cookie_description: "No Goodreads session cookie is configured, so reviews are posted in degraded mode from profile updates only, without the full text, precise rating and shelves. Set one with `/settings edit`."

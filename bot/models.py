@@ -198,7 +198,7 @@ class WeeklySetting(Base):
 
 
 class ReviewFeed(Base):
-    """A member's Goodreads reviews RSS feed."""
+    """A member's Goodreads profile, polled for recent review updates."""
 
     __tablename__ = "review_feeds"
 
@@ -234,7 +234,7 @@ class ReviewEntry(Base):
     # Goodreads review id, normalized from the entry's review URL
     entry_id: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    # The entry's last observed pubDate (bumped by Goodreads on edit)
+    # The entry's last observed update time (bumped by Goodreads on edit)
     last_pub_date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     # When the bot last posted this entry (null until first post)
     last_posted_at: Mapped[datetime | None] = mapped_column(
@@ -707,6 +707,10 @@ class BotSetting(Base):
     chat_persona: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_prompt_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_prompt_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Cookie header for the dummy Goodreads account used to read review pages.
+    goodreads_session_cookie: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

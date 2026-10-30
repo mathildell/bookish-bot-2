@@ -1400,57 +1400,175 @@ class ImportOldIntrosTests(unittest.TestCase):
         )
 
 
-FEED_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel>
-  <title>alice's bookshelf: all</title>
-  <image><title>alice's bookshelf: all</title>
-    <url>https://www.goodreads.com/images/layout/goodreads_logo_144.jpg</url>
-  </image>
-  <item>
-    <guid>https://www.goodreads.com/review/show/111?utm_medium=api&amp;utm_source=rss</guid>
-    <pubDate>Wed, 14 Oct 2026 10:02:18 -0700</pubDate>
-    <title>Book One</title>
-    <link>https://www.goodreads.com/review/show/111?utm_medium=api&amp;utm_source=rss</link>
-    <book_image_url>https://img.example/cover.jpg</book_image_url>
-    <author_name>Author A</author_name>
-    <user_rating>4</user_rating>
-    <user_read_at>Wed, 14 Oct 2026 00:00:00 +0000</user_read_at>
-    <user_shelves>arc, 5-stars-read</user_shelves>
-    <user_review><![CDATA[<b>Great</b><br />Loved <i>it</i>.]]></user_review>
-  </item>
-  <item>
-    <guid>https://www.goodreads.com/review/show/222</guid>
-    <pubDate>Wed, 14 Oct 2026 11:00:00 -0700</pubDate>
-    <title>Book Two</title>
-    <link>https://www.goodreads.com/review/show/222</link>
-    <user_review></user_review>
-  </item>
-</channel></rss>
+PROFILE_HTML = """
+<tr class="update" data-timestamp="October 21, 2026 08:46" id="update_1">
+  <td>
+    <div class="updateAction">
+      <span class="readOnlyStars">
+        <span class="readOnlyStar full"></span>
+        <span class="readOnlyStar full"></span>
+        <span class="readOnlyStar full"></span>
+        <span class="readOnlyStar full"></span>
+        <span class="readOnlyStar empty"></span>
+      </span>
+    </div>
+    <div class="updateImage">
+      <div><a href="/book/show/210331628"><img
+        alt="I Might Be in Trouble by Daniel Aleman"
+        src="https://img.example/cover.jpg" /></a></div>
+    </div>
+    <div class="updateBodyAfterImageShort">
+      <a class="bookTitle" href="/book/show/210331628">I Might Be in Trouble</a>
+      <a class="authorName" href="/author/show/1">Daniel Aleman</a>
+    </div>
+  </td>
+  <tr class="update no_border" id="update_1_2">
+    <td>
+      <span id="freeTextContainerreview111">short excerpt</span>
+      <span id="freeTextreview111" style="display:none"><b>Full</b> review text.
+        <a class="jsShowSpoiler spoilerAction">(view spoiler)</a>
+        <span class="spoilerContainer" style="display:none">[secret
+          <a class="jsHideSpoiler spoilerAction">(hide spoiler)</a>]</span>
+        The end.</span>
+    </td>
+  </tr>
+  <tr class="no_border feedFooterReview" id="update_comment_stuff_Review111">
+    <td><div class="updateActionLinks">
+      <a class="updatedTimestamp" href="/review/show/111">Oct 21, 2026 08:46AM</a>
+    </div></td>
+  </tr>
+</tr>
+<tr class="update" data-timestamp="October 20, 2026 12:00" id="update_status">
+  <td>
+    <div class="updateBodyAfterImageShort">
+      <a class="bookTitle" href="/book/show/333">Read status only</a>
+    </div>
+  </td>
+  <tr class="no_border feedFooterReview" id="update_comment_stuff_ReadStatus333">
+    <td><div class="updateActionLinks">
+      <a class="updatedTimestamp" href="/read_statuses/333">Oct 20, 2026 12:00PM</a>
+    </div></td>
+  </tr>
+</tr>
+<tr class="update" data-timestamp="October 20, 2026 08:46" id="update_2">
+  <td>
+    <div class="updateAction">
+      <span class="readOnlyStars">
+        <span class="readOnlyStar full"></span>
+        <span class="readOnlyStar empty"></span>
+      </span>
+    </div>
+    <div class="updateBodyAfterImageShort">
+      <a class="bookTitle" href="/book/show/222">Rating only</a>
+    </div>
+  </td>
+  <tr class="no_border feedFooterReview" id="update_comment_stuff_Review222">
+    <td><div class="updateActionLinks">
+      <a class="updatedTimestamp" href="/review/show/222">Oct 20, 2026 08:46AM</a>
+    </div></td>
+  </tr>
+</tr>
+"""
+
+REVIEW_HTML_WITH_COMMENTS = """
+<html><head><title>Alice's review of By Any Means | Goodreads</title></head>
+<body>
+  <div class="hreview">
+    <a class="bookTitle" href="/book/show/251988514">By Any Means</a>
+    <a class="authorName" href="/author/show/2">E.M. Caro</a>
+    <img alt="By Any Means by E.M. Caro"
+         src="https://img.example/review-cover.jpg" />
+    <div class="rating"><meta content="3.5" itemprop="ratingValue" /></div>
+    <a class="actionLinkLite" href="/review/list/1?tag=arc">arc</a>
+    <div class="mediumText reviewText">This is the actual review.</div>
+  </div>
+  <div class="comments">
+    <div class="mediumText reviewText">
+      <a class="commenterIcon" href="/user/show/9">Commenter</a>
+      This is only a comment.
+    </div>
+  </div>
+  <div class="readingTimeline">
+    <div class="readingTimeline__text">
+      August  2, 2026 – Shelved as:
+      <a href="/review/list/1?shelf=to-read">to-read</a>
+    </div>
+    <div class="readingTimeline__text">
+      September  7, 2026 – Finished Reading
+    </div>
+  </div>
+</body></html>
+"""
+
+REVIEW_HTML = """
+<html><head><title>Alice's review of By Any Means | Goodreads</title></head>
+<body>
+  <a class="bookTitle" href="/book/show/251988514">By Any Means</a>
+  <a class="authorName" href="/author/show/2">E.M. Caro</a>
+  <img alt="By Any Means by E.M. Caro"
+       src="https://img.example/review-cover.jpg" />
+  <div class="rating">
+    <span class="value-title" title="3.5"></span>
+    <meta content="3.5" itemprop="ratingValue" />
+  </div>
+  <a class="actionLinkLite"
+     href="https://www.goodreads.com/review/list/56528643-mtrics?tag=arc">arc</a>
+  <a href="https://www.goodreads.com/review/list/56528643?shelf=arc">arc</a>
+  <a href="/review/list/56528643-mtrics?shelf=read">Alice's Reviews</a>
+  <div class="readingTimeline__text">October  6, 2026 –
+    <span>Finished Reading</span></div>
+  <div class="reviewText mediumText description readable">
+    <b>Full</b> review text.
+    <a class="jsShowSpoiler spoilerAction">(view spoiler)</a>
+    <span class="spoilerContainer" style="display:none">[secret]</span>
+    The end.
+  </div>
+</body></html>
+"""
+
+SIGN_IN_HTML = """
+<html><head><title>Sign in - Goodreads</title></head>
+<body><form action="/user/sign_in"></form></body></html>
 """
 
 
-class ParseFeedTests(unittest.TestCase):
-    def test_parses_shelf_logo_and_entries(self) -> None:
-        feed = reviews_service.parse_feed(FEED_XML)
-        self.assertEqual(feed.bookshelf, "alice's bookshelf")
-        self.assertTrue(feed.logo_url.endswith("goodreads_logo_144.jpg"))
+class ParseProfileUpdatesTests(unittest.TestCase):
+    def test_parses_a_review_with_text(self) -> None:
+        feed = reviews_service.parse_profile_updates(PROFILE_HTML)
+        self.assertEqual(feed.bookshelf, "Goodreads")
         self.assertEqual(len(feed.entries), 1)
         entry = feed.entries[0]
         self.assertEqual(entry.entry_id, "111")
-        self.assertEqual(entry.title, "Book One")
-        self.assertEqual(entry.shelves, ["arc", "5-stars-read"])
-        self.assertEqual(entry.author, "Author A")
-        self.assertEqual(entry.rating, "4")
+        self.assertEqual(
+            entry.link, "https://www.goodreads.com/review/show/111"
+        )
+        self.assertEqual(entry.title, "I Might Be in Trouble")
+        self.assertEqual(entry.author, "Daniel Aleman")
         self.assertEqual(entry.cover_url, "https://img.example/cover.jpg")
-        self.assertEqual(entry.review_html, "<b>Great</b><br />Loved <i>it</i>.")
+        self.assertEqual(entry.rating, "4")
+        self.assertEqual(
+            entry.pub_date, datetime.datetime(2026, 10, 21, 8, 46)
+        )
+        self.assertIn("Full", entry.review_html)
+        self.assertNotIn("short excerpt", entry.review_html)
+        self.assertNotIn("secret", entry.review_html)
+        self.assertIn("(view spoiler)", entry.review_html)
 
-    def test_skips_entries_without_a_review(self) -> None:
-        feed = reviews_service.parse_feed(FEED_XML)
-        self.assertNotIn("222", [entry.entry_id for entry in feed.entries])
+    def test_skips_rating_only_and_read_status_updates(self) -> None:
+        feed = reviews_service.parse_profile_updates(PROFILE_HTML)
+        self.assertEqual(
+            [entry.entry_id for entry in feed.entries], ["111"]
+        )
 
-    def test_rejects_non_rss(self) -> None:
-        with self.assertRaises(ValueError):
-            reviews_service.parse_feed("<not-rss/>")
+    def test_rejects_review_links_outside_goodreads(self) -> None:
+        feed = reviews_service.parse_profile_updates(
+            '<tr class="update" data-timestamp="October 21, 2026 08:46">'
+            '<a class="updatedTimestamp" '
+            'href="https://evil.example/review/show/999">Oct 21</a>'
+            '<span id="freeTextreview999">text</span>'
+            "</tr>"
+        )
+        self.assertEqual(feed.entries, [])
 
 
 class NormalizeEntryIdTests(unittest.TestCase):
@@ -1466,19 +1584,159 @@ class NormalizeEntryIdTests(unittest.TestCase):
         self.assertEqual(reviews_service.normalize_entry_id("  abc  "), "abc")
 
 
-class GoodreadsFeedUrlTests(unittest.TestCase):
-    def test_accepts_list_rss_feed(self) -> None:
-        self.assertTrue(
-            reviews_service.is_goodreads_feed_url(
-                "https://www.goodreads.com/review/list_rss/123?key=abc&shelf=%23ALL%23"
+class GoodreadsProfileUrlTests(unittest.TestCase):
+    def test_accepts_profile_and_legacy_urls(self) -> None:
+        expected = "https://www.goodreads.com/user/show/56528643"
+        for value in (
+            "https://www.goodreads.com/user/show/56528643-mtrics",
+            "https://www.goodreads.com/user/show/56528643",
+            "https://www.goodreads.com/review/list_rss/56528643?key=abc",
+            "https://www.goodreads.com/review/list/56528643?shelf=read",
+            "https://www.goodreads.com/user/delayable_user_show/56528643",
+            "56528643",
+        ):
+            self.assertEqual(
+                reviews_service.normalize_profile_url(value), expected
             )
-        )
+            self.assertTrue(reviews_service.is_goodreads_profile_url(value))
 
     def test_rejects_other_urls(self) -> None:
-        self.assertFalse(reviews_service.is_goodreads_feed_url("https://example.com/rss"))
-        self.assertFalse(
-            reviews_service.is_goodreads_feed_url("https://www.goodreads.com/author/1")
+        for value in (
+            "https://example.com/user/show/1",
+            "https://www.goodreads.com/author/show/1",
+            "https://evilgoodreads.com/user/show/1",
+            "",
+        ):
+            self.assertIsNone(reviews_service.normalize_profile_url(value))
+            self.assertFalse(reviews_service.is_goodreads_profile_url(value))
+
+
+class ParseReviewPageTests(unittest.TestCase):
+    def _entry(self) -> FeedEntry:
+        return FeedEntry(
+            entry_id="111",
+            link="https://www.goodreads.com/review/show/111",
+            title="",
+            cover_url=None,
+            author=None,
+            rating="4",
+            date_read=None,
+            review_html="<b>fallback</b>",
+            pub_date=datetime.datetime(2026, 10, 21, 8, 46),
+            shelves=[],
         )
+
+    def test_overlays_review_page_details(self) -> None:
+        entry = reviews_service.parse_review_page(REVIEW_HTML, self._entry())
+        self.assertEqual(entry.title, "By Any Means")
+        self.assertEqual(entry.author, "E.M. Caro")
+        self.assertEqual(
+            entry.cover_url, "https://img.example/review-cover.jpg"
+        )
+        self.assertEqual(entry.rating, "3.5")
+        self.assertEqual(entry.shelves, ["arc"])
+        self.assertEqual(entry.date_read, datetime.datetime(2026, 10, 6))
+        self.assertIn("Full", entry.review_html)
+        self.assertNotIn("secret", entry.review_html)
+        self.assertIn("(view spoiler)", entry.review_html)
+
+    def test_prefers_half_star_widget_over_rounded_metadata(self) -> None:
+        html = """
+        <div class="hreview">
+          <div class="rating">
+            <meta content="3" itemprop="ratingValue" />
+          </div>
+          <span class="readOnlyStars">
+            <span class="readOnlyStar full"></span>
+            <span class="readOnlyStar full"></span>
+            <span class="readOnlyStar full"></span>
+            <span class="readOnlyStar half"></span>
+          </span>
+          <div class="reviewText">A review.</div>
+        </div>
+        """
+        entry = reviews_service.parse_review_page(html, self._entry())
+        self.assertEqual(entry.rating, "3.5")
+
+    def test_keeps_profile_values_when_page_is_empty(self) -> None:
+        entry = reviews_service.parse_review_page(
+            "<html></html>", self._entry()
+        )
+        self.assertEqual(entry.title, "")
+        self.assertEqual(entry.rating, "4")
+        self.assertEqual(entry.review_html, "<b>fallback</b>")
+
+    def test_ignores_comments_and_timeline_shelves(self) -> None:
+        entry = reviews_service.parse_review_page(
+            REVIEW_HTML_WITH_COMMENTS, self._entry()
+        )
+        self.assertIn("actual review", entry.review_html)
+        self.assertNotIn("comment", entry.review_html)
+        self.assertNotIn("commenterIcon", entry.review_html)
+        self.assertEqual(entry.shelves, ["arc"])
+        self.assertEqual(entry.date_read, datetime.datetime(2026, 9, 7))
+
+
+class ReviewPageContentTests(unittest.TestCase):
+    def test_detects_a_review_block(self) -> None:
+        self.assertTrue(reviews_service.review_page_has_content(REVIEW_HTML))
+        self.assertTrue(
+            reviews_service.review_page_has_content(REVIEW_HTML_WITH_COMMENTS)
+        )
+
+    def test_rejects_a_page_without_a_review(self) -> None:
+        self.assertFalse(reviews_service.review_page_has_content("<html></html>"))
+        self.assertFalse(reviews_service.review_page_has_content(SIGN_IN_HTML))
+
+
+class RedactSpoilersTests(unittest.TestCase):
+    def test_removes_hidden_goodreads_spoiler(self) -> None:
+        result = reviews_service.redact_spoilers(
+            '<a class="jsShowSpoiler">(view spoiler)</a>'
+            '<span class="spoilerContainer">[secret]</span>'
+        )
+        self.assertNotIn("secret", result)
+        self.assertIn("(view spoiler)", result)
+
+    def test_removes_graphql_spoiler_control(self) -> None:
+        result = reviews_service.redact_spoilers(
+            '<input class="spoiler__control" />'
+            '<label class="spoiler">view spoiler</label>'
+        )
+        self.assertNotIn("spoiler__control", result)
+        self.assertIn("(view spoiler)", result)
+
+
+class IsSignInPageTests(unittest.TestCase):
+    def test_detects_title_form_and_redirect(self) -> None:
+        self.assertTrue(reviews_service.is_sign_in_page(SIGN_IN_HTML))
+        self.assertTrue(
+            reviews_service.is_sign_in_page(
+                "", "https://www.goodreads.com/user/sign_in"
+            )
+        )
+        self.assertFalse(reviews_service.is_sign_in_page(REVIEW_HTML))
+
+
+class ReviewAuthNoticeTests(unittest.TestCase):
+    def test_notice_is_limited_to_once_per_day(self) -> None:
+        service = reviews_service.ReviewService(1)
+        now = datetime.datetime(2026, 10, 30, 12, 0, 0)
+        self.assertTrue(service.auth_notice_due(now))
+        service.mark_auth_notice_sent(now)
+        self.assertFalse(
+            service.auth_notice_due(now + datetime.timedelta(hours=23))
+        )
+        self.assertTrue(
+            service.auth_notice_due(now + datetime.timedelta(days=1))
+        )
+
+    def test_saving_a_new_cookie_resets_the_notice(self) -> None:
+        service = reviews_service.ReviewService(1)
+        now = datetime.datetime(2026, 10, 30, 12, 0, 0)
+        service.mark_auth_notice_sent(now)
+        service.set_goodreads_session_cookie("a=b")
+        self.assertTrue(service.auth_notice_due(now))
 
 
 class HtmlToMarkdownTests(unittest.TestCase):
@@ -1574,54 +1832,6 @@ class FormatShelfTests(unittest.TestCase):
             reviews_service.format_shelf("alice's bookshelf", ["arcade"]),
             "alice's bookshelf: arcade",
         )
-
-    def test_all_shelf_is_dropped(self) -> None:
-        self.assertEqual(reviews_service.parse_shelves("all"), [])
-        self.assertEqual(
-            reviews_service.parse_shelves("all, arc"), ["arc"]
-        )
-
-
-class _FakeLogoResponse:
-    def __init__(self, status: int) -> None:
-        self.status = status
-
-    async def __aenter__(self) -> "_FakeLogoResponse":
-        return self
-
-    async def __aexit__(self, *_: object) -> bool:
-        return False
-
-
-class _FakeHTTP:
-    def __init__(self, status: int) -> None:
-        self.status = status
-        self.calls = 0
-
-    def get(self, _url: str) -> _FakeLogoResponse:
-        self.calls += 1
-        return _FakeLogoResponse(self.status)
-
-
-class ResolveLogoTests(unittest.IsolatedAsyncioTestCase):
-    async def test_uses_url_when_reachable(self) -> None:
-        logo = await reviews_service.resolve_logo(_FakeHTTP(200), "https://logo", {})
-        self.assertEqual(logo, "https://logo")
-
-    async def test_falls_back_on_404(self) -> None:
-        logo = await reviews_service.resolve_logo(_FakeHTTP(404), "https://logo", {})
-        self.assertEqual(logo, reviews_service.FALLBACK_LOGO_URL)
-
-    async def test_missing_url_uses_fallback(self) -> None:
-        logo = await reviews_service.resolve_logo(_FakeHTTP(200), None, {})
-        self.assertEqual(logo, reviews_service.FALLBACK_LOGO_URL)
-
-    async def test_result_is_cached(self) -> None:
-        http = _FakeHTTP(200)
-        cache: dict[str, str] = {}
-        await reviews_service.resolve_logo(http, "https://logo", cache)
-        await reviews_service.resolve_logo(http, "https://logo", cache)
-        self.assertEqual(http.calls, 1)
 
 
 class ShouldPostTests(unittest.TestCase):
@@ -2879,6 +3089,24 @@ class ParseColorTests(unittest.TestCase):
                 settings_cmds.parse_color(value)
 
 
+class ParseSecretTests(unittest.TestCase):
+    def test_accepts_a_cookie_header(self) -> None:
+        self.assertEqual(
+            settings_cmds.parse_secret("a=b; c=d"), "a=b; c=d"
+        )
+        self.assertEqual(
+            settings_cmds.parse_secret("Cookie: a=b; c=d"), "a=b; c=d"
+        )
+
+    def test_clear_returns_none(self) -> None:
+        self.assertIsNone(settings_cmds.parse_secret("none"))
+
+    def test_rejects_garbage(self) -> None:
+        for value in ("", "abc", "a=b\nc=d"):
+            with self.assertRaises(ValueError):
+                settings_cmds.parse_secret(value)
+
+
 class ParseMessageLinkSettingTests(unittest.TestCase):
     LINK = "https://discord.com/channels/1/222/333"
 
@@ -2961,6 +3189,7 @@ class SettingsDisplayTests(unittest.TestCase):
         )
         gen_chat_channel_id = 55
         admin_test_channel_id = 99
+        goodreads_session_cookie = "a=b; c=d"
 
     class _Client:
         def __init__(self) -> None:
@@ -2997,6 +3226,15 @@ class SettingsDisplayTests(unittest.TestCase):
         self.assertIn("Value: `30` days", description)
         self.assertIn("Value: <#42>", description)
         self.assertNotIn("`<#42>`", description)
+
+    def test_secret_value_is_masked(self) -> None:
+        interaction = self._Interaction()
+        self.assertEqual(
+            settings_cmds.current_display(
+                interaction, settings_cmds.GOODREADS_SESSION_COOKIE
+            ),
+            "set",
+        )
 
     def test_expected_hints_resolve(self) -> None:
         for kind in set(settings_cmds._KINDS.values()):

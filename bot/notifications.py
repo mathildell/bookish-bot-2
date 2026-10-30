@@ -81,3 +81,24 @@ async def announce_streak_closed(
         await channel.send(embed=embed)
     except discord.HTTPException as exc:
         logger.warning("Could not announce closed streak: %s", exc)
+
+
+async def announce_review_auth_failed(
+    channel: discord.abc.Messageable | None,
+    *,
+    missing_cookie: bool,
+    colour: discord.Colour | None = None,
+) -> None:
+    """Tell the admins' updates channel that reviews are on hold."""
+    if channel is None:
+        return
+    prefix = "missing_cookie" if missing_cookie else "auth_failed"
+    embed = discord.Embed(
+        title=t(f"reviews.errors.{prefix}_title"),
+        description=t(f"reviews.errors.{prefix}_description"),
+        colour=colour,
+    )
+    try:
+        await channel.send(embed=embed)
+    except discord.HTTPException as exc:
+        logger.warning("Could not announce the review cookie failure: %s", exc)

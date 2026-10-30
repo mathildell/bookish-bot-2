@@ -80,6 +80,7 @@ from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import (
     announce_level_up,
+    announce_review_auth_failed,
     announce_streak_closed,
     announce_theme_failed,
 )
@@ -90,7 +91,7 @@ from .services.booster_role import BoosterRoleService, resolve_notify_channel
 from .services.chat import ChatService
 from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
 from .services.intro import IntroService
-from .services.level import WeeklyLeaderboardService
+from .services.level import WeeklyLeaderboardService, utcnow
 from .services.level_rewards import LevelRewardService, sync_member_roles
 from .services.member_profiles import MemberProfileService
 from .services.members import resolve_members
@@ -119,6 +120,11 @@ FIVE_MINUTE_TIMES = [
     dt_time(hour=hour, minute=minute)
     for hour in range(24)
     for minute in range(0, 60, 5)
+]
+THIRTY_MINUTE_TIMES = [
+    dt_time(hour=hour, minute=minute)
+    for hour in range(24)
+    for minute in (0, 30)
 ]
 DAILY_TIMES = [dt_time(hour=4)]
 
@@ -490,11 +496,23 @@ async def run() -> None:
         channel = await resolve_notify_channel(guild, reviews.channel_id)
         if channel is None:
             return
-        posted = await reviews.post_new_reviews(guild, channel, bot)
-        if posted:
-            logger.info("Posted %d review update(s)", posted)
+        result = await reviews.post_new_reviews(guild, channel, bot)
+        if result.posted:
+            logger.info("Posted %d review update(s)", result.posted)
+        if result.auth_failed or result.missing_cookie:
+            now = utcnow()
+            if reviews.auth_notice_due(now):
+                updates = await resolve_notify_channel(
+                    guild, bot.bot_updates_channel_id
+                )
+                await announce_review_auth_failed(
+                    updates,
+                    missing_cookie=result.missing_cookie,
+                    colour=getattr(bot, "default_embed_color", None),
+                )
+                reviews.mark_auth_notice_sent(now)
 
-    @tasks.loop(time=FIVE_MINUTE_TIMES)
+    @tasks.loop(time=THIRTY_MINUTE_TIMES)
     async def poll_reviews() -> None:
         await poll_reviews_now()
 
@@ -1057,9 +1075,8 @@ async def run() -> None:
 
         if not reconcile_boosters.is_running():
             reconcile_boosters.start()
-        # Goodreads retired RSS feeds; review polling paused.
-        # if not poll_reviews.is_running():
-        #     poll_reviews.start()
+        if not poll_reviews.is_running():
+            poll_reviews.start()
         if not post_releases.is_running():
             post_releases.start()
         if not purge_releases.is_running():

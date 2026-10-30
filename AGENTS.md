@@ -17,8 +17,13 @@ Implemented features:
   the configurable hour, and the weekly totals roll over for the next week. Admins
   can grant additive role- and channel/thread-based message XP boosts via
   `/xp boosts set|remove`.
-- **Book reviews** — poll members' Goodreads RSS feeds every 5 minutes and post
-  new reviews to the configured channel (each entry at most once per 24h).
+- **Book reviews** — every 30 minutes, read each member's Goodreads profile
+  "recent updates" (spaced out between members) and post new reviews to the
+  configured channel (each entry at most once per 24h). New reviews are enriched
+  from the review page using a dedicated account's saved cookie (`/settings`),
+  giving full text, precise rating, shelves/tags and cover; spoilers stay
+  redacted as `(view spoiler)`. Without a cookie the feature posts in degraded
+  mode from profile data.
 - **Book releases** — track upcoming Goodreads/NetGalley books (scraped with a
   headless browser) and announce them: an overview on the 1st of each month and
   the day's releases every day. Releases are pruned from the database after a
@@ -57,9 +62,10 @@ Implemented features:
   settings: the daily cleanup retention windows (old releases, streak logs), the
   review repost cooldown, the UTC hours release announcements and the weekly XP
   leaderboard are posted, the admins' updates channel, the transparent embed
-  background, the default embed colour, the coupon fallback image and the buddy
-  read forum channel + reference message link. This is the home for values that
-  used to live in `config.yaml`.
+  background, the default embed colour, the coupon fallback image, the buddy
+  read forum channel + reference message link and the Goodreads session cookie
+  (write-only; only set/none is shown). This is the home for values that used to
+  live in `config.yaml`.
 - **Chatbot** — `/chatbot` groups model selection, prompt overrides (persona/name/biography instructions), and member userinfo (moved from `/bio`). Member bios are auto-cleared when they leave the server.
 - **Bi-weekly themes** — admins maintain a deck of theme cards; members can search the deck (`/biweekly-theme cards search`) and suggest cards (`/biweekly-theme cards suggest`), which admins approve or refuse; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is attached directly to the Discord message, with the prompt as message content. Each post is pinned in the channel, unpinning the previous card's post. Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
