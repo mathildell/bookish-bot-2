@@ -609,6 +609,7 @@ Fun tools for admins.
 
 ```
 /bot say channel: message: [reply_to:]
+/bot edit link: content:
 /bot react link: emoji:
 ```
 **Permissions:** 🔒 Admin
@@ -616,6 +617,9 @@ Fun tools for admins.
 default) are supported; `reply_to` takes a message id or jump link to reply to,
 pinging its author. Slash options are single-line, so type `\n` to add a line
 break.
+
+`edit` replaces the text of a message the bot sent, at the given jump `link`,
+with `content`, keeping its embeds, attachments and buttons untouched.
 
 `react` makes the bot add `emoji` (custom or default) as a reaction to the
 message at the given jump `link` (right-click a message → Copy Message Link).

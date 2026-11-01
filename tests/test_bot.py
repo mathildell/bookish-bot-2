@@ -278,6 +278,65 @@ class EmojiOwnerTests(unittest.TestCase):
         self.assertIsNone(service.emoji_owner("😀", exclude_user_id=7))
 
 
+class _FakeLinkedChannel:
+    def __init__(self, message) -> None:
+        self.message = message
+        self.fetched: list[int] = []
+
+    async def fetch_message(self, message_id: int):
+        self.fetched.append(message_id)
+        if isinstance(self.message, Exception):
+            raise self.message
+        return self.message
+
+
+class _FakeGuild:
+    def __init__(self, channel=None) -> None:
+        self.channel = channel
+
+    def get_channel_or_thread(self, channel_id: int):
+        return self.channel
+
+
+class _FetchFailure(discord.HTTPException):
+    def __init__(self) -> None:
+        pass
+
+
+class FetchLinkedMessageTests(unittest.IsolatedAsyncioTestCase):
+    LINK = "https://discord.com/channels/1/222/333"
+
+    async def test_returns_the_linked_message(self) -> None:
+        message = object()
+        channel = _FakeLinkedChannel(message)
+        self.assertIs(
+            await say_cmds.fetch_linked_message(_FakeGuild(channel), self.LINK),
+            message,
+        )
+        self.assertEqual(channel.fetched, [333])
+
+    async def test_rejects_a_non_link(self) -> None:
+        channel = _FakeLinkedChannel(object())
+        self.assertIsNone(
+            await say_cmds.fetch_linked_message(_FakeGuild(channel), "nonsense")
+        )
+        self.assertEqual(channel.fetched, [])
+
+    async def test_unreachable_message_returns_none(self) -> None:
+        channel = _FakeLinkedChannel(_FetchFailure())
+        self.assertIsNone(
+            await say_cmds.fetch_linked_message(_FakeGuild(channel), self.LINK)
+        )
+
+    async def test_missing_channel_returns_none(self) -> None:
+        self.assertIsNone(
+            await say_cmds.fetch_linked_message(_FakeGuild(None), self.LINK)
+        )
+
+    async def test_without_a_guild_returns_none(self) -> None:
+        self.assertIsNone(await say_cmds.fetch_linked_message(None, self.LINK))
+
+
 class ChunkedTests(unittest.TestCase):
     def test_chunks_evenly(self) -> None:
         self.assertEqual(list(chunked([1, 2, 3, 4, 5], 2)), [[1, 2], [3, 4], [5]])
@@ -2471,9 +2530,9 @@ class RenderMessageTests(unittest.TestCase):
 
 
 class BotGroupTests(unittest.TestCase):
-    def test_group_hosts_say_and_react(self) -> None:
+    def test_group_hosts_say_edit_and_react(self) -> None:
         names = {command.name for command in bot_group.commands}
-        self.assertEqual(names, {"say", "react"})
+        self.assertEqual(names, {"say", "edit", "react"})
 
 
 class XpGroupTests(unittest.TestCase):

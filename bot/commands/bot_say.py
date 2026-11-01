@@ -29,6 +29,23 @@ def parse_message_link(value: str) -> tuple[int, int] | None:
     return int(match.group(1)), int(match.group(2))
 
 
+async def fetch_linked_message(
+    guild: discord.Guild | None, link: str
+) -> discord.Message | None:
+    """Fetch the message a jump link points at, or ``None``."""
+    parsed = parse_message_link(link)
+    if parsed is None or guild is None:
+        return None
+    channel_id, message_id = parsed
+    channel = guild.get_channel_or_thread(channel_id)
+    if channel is None:
+        return None
+    try:
+        return await channel.fetch_message(message_id)
+    except discord.HTTPException:
+        return None
+
+
 def parse_message_id(value: str) -> int | None:
     """Return the message id from a bare id or a jump link, else ``None``."""
     value = value.strip()

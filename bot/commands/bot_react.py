@@ -11,7 +11,7 @@ from discord import app_commands
 
 from ..services.booster_react import parse_emoji
 from ..texts import t
-from .bot_say import parse_message_link
+from .bot_say import fetch_linked_message
 from .checks import require_admin
 
 
@@ -39,20 +39,9 @@ async def react_command(
 
     await interaction.response.defer(ephemeral=True)
 
-    parsed = parse_message_link(link)
-    target: discord.Message | None = None
-    if parsed is not None and interaction.guild is not None:
-        channel_id, message_id = parsed
-        channel = interaction.guild.get_channel_or_thread(channel_id)
-        if channel is not None:
-            try:
-                target = await channel.fetch_message(message_id)
-            except discord.HTTPException:
-                target = None
+    target = await fetch_linked_message(interaction.guild, link)
     if target is None:
-        await interaction.followup.send(
-            t("bot.react.invalid_link"), ephemeral=True
-        )
+        await interaction.followup.send(t("bot.invalid_link"), ephemeral=True)
         return
 
     try:

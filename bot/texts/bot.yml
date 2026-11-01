@@ -1,6 +1,7 @@
 # Texts for the /bot commands (the bot acts on demand).
 bot:
-  group_description: "Make the bot post or react"
+  group_description: "Make the bot post, edit or react"
+  invalid_link: "I couldn’t find the linked message."
   say:
     description: "Post a message as the bot"
     param_channel: "Channel or thread to post in"
@@ -10,11 +11,18 @@ bot:
     invalid_message: "The message must be 1 to %{limit} characters."
     invalid_reply: "I couldn’t find that message in %{channel}."
     send_failed: "I couldn’t post in %{channel}. Check my permissions."
+  edit:
+    description: "Edit the content of a message the bot sent"
+    param_link: "Link to the bot's message"
+    param_content: 'New message text (emojis allowed; use \n for a line break)'
+    success: "Edited: %{link}"
+    invalid_message: "The message must be 1 to %{limit} characters."
+    not_own_message: "I can only edit messages I sent myself."
+    edit_failed: "I couldn’t edit that message. Check my permissions."
   react:
     description: "React to a message with an emoji"
     param_link: "Link to the message to react to"
     param_emoji: "Emoji to react with"
     success: "Reacted with %{emoji} to %{link}"
     invalid_emoji: "%{emoji} is not a valid emoji."
-    invalid_link: "I couldn’t find the linked message."
     react_failed: "I couldn’t react to that message. Check my permissions."
