@@ -57,9 +57,18 @@ async def _resolve_reference_chain(message: discord.Message, bot_id: int) -> tup
     parent in the thread). Returns (username, content, author_id) of that
     message, or None if there is no reference.
     """
-    current = message.referenced_message
-    if current is None:
+    reference = message.reference
+    if reference is None or reference.message_id is None:
         return None
+    current = reference.resolved
+    if not isinstance(current, discord.Message):
+        try:
+            current = await message.channel.fetch_message(reference.message_id)
+        except discord.NotFound:
+            return None
+        except discord.HTTPException:
+            logger.exception("Failed to fetch referenced message %s", reference.message_id)
+            return None
     # Strip bot mentions from the content
     content = strip_bot_mentions(current.content, bot_id)
     username = current.author.display_name
@@ -87,7 +96,7 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         content = add_metadata_to_message(message.author.display_name, content)
 
     previous = None
-    if message.referenced_message is not None:
+    if message.reference is not None:
         try:
             ref_result = await _resolve_reference_chain(message, bot.user.id)
             if ref_result is not None:
