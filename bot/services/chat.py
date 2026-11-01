@@ -17,6 +17,12 @@ from ..texts import t
 logger = logging.getLogger(__name__)
 
 _SENTENCE_END = re.compile(r"([.!?])\s+")
+# The model sometimes mirrors the prompt's {username: ..., message: ...} envelope.
+_ENVELOPE_RE = re.compile(
+    r"^\{\s*\"?username\"?\s*:.*?\"?message\"?\s*:\s*(?P<body>.*?)\s*\}\s*$",
+    re.DOTALL | re.IGNORECASE,
+)
+_CODE_FENCE_RE = re.compile(r"^```[\w-]*\s*\n?(?P<body>.*?)\n?```\s*$", re.DOTALL)
 MODEL_CACHE_SECONDS = 30
 MODEL_FETCH_TIMEOUT = 2.0
 REPLY_MAX_LENGTH = 400
@@ -208,6 +214,20 @@ class ChatService:
         return "\n\n".join(parts)
 
     @staticmethod
+    def clean_reply(text: str) -> str:
+        """Unwrap a reply the model dressed up as JSON, an envelope or a fence."""
+        reply = (text or "").strip()
+        fenced = _CODE_FENCE_RE.match(reply)
+        if fenced is not None:
+            reply = fenced["body"].strip()
+        enveloped = _ENVELOPE_RE.match(reply)
+        if enveloped is not None:
+            reply = enveloped["body"].strip()
+        if len(reply) > 1 and reply[0] in "\"'" and reply[-1] == reply[0]:
+            reply = reply[1:-1].strip()
+        return reply
+
+    @staticmethod
     def extract_reply(payload: dict[str, Any]) -> str:
         try:
             choices = payload.get("choices") or []
@@ -297,7 +317,7 @@ class ChatService:
             except Exception:
                 logger.exception("Chat request failed")
                 raise ChatUnavailableError()
-        reply = self.extract_reply(data)
+        reply = self.clean_reply(self.extract_reply(data))
         if not reply:
             raise ChatUnavailableError()
         return self.truncate_reply(reply, REPLY_MAX_LENGTH)

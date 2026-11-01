@@ -37,6 +37,24 @@ class TestChat(unittest.TestCase):
         payload = {"choices": [{"message": {"content": "  Hi there  "}}]}
         self.assertEqual(svc.extract_reply(payload), "Hi there")
 
+    def test_clean_reply_strips_envelope(self) -> None:
+        svc = ChatService({})
+        reply = "{username: mtrics, message: Ah, a fellow fan! Hehe.}"
+        self.assertEqual(svc.clean_reply(reply), "Ah, a fellow fan! Hehe.")
+
+    def test_clean_reply_strips_json_envelope(self) -> None:
+        svc = ChatService({})
+        reply = '{"username": "mtrics", "message": "Sure thing."}'
+        self.assertEqual(svc.clean_reply(reply), "Sure thing.")
+
+    def test_clean_reply_strips_code_fence(self) -> None:
+        svc = ChatService({})
+        self.assertEqual(svc.clean_reply("```json\nHi there\n```"), "Hi there")
+
+    def test_clean_reply_keeps_plain_text(self) -> None:
+        svc = ChatService({})
+        self.assertEqual(svc.clean_reply("  Plain reply.  "), "Plain reply.")
+
 
 if __name__ == "__main__":
     unittest.main()
