@@ -249,6 +249,7 @@ class ChatService:
         # The message the member replied to, when there is one.
         if previous_message is not None:
             prev_author_id = previous_message.get("author_id")
+            logger.warning("prev_author_id", prev_author_id)
             role = "assistant" if prev_author_id == self.bot_user_id else "user"
             messages.append(
                 {"role": role, "content": previous_message.get("message", "")}
