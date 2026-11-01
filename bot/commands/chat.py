@@ -8,7 +8,12 @@ import re
 import discord
 from discord import app_commands
 
-from ..services.chat import ChatCooldownError, ChatTimeoutError, ChatUnavailableError
+from ..services.chat import (
+    ChatCooldownError,
+    ChatTimeoutError,
+    ChatUnavailableError,
+    configure_chat,
+)
 from ..texts import t
 
 logger = logging.getLogger(__name__)
@@ -17,39 +22,18 @@ _MENTION_RE = re.compile(r"<@!?(\d+)>")
 
 
 def strip_bot_mentions(content: str, bot_id: int) -> str:
-    content = content or ""
-    # remove mentions to this bot
-    def repl(m: re.Match[str]) -> str:
-        try:
-            if int(m.group(1)) == bot_id:
-                return " "
-        except Exception:
-            pass
-        return m.group(0)
-    content = _MENTION_RE.sub(repl, content)
-    return " ".join(content.split()).strip()
+    """Drop mentions of ``bot_id`` from ``content`` and collapse the spaces."""
+
+    def repl(match: re.Match[str]) -> str:
+        return " " if int(match.group(1)) == bot_id else match.group(0)
+
+    return " ".join(_MENTION_RE.sub(repl, content or "").split()).strip()
 
 
 def add_metadata_to_message(username: str, content: str) -> str:
     content = content or ""
     username = username or ""
     return f"{{username: {username}, message: {content}}}"
-
-
-def _configure_chat(client: discord.Client) -> None:
-    chat_service = getattr(client, "chat", None)
-    settings = getattr(client, "bot_settings", None)
-    if chat_service is None or settings is None:
-        return
-    try:
-        chat_service.configure(
-            getattr(settings, "chat_model", None),
-            getattr(settings, "chat_persona", None),
-            getattr(settings, "chat_prompt_name", None),
-            getattr(settings, "chat_prompt_info", None),
-        )
-    except Exception:
-        pass
 
 
 async def _resolve_reference_chain(message: discord.Message, bot_id: int) -> tuple[str, str, int] | None:
@@ -83,7 +67,7 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     profiles = getattr(bot, "member_profiles", None)
     if chat_service is None or profiles is None:
         return
-    _configure_chat(bot)
+    configure_chat(bot)
     content = strip_bot_mentions(message.content, bot.user.id)
 
     if not content:
@@ -162,7 +146,7 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
     if chat_service is None or profiles is None:
         await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
         return
-    _configure_chat(interaction.client)
+    configure_chat(interaction.client)
     bio = None
     try:
         bio = await profiles.bio_for(interaction.user.id)

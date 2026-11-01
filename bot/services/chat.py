@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
+import shlex
 import time
 from typing import Any
 
@@ -17,6 +19,31 @@ logger = logging.getLogger(__name__)
 _SENTENCE_END = re.compile(r"([.!?])\s+")
 MODEL_CACHE_SECONDS = 30
 MODEL_FETCH_TIMEOUT = 2.0
+REPLY_MAX_LENGTH = 400
+
+
+def curl_command(url: str, payload: dict[str, Any]) -> str:
+    """A copy-pasteable curl command reproducing a chat completion request."""
+    body = shlex.quote(json.dumps(payload, ensure_ascii=False))
+    return (
+        f"curl -sS {shlex.quote(url)} "
+        "-H 'Content-Type: application/json' "
+        f"-d {body}"
+    )
+
+
+def configure_chat(client) -> None:
+    """Push the stored chatbot settings into the running chat service."""
+    service = getattr(client, "chat", None)
+    settings = getattr(client, "bot_settings", None)
+    if service is None or settings is None:
+        return
+    service.configure(
+        getattr(settings, "chat_model", None),
+        getattr(settings, "chat_persona", None),
+        getattr(settings, "chat_prompt_name", None),
+        getattr(settings, "chat_prompt_info", None),
+    )
 
 
 class ChatService:
@@ -49,17 +76,14 @@ class ChatService:
         prompt_name: str | None = None,
         prompt_info: str | None = None,
     ) -> None:
-        if model and str(model).strip():
-            self.model = str(model).strip()
-        else:
-            self.model = self._default_model
-        self._persona_override = persona.strip() if persona and str(persona).strip() else None
-        self._prompt_name_override = (
-            prompt_name.strip() if prompt_name and str(prompt_name).strip() else None
+        self.model = (
+            str(model).strip()
+            if model and str(model).strip()
+            else self._default_model
         )
-        self._prompt_info_override = (
-            prompt_info.strip() if prompt_info and str(prompt_info).strip() else None
-        )
+        self._persona_override = _clean_override(persona)
+        self._prompt_name_override = _clean_override(prompt_name)
+        self._prompt_info_override = _clean_override(prompt_info)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -161,41 +185,18 @@ class ChatService:
         return True
 
     def build_system_prompt(
-        self,
-        display_name: str | None,
-        bio: str | None,
-        persona: str | None = None,
-        prompt_name: str | None = None,
-        prompt_info: str | None = None,
+        self, display_name: str | None, bio: str | None
     ) -> str:
-        persona_text = (
-            persona.strip()
-            if persona and str(persona).strip()
-            else (self._persona_override or t("chat.persona"))
-        )
-        parts = [persona_text]
-        name_text = prompt_name if prompt_name and str(prompt_name).strip() else self._prompt_name_override
-        if name_text and str(name_text).strip() and display_name:
-            try:
-                text = str(name_text)
-                text = text.replace("%{name}", display_name)
-                parts.append(text)
-            except Exception:
-                parts.append(t("chat.prompt_name", name=display_name))
-        elif display_name:
-            parts.append(t("chat.prompt_name", name=display_name))
-        info_text = prompt_info if prompt_info and str(prompt_info).strip() else self._prompt_info_override
-        if info_text and str(info_text).strip() and bio and str(bio).strip():
-            try:
-                text = str(info_text)
-                text = text.replace("%{info}", str(bio).strip())
-                parts.append(text)
-            except Exception:
-                parts.append(t("chat.prompt_info", info=str(bio).strip()))
-        elif bio and str(bio).strip():
-            parts.append(t("chat.prompt_info", info=str(bio).strip()))
-        system_prompt = "\n\n".join(parts)
-        return system_prompt
+        """The system message: persona plus the optional name and bio hints."""
+        parts = [self._persona_override or t("chat.persona")]
+        bio = (bio or "").strip()
+        if display_name:
+            template = self._prompt_name_override or t("chat.prompt_name")
+            parts.append(template.replace("%{name}", display_name))
+        if bio:
+            template = self._prompt_info_override or t("chat.prompt_info")
+            parts.append(template.replace("%{info}", bio))
+        return "\n\n".join(parts)
 
     @staticmethod
     def extract_reply(payload: dict[str, Any]) -> str:
@@ -228,7 +229,15 @@ class ChatService:
             return truncated[:last].strip()
         return text[:limit].rstrip() + "..."
 
-    async def chat(self, guild_id: int, user_id: int, display_name: str | None, bio: str | None, user_message: str, previous_message: str | None = None) -> str | None:
+    async def chat(
+        self,
+        guild_id: int,
+        user_id: int,
+        display_name: str | None,
+        bio: str | None,
+        user_message: str,
+        previous_message: dict | None = None,
+    ) -> str | None:
         if not self._check_cooldown(guild_id, user_id):
             raise ChatCooldownError()
         user_message = (user_message or "").strip()
@@ -236,21 +245,15 @@ class ChatService:
             return None
         system = self.build_system_prompt(display_name, bio)
 
-        # System prompt
-        messages = [
-            {"role": "system", "content": system}
-        ]
-        # Reply of the current message
+        messages = [{"role": "system", "content": system}]
+        # The message the member replied to, when there is one.
         if previous_message is not None:
-            prev_author_id = previous_message.get("author_id", 0)
-            message_type = "assistant" if prev_author_id == self.bot_user_id else "user"
+            prev_author_id = previous_message.get("author_id")
+            role = "assistant" if prev_author_id == self.bot_user_id else "user"
             messages.append(
-                {"role": message_type, "content": previous_message.get("message", "")}
+                {"role": role, "content": previous_message.get("message", "")}
             )
-        # Current message being replied to
-        messages.append(
-            {"role": "user", "content": user_message}
-        )
+        messages.append({"role": "user", "content": user_message})
 
         payload = {
             "model": self.model,
@@ -263,28 +266,12 @@ class ChatService:
         session = await self._get_session()
         url = f"{self.base_url}/chat/completions"
 
-        log_payload = {
-            "model": payload["model"],
-            "messages": [
-                {"role": m.get("role"), "content": (m.get("content") or "")[:160]}
-                for m in payload["messages"]
-            ],
-            "temperature": payload["temperature"],
-            "max_tokens": payload["max_tokens"],
-            "num_ctx": payload["options"].get("num_ctx"),
-        }
         logger.info(
-            "LLM request: endpoint=%s, model=%s, messages=%d, temperature=%.3f, "
-            "max_tokens=%s, num_ctx=%s, payload=%s",
-            f"{self.base_url}/chat/completions",
+            "LLM request (model=%s, messages=%d):\n%s",
             self.model,
             len(messages),
-            self.temperature,
-            self.max_tokens,
-            self.num_ctx,
-            log_payload,
+            curl_command(url, payload),
         )
-
 
         async with self._lock:
             try:
@@ -304,7 +291,13 @@ class ChatService:
         reply = self.extract_reply(data)
         if not reply:
             raise ChatUnavailableError()
-        return self.truncate_reply(reply, 400)
+        return self.truncate_reply(reply, REPLY_MAX_LENGTH)
+
+
+def _clean_override(value: str | None) -> str | None:
+    """Normalise a stored prompt override, treating blanks as unset."""
+    text = str(value).strip() if value else ""
+    return text or None
 
 
 class ChatError(Exception):

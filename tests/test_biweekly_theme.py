@@ -220,16 +220,28 @@ class ThemePeriodTests(unittest.TestCase):
 class BuildPostContentTests(unittest.TestCase):
     def test_heading_and_title_without_a_role(self) -> None:
         content = theme_service.build_post_content("A prompt")
+        lines = content.splitlines()
         self.assertEqual(
-            content,
-            f"{t('biweekly_theme.post.heading')}\nA prompt",
+            lines[0],
+            t("biweekly_theme.post.heading", title="A prompt"),
+        )
+        self.assertEqual(lines[1], t("biweekly_theme.post.explanation"))
+
+    def test_description_gets_its_own_heading(self) -> None:
+        content = theme_service.build_post_content("A prompt", "Some words")
+        lines = content.splitlines()
+        self.assertEqual(
+            lines[1],
+            t("biweekly_theme.post.second_heading", desc="Some words"),
         )
 
     def test_role_is_pinged_in_subtext(self) -> None:
         content = theme_service.build_post_content("A prompt", role_id=42)
+        lines = content.splitlines()
+        self.assertEqual(lines[0], "-# <@&42>")
         self.assertEqual(
-            content,
-            f"-# <@&42>\n{t('biweekly_theme.post.heading')}\nA prompt",
+            lines[1],
+            t("biweekly_theme.post.heading", title="A prompt"),
         )
 
 
@@ -369,7 +381,7 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
         sent = channel.sent[0]
         self.assertEqual(
             sent["content"],
-            theme_service.build_post_content(picked.title),
+            theme_service.build_post_content(picked.title, picked.description),
         )
         self.assertNotIn("embed", sent)
         self.assertEqual(sent["file"].filename, "biweekly-theme.png")
@@ -412,7 +424,9 @@ class ThemePostingTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             channel.sent[0]["content"],
-            f"-# <@&42>\n{theme_service.build_post_content(picked.title)}",
+            theme_service.build_post_content(
+                picked.title, picked.description, 42
+            ),
         )
 
     async def test_pins_the_new_card(self) -> None:

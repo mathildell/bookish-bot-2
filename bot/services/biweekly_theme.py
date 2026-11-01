@@ -164,7 +164,9 @@ def format_posted_date(day: date) -> str:
     return f"{day.strftime('%B')} {day.day}, {day.year}"
 
 
-def build_post_content(title: str, description: str, role_id: int | None = None) -> str:
+def build_post_content(
+    title: str, description: str | None = None, role_id: int | None = None
+) -> str:
     """The message body posted alongside the rendered theme card."""
     lines: list[str] = []
     if role_id:
