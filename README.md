@@ -728,6 +728,7 @@ Chat with the bot. It also answers when it is mentioned in a message; an empty
 mention gets a prompt to actually say something.
 
 ```
+/chatbot toggle state:
 /chatbot model set model:
 /chatbot prompt list
 /chatbot prompt set type: content:
@@ -735,7 +736,7 @@ mention gets a prompt to actually say something.
 /chatbot userinfo list
 ```
 **Permissions:** 🔒 Admin
-Configure the chatbot: pick the model, set persona/name/biography instructions, and manage member bios used for chat context. `prompt list` shows the current persona and prompt overrides.
+Configure the chatbot: turn its AI replies on or off with `toggle on|off` (while off, members get "AI is turned off, try again later!" without Ollama being contacted), pick the model, set persona/name/biography instructions, and manage member bios used for chat context. `prompt list` shows the current persona and prompt overrides.
 
 ***
 

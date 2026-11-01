@@ -8,6 +8,7 @@ chat:
   prompt_info: |
     What you remember about them: %{info}
   cooldown: "Give me a moment, I'm thinking..."
+  disabled: "AI is turned off, try again later!"
   empty_ping: "Say something if you want me to bother with you."
   timeout: "Took too long. Try again in a moment."
   unavailable: "Oops, can't think right now. Try again later."

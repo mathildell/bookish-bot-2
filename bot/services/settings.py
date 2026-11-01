@@ -30,6 +30,7 @@ class BotSettingsService:
         self._chat_persona: str | None = None
         self._chat_prompt_name: str | None = None
         self._chat_prompt_info: str | None = None
+        self._chat_enabled: bool | None = None
         self._goodreads_session_cookie: str | None = None
 
     @property
@@ -81,6 +82,11 @@ class BotSettingsService:
         return self._chat_prompt_info
 
     @property
+    def chat_enabled(self) -> bool:
+        """Only an explicit ``/chatbot toggle off`` disables the chatbot."""
+        return self._chat_enabled is not False
+
+    @property
     def goodreads_session_cookie(self) -> str | None:
         return self._goodreads_session_cookie
 
@@ -111,6 +117,7 @@ class BotSettingsService:
         self._chat_persona = row.chat_persona if row else None
         self._chat_prompt_name = row.chat_prompt_name if row else None
         self._chat_prompt_info = row.chat_prompt_info if row else None
+        self._chat_enabled = row.chat_enabled if row else None
         self._goodreads_session_cookie = (
             row.goodreads_session_cookie if row else None
         )
@@ -162,6 +169,10 @@ class BotSettingsService:
     async def set_chat_prompt_info(self, prompt: str | None) -> None:
         await self._update(chat_prompt_info=prompt)
         self._chat_prompt_info = prompt
+
+    async def set_chat_enabled(self, enabled: bool) -> None:
+        await self._update(chat_enabled=enabled)
+        self._chat_enabled = enabled
 
     async def set_goodreads_session_cookie(self, cookie: str | None) -> None:
         await self._update(goodreads_session_cookie=cookie)

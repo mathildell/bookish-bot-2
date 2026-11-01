@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     Date,
     DateTime,
     Index,
@@ -707,6 +708,10 @@ class BotSetting(Base):
     chat_persona: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_prompt_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     chat_prompt_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Whether the chatbot answers at all (NULL means enabled).
+    chat_enabled: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True
+    )
     # Cookie header for the dummy Goodreads account used to read review pages.
     goodreads_session_cookie: Mapped[str | None] = mapped_column(
         Text, nullable=True

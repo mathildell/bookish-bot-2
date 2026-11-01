@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from bot.commands.chat import is_utility_message, mentions_user
+from bot.commands.chat import chatbot_enabled, is_utility_message, mentions_user
 from bot.services.chat import ChatService
 
 
@@ -113,6 +113,23 @@ class TestUtilityMessage(unittest.TestCase):
     def test_rich_command_output_is_utility(self) -> None:
         message = _message(interaction_metadata=object(), embeds=[object()])
         self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+
+class TestChatbotEnabled(unittest.TestCase):
+    def test_enabled_without_settings(self) -> None:
+        self.assertTrue(chatbot_enabled(SimpleNamespace()))
+
+    def test_enabled_when_unset(self) -> None:
+        client = SimpleNamespace(bot_settings=SimpleNamespace())
+        self.assertTrue(chatbot_enabled(client))
+
+    def test_enabled_when_true(self) -> None:
+        client = SimpleNamespace(bot_settings=SimpleNamespace(chat_enabled=True))
+        self.assertTrue(chatbot_enabled(client))
+
+    def test_disabled_when_false(self) -> None:
+        client = SimpleNamespace(bot_settings=SimpleNamespace(chat_enabled=False))
+        self.assertFalse(chatbot_enabled(client))
 
 
 class TestMentionsUser(unittest.TestCase):

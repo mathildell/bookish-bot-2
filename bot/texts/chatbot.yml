@@ -1,5 +1,10 @@
 chatbot:
   group_description: "Configure the chatbot"
+  toggle:
+    description: "Turn the chatbot's AI replies on or off"
+    param_state: "Whether the chatbot answers at all"
+    "on": "AI is on again. She's listening."
+    "off": "AI is off. Members get a short notice instead of a reply."
   model:
     group_description: "Model settings"
     set:

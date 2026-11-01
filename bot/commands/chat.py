@@ -67,6 +67,14 @@ def is_utility_message(message: discord.Message) -> bool:
     )
 
 
+def chatbot_enabled(client: discord.Client) -> bool:
+    """Whether admins have left the chatbot switched on."""
+    settings = getattr(client, "bot_settings", None)
+    if settings is None:
+        return True
+    return bool(getattr(settings, "chat_enabled", True))
+
+
 async def _resolve_referenced_message(
     message: discord.Message,
 ) -> discord.Message | None:
@@ -113,6 +121,13 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
             parent.id,
             message.channel.id,
         )
+        return
+
+    if not chatbot_enabled(bot):
+        try:
+            await message.reply(t("chat.disabled"), mention_author=False)
+        except Exception:
+            pass
         return
 
     content = strip_bot_mentions(message.content, bot.user.id)
@@ -182,6 +197,11 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
 @app_commands.command(name="chat", description=t("chat.description"))
 @app_commands.describe(message=t("chat.param_message"))
 async def chat_command(interaction: discord.Interaction, message: str) -> None:
+    if not chatbot_enabled(interaction.client):
+        await interaction.response.send_message(
+            t("chat.disabled"), ephemeral=True
+        )
+        return
     chat_service = getattr(interaction.client, "chat", None)
     profiles = getattr(interaction.client, "member_profiles", None)
     display_name = interaction.user.display_name

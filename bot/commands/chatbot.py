@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 import discord
 from discord import app_commands
 
@@ -63,6 +65,17 @@ async def model_autocomplete(
         for display, value in detailed[:MAX_CHOICES]:
             matches.append(app_commands.Choice(name=display[:100], value=value))
     return matches
+
+
+@chatbot_group.command(name="toggle", description=t("chatbot.toggle.description"))
+@app_commands.describe(state=t("chatbot.toggle.param_state"))
+async def chatbot_toggle(
+    interaction: discord.Interaction, state: Literal["on", "off"]
+) -> None:
+    if not await require_admin(interaction):
+        return
+    await interaction.client.bot_settings.set_chat_enabled(state == "on")
+    await interaction.response.send_message(t(f"chatbot.toggle.{state}"))
 
 
 @model_group.command(name="set", description=t("chatbot.model.set.description"))
