@@ -30,6 +30,7 @@ class ChatService:
         self.max_tokens = int(cfg.get("max_tokens") or 200)
         self.temperature = float(cfg.get("temperature") or 0.8)
         self.num_ctx = int(cfg.get("num_ctx") or 4096)
+        self.bot_user_id = int(cfg.get("bot_user_id") or 0)
 
         self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Semaphore(1)
@@ -227,17 +228,30 @@ class ChatService:
             return truncated[:last].strip()
         return text[:limit].rstrip() + "..."
 
-    async def chat(self, guild_id: int, user_id: int, display_name: str | None, bio: str | None, user_message: str) -> str | None:
+    async def chat(self, guild_id: int, user_id: int, display_name: str | None, bio: str | None, user_message: str, previous_message: str | None = None) -> str | None:
         if not self._check_cooldown(guild_id, user_id):
             raise ChatCooldownError()
         user_message = (user_message or "").strip()
         if not user_message:
             return None
         system = self.build_system_prompt(display_name, bio)
+
+        # System prompt
         messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_message},
+            {"role": "system", "content": system}
         ]
+        # Reply of the current message
+        if previous_message is not None:
+            prev_author_id = previous_message.get("author_id", 0)
+            message_type = "assistant" if prev_author_id == self.bot_user_id else "user"
+            messages.append(
+                {"role": message_type, "content": previous_message.get("message", "")}
+            )
+        # Current message being replied to
+        messages.append(
+            {"role": "user", "content": user_message}
+        )
+
         payload = {
             "model": self.model,
             "messages": messages,
@@ -248,8 +262,29 @@ class ChatService:
         }
         session = await self._get_session()
         url = f"{self.base_url}/chat/completions"
-        
-        logger.debug("Chat request to %s (model %s)", url, self.model)
+
+        log_payload = {
+            "model": payload["model"],
+            "messages": [
+                {"role": m.get("role"), "content": (m.get("content") or "")[:160]}
+                for m in payload["messages"]
+            ],
+            "temperature": payload["temperature"],
+            "max_tokens": payload["max_tokens"],
+            "num_ctx": payload["options"].get("num_ctx"),
+        }
+        logger.info(
+            "LLM request: endpoint=%s, model=%s, messages=%d, temperature=%.3f, "
+            "max_tokens=%s, num_ctx=%s, payload=%s",
+            f"{self.base_url}/chat/completions",
+            self.model,
+            len(messages),
+            self.temperature,
+            self.max_tokens,
+            self.num_ctx,
+            log_payload,
+        )
+
 
         async with self._lock:
             try:

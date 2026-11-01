@@ -52,6 +52,21 @@ def _configure_chat(client: discord.Client) -> None:
         pass
 
 
+async def _resolve_reference_chain(message: discord.Message, bot_id: int) -> tuple[str, str, int] | None:
+    """Return the metadata of the message the user replied to (the immediate
+    parent in the thread). Returns (username, content, author_id) of that
+    message, or None if there is no reference.
+    """
+    current = message.referenced_message
+    if current is None:
+        return None
+    # Strip bot mentions from the content
+    content = strip_bot_mentions(current.content, bot_id)
+    username = current.author.display_name
+    author_id = current.author.id
+    return username, content, author_id
+
+
 async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     if message.guild is None or bot.user is None:
         return
@@ -71,6 +86,20 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     else:
         content = add_metadata_to_message(message.author.display_name, content)
 
+    previous = None
+    if message.referenced_message is not None:
+        try:
+            ref_result = await _resolve_reference_chain(message, bot.user.id)
+            if ref_result is not None:
+                ref_username, ref_content, ref_author_id = ref_result
+                previous = {
+                    "username": ref_username,
+                    "message": add_metadata_to_message(ref_username, ref_content),
+                    "author_id": ref_author_id,
+                }
+        except Exception:
+            logger.exception("Failed to resolve referenced message")
+
     bio = None
     try:
         bio = await profiles.bio_for(message.author.id)
@@ -84,6 +113,7 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
                 message.author.display_name,
                 bio,
                 content,
+                previous_message=previous,
             )
         if reply:
             await message.reply(reply, mention_author=False)
@@ -119,6 +149,7 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
     profiles = getattr(interaction.client, "member_profiles", None)
     display_name = interaction.user.display_name
     message = add_metadata_to_message(display_name, message)
+
     if chat_service is None or profiles is None:
         await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
         return
@@ -135,7 +166,7 @@ async def chat_command(interaction: discord.Interaction, message: str) -> None:
             interaction.user.id,
             display_name,
             bio,
-            message,
+            message
         )
         if reply:
             await interaction.followup.send(reply)
