@@ -8,7 +8,8 @@ reads them, so the numbers match what members actually experience.
 
 Requests go to Ollama's native ``/api/chat`` rather than the OpenAI-compatible
 ``/v1`` endpoint, because only the native one reports token counts and
-durations. The messages and options are otherwise identical.
+durations. Each test message is wrapped with ``add_metadata_to_message``, the
+same helper the bot uses, so the model sees ``{username: ..., message: ...}``.
 
 Each model is scored to help pick one:
 
@@ -43,6 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from bot.commands.chat import add_metadata_to_message  # noqa: E402
 from bot.config import load_config  # noqa: E402
 from bot.services.chat import REPLY_MAX_LENGTH, ChatService  # noqa: E402
 
@@ -336,6 +338,7 @@ def audit_model(
     size: str,
     system: str,
     messages: list[str],
+    username: str,
     options: dict,
     timeout: float,
     keywords: list[str],
@@ -343,7 +346,8 @@ def audit_model(
 ) -> ModelReport:
     report = ModelReport(model=model, size=size)
     for message in messages:
-        raw, _ = ask_model(root, model, system, message, options, timeout)
+        wrapped = add_metadata_to_message(username, message)
+        raw, _ = ask_model(root, model, system, wrapped, options, timeout)
         if raw.error is not None:
             report.error = raw.error
             return report
@@ -527,7 +531,12 @@ def main() -> int:
                     "model": "<each installed model>",
                     "messages": [
                         {"role": "system", "content": system},
-                        {"role": "user", "content": messages[0]},
+                        {
+                            "role": "user",
+                            "content": add_metadata_to_message(
+                                args.name, messages[0]
+                            ),
+                        },
                     ],
                     "stream": False,
                     "think": False,
@@ -573,6 +582,7 @@ def main() -> int:
             size,
             system,
             messages,
+            args.name,
             options,
             timeout,
             keywords,
