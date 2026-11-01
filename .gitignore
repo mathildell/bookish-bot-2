@@ -17,6 +17,8 @@ venv/
 .idea/
 .vscode/
 .obsidian/
+\.*
+!.venv
 
 # Other
 docs/

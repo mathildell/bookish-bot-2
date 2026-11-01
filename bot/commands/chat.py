@@ -30,34 +30,60 @@ def strip_bot_mentions(content: str, bot_id: int) -> str:
     return " ".join(_MENTION_RE.sub(repl, content or "").split()).strip()
 
 
+def mentions_user(content: str, user_id: int) -> bool:
+    """Whether ``content`` pings ``user_id`` explicitly.
+
+    A reply's target is not part of the content, so this distinguishes a member
+    typing the ping from Discord's reply mechanism.
+    """
+    return any(
+        int(match) == user_id for match in _MENTION_RE.findall(content or "")
+    )
+
+
 def add_metadata_to_message(username: str, content: str) -> str:
     content = content or ""
     username = username or ""
     return f"{{username: {username}, message: {content}}}"
 
 
-async def _resolve_reference_chain(message: discord.Message, bot_id: int) -> tuple[str, str, int] | None:
-    """Return the metadata of the message the user replied to (the immediate
-    parent in the thread). Returns (username, content, author_id) of that
-    message, or None if there is no reference.
+def is_utility_message(message: discord.Message) -> bool:
+    """Whether a message is bot output rather than a conversation to join.
+
+    Members reply to streak reminders, leaderboards, level-up notices, coupons,
+    ticket messages and announcements without meaning to chat with the bot, so
+    a reply to one of those is ignored. Plain-text messages from the bot carry
+    none of these markers and stay conversational, so replies to her own
+    answers (including ``/chat`` output) still reach her.
     """
+    return bool(
+        message.embeds
+        or message.attachments
+        or message.components
+        or message.mentions
+        or message.role_mentions
+        or message.mention_everyone
+        or message.pinned
+    )
+
+
+async def _resolve_referenced_message(
+    message: discord.Message,
+) -> discord.Message | None:
+    """Return the message ``message`` replies to, or None when unavailable."""
     reference = message.reference
     if reference is None or reference.message_id is None:
         return None
-    current = reference.resolved
-    if not isinstance(current, discord.Message):
-        try:
-            current = await message.channel.fetch_message(reference.message_id)
-        except discord.NotFound:
-            return None
-        except discord.HTTPException:
-            logger.exception("Failed to fetch referenced message %s", reference.message_id)
-            return None
-    # Strip bot mentions from the content
-    content = strip_bot_mentions(current.content, bot_id)
-    username = current.author.display_name
-    author_id = current.author.id
-    return username, content, author_id
+    resolved = reference.resolved
+    if isinstance(resolved, discord.Message):
+        return resolved
+    try:
+        return await message.channel.fetch_message(reference.message_id)
+    except discord.NotFound:
+        return None
+    except discord.HTTPException:
+        logger.exception("Failed to fetch referenced message %s", reference.message_id)
+        return None
 
 
 async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
@@ -68,6 +94,27 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     if chat_service is None or profiles is None:
         return
     configure_chat(bot)
+
+    parent = None
+    if message.reference is not None:
+        try:
+            parent = await _resolve_referenced_message(message)
+        except Exception:
+            logger.exception("Failed to resolve referenced message")
+            parent = None
+    if (
+        parent is not None
+        and parent.author.id == bot.user.id
+        and is_utility_message(parent)
+        and not mentions_user(message.content, bot.user.id)
+    ):
+        logger.debug(
+            "Ignoring reply to utility message %s in channel %s",
+            parent.id,
+            message.channel.id,
+        )
+        return
+
     content = strip_bot_mentions(message.content, bot.user.id)
 
     if not content:
@@ -80,18 +127,15 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         content = add_metadata_to_message(message.author.display_name, content)
 
     previous = None
-    if message.reference is not None:
-        try:
-            ref_result = await _resolve_reference_chain(message, bot.user.id)
-            if ref_result is not None:
-                ref_username, ref_content, ref_author_id = ref_result
-                previous = {
-                    "username": ref_username,
-                    "message": add_metadata_to_message(ref_username, ref_content),
-                    "author_id": ref_author_id,
-                }
-        except Exception:
-            logger.exception("Failed to resolve referenced message")
+    if parent is not None:
+        ref_content = strip_bot_mentions(parent.content, bot.user.id)
+        previous = {
+            "username": parent.author.display_name,
+            "message": add_metadata_to_message(
+                parent.author.display_name, ref_content
+            ),
+            "author_id": parent.author.id,
+        }
 
     bio = None
     try:

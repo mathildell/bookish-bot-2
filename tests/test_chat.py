@@ -1,8 +1,26 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
+from bot.commands.chat import is_utility_message, mentions_user
 from bot.services.chat import ChatService
+
+
+def _message(**overrides: object) -> SimpleNamespace:
+    data: dict[str, object] = {
+        "content": "a plain reply",
+        "embeds": [],
+        "attachments": [],
+        "components": [],
+        "mentions": [],
+        "role_mentions": [],
+        "mention_everyone": False,
+        "pinned": False,
+        "interaction_metadata": None,
+    }
+    data.update(overrides)
+    return SimpleNamespace(**data)
 
 
 class TestChat(unittest.TestCase):
@@ -54,6 +72,61 @@ class TestChat(unittest.TestCase):
     def test_clean_reply_keeps_plain_text(self) -> None:
         svc = ChatService({})
         self.assertEqual(svc.clean_reply("  Plain reply.  "), "Plain reply.")
+
+
+class TestUtilityMessage(unittest.TestCase):
+    def test_plain_text_is_conversational(self) -> None:
+        self.assertFalse(is_utility_message(_message()))  # type: ignore[arg-type]
+
+    def test_embed_is_utility(self) -> None:
+        message = _message(embeds=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_attachment_is_utility(self) -> None:
+        message = _message(attachments=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_button_is_utility(self) -> None:
+        message = _message(components=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_member_ping_is_utility(self) -> None:
+        message = _message(mentions=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_role_ping_is_utility(self) -> None:
+        message = _message(role_mentions=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_everyone_ping_is_utility(self) -> None:
+        message = _message(mention_everyone=True)
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_pinned_is_utility(self) -> None:
+        message = _message(pinned=True)
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_plain_command_output_is_conversational(self) -> None:
+        message = _message(interaction_metadata=object())
+        self.assertFalse(is_utility_message(message))  # type: ignore[arg-type]
+
+    def test_rich_command_output_is_utility(self) -> None:
+        message = _message(interaction_metadata=object(), embeds=[object()])
+        self.assertTrue(is_utility_message(message))  # type: ignore[arg-type]
+
+
+class TestMentionsUser(unittest.TestCase):
+    def test_plain_mention(self) -> None:
+        self.assertTrue(mentions_user("<@42> are you proud?", 42))
+
+    def test_nickname_mention(self) -> None:
+        self.assertTrue(mentions_user("look <@!42>", 42))
+
+    def test_other_user(self) -> None:
+        self.assertFalse(mentions_user("<@7> hi", 42))
+
+    def test_no_mention(self) -> None:
+        self.assertFalse(mentions_user("yay!!", 42))
 
 
 if __name__ == "__main__":
