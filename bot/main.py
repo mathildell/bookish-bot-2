@@ -88,7 +88,7 @@ from .services import level as level_service
 from .services.birthdays import BirthdayService
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
-from .services.chat import ChatService
+from .services.chat import ChatService, configure_chat
 from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
 from .services.intro import IntroService
 from .services.level import WeeklyLeaderboardService, utcnow
@@ -1011,15 +1011,9 @@ async def run() -> None:
         )
         chat_svc = getattr(bot, "chat", None)
         if chat_svc is not None:
-            try:
-                chat_svc.configure(
-                    getattr(bot_settings, "chat_model", None),
-                    getattr(bot_settings, "chat_persona", None),
-                    getattr(bot_settings, "chat_prompt_name", None),
-                    getattr(bot_settings, "chat_prompt_info", None),
-                )
-            except Exception:
-                pass
+            if bot.user is not None:
+                chat_svc.bot_user_id = bot.user.id
+            configure_chat(bot)
 
         await tickets.reload()
         logger.info("Ticket channel: %s", tickets.channel_id)

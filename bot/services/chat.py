@@ -32,6 +32,14 @@ def curl_command(url: str, payload: dict[str, Any]) -> str:
     )
 
 
+def _as_id(value: Any) -> int:
+    """Coerce an id from message metadata or config to an int (0 when unusable)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
 def configure_chat(client) -> None:
     """Push the stored chatbot settings into the running chat service."""
     service = getattr(client, "chat", None)
@@ -57,7 +65,8 @@ class ChatService:
         self.max_tokens = int(cfg.get("max_tokens") or 200)
         self.temperature = float(cfg.get("temperature") or 0.8)
         self.num_ctx = int(cfg.get("num_ctx") or 4096)
-        self.bot_user_id = int(cfg.get("bot_user_id") or 0)
+        # Filled in from the logged-in user once the bot is ready.
+        self.bot_user_id = 0
 
         self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Semaphore(1)
@@ -248,8 +257,7 @@ class ChatService:
         messages = [{"role": "system", "content": system}]
         # The message the member replied to, when there is one.
         if previous_message is not None:
-            prev_author_id = previous_message.get("author_id")
-            logger.warning("prev_author_id=%s", prev_author_id)
+            prev_author_id = _as_id(previous_message.get("author_id"))
             role = "assistant" if prev_author_id == self.bot_user_id else "user"
             messages.append(
                 {"role": role, "content": previous_message.get("message", "")}

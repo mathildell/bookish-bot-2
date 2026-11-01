@@ -32,6 +32,3 @@ ai:
   temperature: 0.8
   num_ctx: 4096
 
-# Bot user ID (used by the chat service to identify bot-authored messages)
-bot_user_id: 0
-
