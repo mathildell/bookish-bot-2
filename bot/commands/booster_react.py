@@ -96,8 +96,6 @@ def _react_embed(row, member: discord.Member | None, client) -> discord.Embed:
 
 
 @react_group.command(name="set", description=t("booster.react.set.description"))
-# @react_group.command(name="add", description=t("booster.react.set.description"))
-# @react_group.command(name="edit", description=t("booster.react.set.description"))
 @app_commands.describe(
     emoji=t("booster.react.set.param_emoji"),
     user=t("booster.react.set.param_user"),

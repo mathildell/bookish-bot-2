@@ -32,6 +32,7 @@ from .level import utcnow
 from .members import resolve_members
 from .release_sources import BookData, book_data_to_dict
 from .search import search_key
+from .text import truncate
 
 logger = logging.getLogger("bh2.releases")
 
@@ -127,12 +128,6 @@ async def _send_embed_batches(
         first = False
         posted.extend(indices)
     return posted
-
-
-def _truncate(value: str, limit: int = FIELD_VALUE_LIMIT) -> str:
-    if len(value) <= limit:
-        return value
-    return value[: limit - 1].rstrip() + "…"
 
 
 _REFERENCE_WORDS = 2
@@ -271,7 +266,7 @@ def build_book_embed(
     if include_blurb and blurb and blurb.strip():
         embed.add_field(
             name=t("releases.embed.description_field"),
-            value=_truncate(blurb, BLURB_LIMIT),
+            value=truncate(blurb, BLURB_LIMIT),
             inline=False,
         )
 
@@ -394,7 +389,7 @@ def _field_values(lines: list[str]) -> list[str]:
     values: list[str] = []
     current = ""
     for line in lines:
-        line = _truncate(line, FIELD_VALUE_LIMIT)
+        line = truncate(line, FIELD_VALUE_LIMIT)
         if not current:
             current = line
         elif len(current) + 1 + len(line) > FIELD_VALUE_LIMIT:

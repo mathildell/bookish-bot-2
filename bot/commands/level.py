@@ -21,7 +21,7 @@ from .listing import new_embed, placement, set_author, set_transparent_image
 from .views import (
     ExpiringView,
     track_view,
-    tracked_row,
+    tracked_check,
     update_interaction_state,
 )
 
@@ -262,8 +262,7 @@ class LeaderboardView(ExpiringView):
         self.weekly_button.disabled = self.showing == "weekly"
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        allowed, _ = await tracked_row(interaction)
-        return allowed
+        return await tracked_check(interaction)
 
     async def _switch(self, interaction: discord.Interaction, which: str) -> None:
         self.showing = which
@@ -303,8 +302,7 @@ class XpLeaderboardFallbackView(discord.ui.View):
         super().__init__(timeout=None)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        allowed, _ = await tracked_row(interaction)
-        return allowed
+        return await tracked_check(interaction)
 
     async def _show(self, interaction: discord.Interaction, which: str) -> None:
         # Rebuilding the embeds refetches uncached members, which can take

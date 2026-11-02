@@ -11,6 +11,7 @@ import logging
 import discord
 from discord import app_commands
 
+from ..services.channels import resolve_text_channel
 from ..services.intro import (
     FIELD_VALUE_LIMIT,
     IntroService,
@@ -22,7 +23,7 @@ from ..services.members import resolve_members
 from ..texts import t
 from .checks import require_admin
 from .listing import new_embed, set_transparent_image
-from .views import ExpiringView
+from .views import ExpiringView, ensure_author
 
 logger = logging.getLogger("bh2.intro")
 
@@ -52,20 +53,6 @@ QUESTION_SELECT_LIMIT = 25
 
 def _service(interaction: discord.Interaction) -> IntroService:
     return interaction.client.intros
-
-
-async def resolve_intro_channel(
-    client: discord.Client, channel_id: int | None
-) -> discord.TextChannel | None:
-    if not channel_id:
-        return None
-    channel = client.get_channel(channel_id)
-    if channel is None:
-        try:
-            channel = await client.fetch_channel(channel_id)
-        except discord.HTTPException:
-            return None
-    return channel if isinstance(channel, discord.TextChannel) else None
 
 
 def sticky_embed(client: discord.Client) -> discord.Embed:
@@ -198,12 +185,7 @@ class DeleteConfirmView(ExpiringView):
         self.author_id = author_id
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message(
-                t("components.not_author"), ephemeral=True
-            )
-            return False
-        return True
+        return await ensure_author(interaction, self.author_id)
 
     @discord.ui.button(
         label=t("intro.delete.confirm_button"),
@@ -213,7 +195,7 @@ class DeleteConfirmView(ExpiringView):
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
-        channel = await resolve_intro_channel(
+        channel = await resolve_text_channel(
             interaction.client, self.post.channel_id
         )
         if channel is None:
@@ -289,7 +271,7 @@ class IntroModal(discord.ui.Modal):
             for item in self.children
             if isinstance(item, discord.ui.TextInput)
         }
-        channel = await resolve_intro_channel(
+        channel = await resolve_text_channel(
             interaction.client, self.service.channel_id
         )
         if channel is None:
@@ -407,7 +389,7 @@ async def set_channel(
 
     if old_sticky_id:
         old_channel = (
-            await resolve_intro_channel(interaction.client, old_channel_id)
+            await resolve_text_channel(interaction.client, old_channel_id)
             if old_channel_id
             else channel
         )
@@ -438,7 +420,7 @@ async def set_channel(
 async def sticky_command(interaction: discord.Interaction) -> None:
     if not await require_admin(interaction):
         return
-    channel = await resolve_intro_channel(
+    channel = await resolve_text_channel(
         interaction.client, _service(interaction).channel_id
     )
     if channel is None:
@@ -650,12 +632,7 @@ class QuestionsView(ExpiringView):
         self.sync()
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message(
-                t("components.not_author"), ephemeral=True
-            )
-            return False
-        return True
+        return await ensure_author(interaction, self.author_id)
 
     def _embed(self, client: discord.Client) -> discord.Embed:
         return _question_embed(self, client)

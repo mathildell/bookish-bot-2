@@ -59,6 +59,16 @@ async def expire_interaction(interaction: discord.Interaction) -> None:
     await interaction.followup.send(t("components.expired"), ephemeral=True)
 
 
+async def ensure_author(interaction: discord.Interaction, author_id: int) -> bool:
+    """Whether the clicker owns the view, telling anyone else it is not theirs."""
+    if interaction.user.id == author_id:
+        return True
+    await interaction.response.send_message(
+        t("components.not_author"), ephemeral=True
+    )
+    return False
+
+
 async def tracked_row(
     interaction: discord.Interaction,
 ) -> tuple[bool, ViewMessage | None]:
@@ -76,6 +86,12 @@ async def tracked_row(
             await service.delete(message.id)
         return False, None
     return True, row
+
+
+async def tracked_check(interaction: discord.Interaction) -> bool:
+    """Whether the clicked message is still tracked and unexpired."""
+    allowed, _ = await tracked_row(interaction)
+    return allowed
 
 
 async def tracked_row_if_present(

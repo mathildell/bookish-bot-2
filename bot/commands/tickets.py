@@ -12,6 +12,7 @@ import discord
 from discord import app_commands
 
 from ..services.booster_role import resolve_notify_channel
+from ..services.channels import resolve_text_channel
 from ..services.level import utcnow
 from ..services.tickets import (
     STATUS_CLOSED,
@@ -56,20 +57,6 @@ role_group = app_commands.Group(
 
 def _service(interaction: discord.Interaction) -> TicketService:
     return interaction.client.tickets
-
-
-async def resolve_ticket_channel(
-    client: discord.Client, channel_id: int | None
-) -> discord.TextChannel | None:
-    if not channel_id:
-        return None
-    channel = client.get_channel(channel_id)
-    if channel is None:
-        try:
-            channel = await client.fetch_channel(channel_id)
-        except discord.HTTPException:
-            return None
-    return channel if isinstance(channel, discord.TextChannel) else None
 
 
 async def ensure_sticky(
@@ -417,7 +404,7 @@ async def set_channel(
     service = _service(interaction)
     old_channel_id, old_sticky_id = await service.set_channel(channel.id)
     if old_sticky_id:
-        old_channel = await resolve_ticket_channel(
+        old_channel = await resolve_text_channel(
             interaction.client, old_channel_id
         )
         if old_channel is not None:

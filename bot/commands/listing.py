@@ -13,7 +13,7 @@ from typing import Iterable, Iterator, Protocol, Sequence
 import discord
 
 from ..texts import t
-from .views import ExpiringView
+from .views import ExpiringView, ensure_author
 
 EMBEDS_PER_PAGE = 6
 _HEX_RE = re.compile(r"^#?(?P<hex>[0-9a-fA-F]{6})$")
@@ -119,12 +119,7 @@ class Paginator(ExpiringView):
         return self._cache[index]
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message(
-                t("components.not_author"), ephemeral=True
-            )
-            return False
-        return True
+        return await ensure_author(interaction, self.author_id)
 
     def _refresh(self) -> None:
         last = self.page_count - 1

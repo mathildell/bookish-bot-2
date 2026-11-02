@@ -36,8 +36,10 @@ from .checks import in_admin_test_channel, require_admin
 from .listing import new_embed, placement, set_author, set_transparent_image
 from .views import (
     ExpiringView,
+    ensure_author,
     message_author_id,
     track_view,
+    tracked_check,
     tracked_row,
     tracked_row_if_present,
     update_interaction_state,
@@ -936,15 +938,6 @@ class _HourSelect(discord.ui.Select):
         await self.view.save(interaction, int(self.values[0]))  # type: ignore[attr-defined]
 
 
-async def _author_check(interaction: discord.Interaction, author_id: int) -> bool:
-    if interaction.user.id == author_id:
-        return True
-    await interaction.response.send_message(
-        t("components.not_author"), ephemeral=True
-    )
-    return False
-
-
 ReminderSaver = Callable[
     [discord.Interaction, str, int | None], Awaitable[StreakGoal]
 ]
@@ -967,7 +960,7 @@ class _HourSelectView(ExpiringView):
         self.add_item(_HourSelect())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return await _author_check(interaction, self.author_id)
+        return await ensure_author(interaction, self.author_id)
 
     async def save(self, interaction: discord.Interaction, hour: int) -> None:
         try:
@@ -994,7 +987,7 @@ class _ReminderChoiceView(ExpiringView):
         self.on_saved = on_saved
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return await _author_check(interaction, self.author_id)
+        return await ensure_author(interaction, self.author_id)
 
     async def _save(self, interaction: discord.Interaction, reminder: str) -> None:
         try:
@@ -1218,7 +1211,7 @@ class StreakEditView(ExpiringView):
         self.author_id = author_id
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        return await _author_check(interaction, self.author_id)
+        return await ensure_author(interaction, self.author_id)
 
     async def _goal(self, interaction: discord.Interaction) -> StreakGoal | None:
         goal = await _service(interaction).get_goal(interaction.user.id)
@@ -1421,8 +1414,7 @@ class StreakLogView(ExpiringView):
         self.add_item(_LogButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        allowed, _ = await tracked_row(interaction)
-        return allowed
+        return await tracked_check(interaction)
 
 
 class _EditButton(discord.ui.Button):
@@ -1452,8 +1444,7 @@ class StreakEditButtonView(discord.ui.View):
         self.add_item(_EditButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        allowed, _ = await tracked_row(interaction)
-        return allowed
+        return await tracked_check(interaction)
 
 
 class _ViewActions(ExpiringView):
@@ -1474,8 +1465,7 @@ class _ViewActions(ExpiringView):
             self.add_item(_EditButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        allowed, _ = await tracked_row(interaction)
-        return allowed
+        return await tracked_check(interaction)
 
 
 async def _leaderboard_data(
@@ -1519,7 +1509,7 @@ class _LeaderboardView(ExpiringView):
         )
         if author_id is None:
             return True
-        return await _author_check(interaction, author_id)
+        return await ensure_author(interaction, author_id)
 
     async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
         self.ongoing = ongoing
@@ -1568,7 +1558,7 @@ class StreakLeaderboardFallbackView(discord.ui.View):
         )
         if author_id is None:
             return True
-        return await _author_check(interaction, author_id)
+        return await ensure_author(interaction, author_id)
 
     async def _show(self, interaction: discord.Interaction, ongoing: bool) -> None:
         # Rebuilding the embed refetches uncached members, which can take

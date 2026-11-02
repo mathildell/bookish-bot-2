@@ -19,6 +19,7 @@ from sqlalchemy import delete, func, select
 from ..db import session_scope
 from ..models import IntroPost, IntroQuestion, IntroSetting
 from ..texts import t
+from .text import truncate
 
 # Discord modals hold at most five text inputs.
 MODAL_QUESTION_LIMIT = 5
@@ -36,12 +37,6 @@ def select_modal_questions(questions: list) -> list:
     return [question for question in questions if question.active][
         :MODAL_QUESTION_LIMIT
     ]
-
-
-def _truncate(value: str, limit: int) -> str:
-    if len(value) <= limit:
-        return value
-    return value[: limit - 1].rstrip() + "…"
 
 
 def _utc(value):
@@ -76,8 +71,8 @@ def build_intro_embed(
     for question in questions:
         answer = (answers.get(str(question.id)) or "").strip() or blank_answer()
         embed.add_field(
-            name=_truncate(question.content, FIELD_NAME_LIMIT),
-            value=_truncate(answer, FIELD_VALUE_LIMIT),
+            name=truncate(question.content, FIELD_NAME_LIMIT),
+            value=truncate(answer, FIELD_VALUE_LIMIT),
             inline=False,
         )
 

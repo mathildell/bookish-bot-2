@@ -35,6 +35,7 @@ from .checks import require_admin
 from .listing import Paginator, chunked, send_paginated
 from .views import (
     ExpiringView,
+    ensure_author,
     message_author_id,
     track_view,
     tracked_row,
@@ -380,12 +381,7 @@ class ReleaseConfirmView(ExpiringView):
         self.author_id = author_id
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.author_id:
-            await interaction.response.send_message(
-                t("components.not_author"), ephemeral=True
-            )
-            return False
-        return True
+        return await ensure_author(interaction, self.author_id)
 
     @discord.ui.button(
         label=t("releases.update.confirm"),

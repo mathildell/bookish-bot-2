@@ -18,6 +18,7 @@ from ..db import session_scope
 from ..models import Ticket, TicketSetting
 from ..texts import t
 from .level import utcnow
+from .text import truncate
 
 logger = logging.getLogger("bh2.tickets")
 
@@ -39,22 +40,19 @@ def format_timestamp(value: datetime | None) -> str:
     return discord.utils.format_dt(_utc(value), "f")
 
 
-def _limited(value: str, limit: int = THREAD_NAME_LIMIT) -> str:
-    if len(value) <= limit:
-        return value
-    return value[: limit - 1].rstrip() + "…"
-
-
 def thread_name(display_name: str, number: int) -> str:
     """The base thread name, e.g. ``Alice's ticket #3``."""
-    return _limited(
-        t("tickets.thread.name", display_name=display_name, number=number)
+    return truncate(
+        t("tickets.thread.name", display_name=display_name, number=number),
+        THREAD_NAME_LIMIT,
     )
 
 
 def resolved_thread_name(name: str) -> str:
     """The closed thread name, keeping the base name and adding the prefix."""
-    return _limited(t("tickets.thread.resolved_prefix") + name)
+    return truncate(
+        t("tickets.thread.resolved_prefix") + name, THREAD_NAME_LIMIT
+    )
 
 
 def can_reopen_with_button(ticket: Ticket, now: datetime) -> bool:

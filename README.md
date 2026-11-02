@@ -179,8 +179,8 @@ Members link their Goodreads profile. Every 30 minutes the bot reads the
 profile's recent updates (spaced out between members), and for each new review
 it fetches the review page with a dedicated dummy Goodreads account to get the
 full text, precise rating, shelves/tags and cover. Each review is posted at most
-once every 24 hours; reviews already on the profile when it is linked are never
-posted. Spoilers stay hidden and are shown as `(view spoiler)`. The embed footer
+once per cooldown window (`review_repost_cooldown_days`, default 24 hours);
+reviews already on the profile when it is linked are never posted. Spoilers stay hidden and are shown as `(view spoiler)`. The embed footer
 reads `<name>’s shelf`, or `<name>’s bookshelf: <tags>`, prefixed with a star
 when a tag is an ARC.
 
@@ -399,8 +399,9 @@ double XP for that window and a golden rescue. XP is binary per day — a day
 either reached the goal or it did not — and the payout starts at 200 XP for the
 first level, grows more slowly each level and plateaus at 2500 XP from level 30
 onwards. Streak commands belong to the channel set with `/streak channel set`
-(reminders are posted there too). Daily logs are purged after 90 days; the
-streak's totals and rank are kept.
+(reminders are posted there too). Daily logs are purged after the configured
+retention window (`purge_streak_logs`, default 90 days); the streak's totals and
+rank are kept.
 
 ```
 /streak register amount: unit: timezone:
@@ -691,6 +692,7 @@ View and edit the bot's runtime settings.
 /settings edit key: buddy_read_message_link value: https://discord.com/channels/1/222/333
 /settings edit key: admin_test_channel_id value: <#123456789012345678>
 /settings edit key: coupon_fallback_image value: https://example.com/fallback.gif
+/settings edit key: goodreads_session_cookie value: "Cookie: ..."
 ```
 - `purge_book_releases` — how many days a released book is kept before it is
   purged (default 30).
@@ -717,6 +719,9 @@ View and edit the bot's runtime settings.
   `/streak`) work regardless of their configured channel.
 - `coupon_fallback_image` — image shown on a streak coupon when it cannot be
   rendered or uploaded (defaults to a GIF).
+- `goodreads_session_cookie` — the Goodreads `Cookie` header used to enrich
+  reviews. It is only ever shown as set/none, and `none` clears it so new
+  reviews are held until a fresh one is pasted.
 
 ## Chatbot
 

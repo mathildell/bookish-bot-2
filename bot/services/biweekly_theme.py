@@ -27,9 +27,6 @@ CARD_TITLE_MAX_LENGTH = 256
 CARD_DESCRIPTION_MAX_LENGTH = 2000
 POST_INTERVAL_DAYS = 14
 
-# The weekday and hour the theme goes out on are both UTC.
-DEFAULT_HOUR = 12
-
 logger = logging.getLogger("bh2.biweekly_theme")
 
 

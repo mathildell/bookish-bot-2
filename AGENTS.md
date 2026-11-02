@@ -164,46 +164,58 @@ bot/
                            IntroSetting, IntroPost, TicketSetting, Ticket,
                            BookRelease, ReleaseSetting, ReleaseEditDraft,
                            StreakGoal, Streak, StreakLog, StreakSetting,
-                           BiweeklyThemeCard, BiweeklyThemeSetting,
+                           BiweeklyThemeCard, BiweeklyThemeSuggestion,
+                           BiweeklyThemeSetting, ViewMessage, MemberProfile,
                            BotSetting, Reminder, ReminderSnooze, Birthday,
                            BirthdaySetting, BirthdayMessage, BirthdayImage)
   notifications.py         level-up, streak-closed and theme-failure announcements
   commands/
     booster.py             /booster root group
     booster_react.py       /booster react ...
-    booster_role.py       /booster role ...
+    booster_role.py        /booster role ...
     level.py               /xp root group + level/leaderboard/weekly/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
+    level_boosts.py        /xp boosts ...
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
-    releases.py            /releases group + add/update/search/list/view/remove, channel, role, force
+    releases.py            /releases group + add/update/search/list/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
     streaks.py             /streak group + register buttons/hour select, log/today/view/leaderboard, admin log
     reminders.py           /reminder group + add/edit/remove/list + complete/snooze buttons
-    birthdays.py           /birthday group + set/remove/channel/role, message and
+    birthdays.py           /birthday group + set/remove/list/channel/role, message and
                            image pools, shared content list, force
     tickets.py             /tickets group + panel/close/reopen buttons
-    bot.py                 /bot root group (say/react)
+    bot.py                 /bot root group (say/edit/react)
     bot_say.py             /bot say (post a message as the bot)
+    bot_edit.py            /bot edit (replace a message the bot sent)
     bot_react.py           /bot react (add an emoji reaction to a message)
+    chat.py                /chat + mention replies
+    chatbot.py             /chatbot group (toggle/model/prompt/userinfo)
     biweekly_theme.py      /biweekly-theme group + cards/channel/role/schedule
     settings.py            /settings group + list/edit (typed bot settings)
     ping.py                /ping (is the bot awake?)
+    randomize.py           /randomize + reroll button
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
-    views.py               shared timed-view base that disables buttons on timeout
+    views.py               shared timed-view base, author/tracking checks
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
+    channels.py            text channel resolution shared by commands and startup
+    chat.py                local LLM client (models, prompt, cooldowns, requests)
     coupons.py             streak coupon rendering
     image_hosting.py       imgbb/tmpfiles uploads + image verification
     image_text.py          shared image text fitting/wrapping
     theme_images.py        bi-weekly theme rendering onto the template
     level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
+    xp_boosts.py           XP boost storage/lookup
+    member_profiles.py     member bios used as chat context
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads
-    reviews.py             Goodreads RSS fetch/parse + review poll
+    reviews.py             Goodreads profile fetch/parse + review poll
     html.py                shared HTML -> Discord markdown converter
+    text.py                shared text truncation
+    search.py              case/punctuation-insensitive search keys
     release_sources.py     Playwright scraper + Goodreads/NetGalley parsers
     releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
@@ -212,7 +224,9 @@ bot/
     birthdays.py           birthday dates/content/roles + XP gift + local-midnight posting
     biweekly_theme.py      theme deck/schedule/due-post helpers + validation
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry
+    view_messages.py       tracked public views (restore/expiry/purge)
     timezones.py           IANA timezone search/validation shared by streaks, reminders and birthdays
+    weekdays.py            weekday names shared by reminders and themes
     settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)
 tests/                     unittest suite

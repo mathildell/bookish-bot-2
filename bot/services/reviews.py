@@ -26,6 +26,7 @@ from ..texts import t
 from .html import html_to_markdown
 from .level import utcnow
 from .members import resolve_members
+from .text import truncate
 
 logger = logging.getLogger("bh2.reviews")
 
@@ -398,13 +399,7 @@ def format_shelf(owner: str, shelves: list[str]) -> str:
         text = t("reviews.embed.shelf_none", user=owner)
     if any(_ARC_SHELF_RE.search(shelf) for shelf in shelves):
         text = t("reviews.embed.shelf_arc", shelf=text)
-    return _truncate(text, FOOTER_LIMIT)
-
-
-def _truncate(value: str, limit: int = REVIEW_FIELD_LIMIT) -> str:
-    if len(value) <= limit:
-        return value
-    return value[: limit - 1].rstrip() + "…"
+    return truncate(text, FOOTER_LIMIT)
 
 
 def should_post(
@@ -477,7 +472,7 @@ def build_review_embed(
     review = html_to_markdown(entry.review_html) or t("reviews.embed.review_empty")
     embed.add_field(
         name=t("reviews.embed.review_field"),
-        value=_truncate(review),
+        value=truncate(review, REVIEW_FIELD_LIMIT),
         inline=False,
     )
 

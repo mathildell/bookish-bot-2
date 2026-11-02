@@ -27,7 +27,6 @@ from .commands.intro import (
     IntroRefreshView,
     intro_group,
     repost_sticky,
-    resolve_intro_channel,
 )
 from .commands.level import (
     XpLeaderboardFallbackView,
@@ -68,7 +67,6 @@ from .commands.tickets import (
     TicketCloseView,
     TicketReopenView,
     ensure_sticky as ensure_ticket_sticky,
-    resolve_ticket_channel,
     tickets_group,
 )
 from .commands.biweekly_theme import (
@@ -88,6 +86,7 @@ from .services import level as level_service
 from .services.birthdays import BirthdayService
 from .services.booster_react import BoosterReactService, parse_emoji
 from .services.booster_role import BoosterRoleService, resolve_notify_channel
+from .services.channels import resolve_text_channel
 from .services.chat import ChatService, configure_chat
 from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
 from .services.intro import IntroService
@@ -1017,7 +1016,7 @@ async def run() -> None:
 
         await tickets.reload()
         logger.info("Ticket channel: %s", tickets.channel_id)
-        ticket_channel = await resolve_ticket_channel(bot, tickets.channel_id)
+        ticket_channel = await resolve_text_channel(bot, tickets.channel_id)
         if ticket_channel is not None:
             try:
                 await ensure_ticket_sticky(bot, ticket_channel)
@@ -1028,7 +1027,7 @@ async def run() -> None:
 
         await intros.reload()
         logger.info("Intro channel: %s", intros.channel_id)
-        channel = await resolve_intro_channel(bot, intros.channel_id)
+        channel = await resolve_text_channel(bot, intros.channel_id)
         if channel is not None and not _sticky_is_last(channel, intros):
             await repost_sticky(bot, channel)
             logger.info("Reposted intro sticky message")

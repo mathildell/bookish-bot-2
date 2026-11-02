@@ -271,7 +271,6 @@ async def apply_value(
             await interaction.client.bot_settings.set_gen_chat_channel(
                 channel_id
             )
-            interaction.client.set_gen_chat_channel = channel_id or 0
         elif key == ADMIN_TEST_CHANNEL:
             await interaction.client.bot_settings.set_admin_test_channel(
                 channel_id
