@@ -31,4 +31,6 @@ ai:
   max_tokens: 200
   temperature: 0.8
   num_ctx: 4096
+  # How many replied-to messages to walk up the reply ladder for context
+  history: 3
 

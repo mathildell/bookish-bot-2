@@ -94,6 +94,85 @@ async def _resolve_referenced_message(
         return None
 
 
+async def _reply_target(message: discord.Message) -> discord.Message | None:
+    """The message ``message`` replies to, logging and swallowing failures."""
+    try:
+        return await _resolve_referenced_message(message)
+    except Exception:
+        logger.exception("Failed to resolve referenced message")
+        return None
+
+
+async def _reply_chain(
+    message: discord.Message, depth: int
+) -> list[discord.Message]:
+    """The messages ``message`` replies to, nearest first, up to ``depth``."""
+    chain: list[discord.Message] = []
+    current = message
+    while len(chain) < depth:
+        parent = await _reply_target(current)
+        if parent is None:
+            break
+        chain.append(parent)
+        current = parent
+    return chain
+
+
+def _utility_reply_in_chain(
+    message: discord.Message, chain: list[discord.Message], bot_id: int
+) -> discord.Message | None:
+    """The bot utility message that makes ``message``'s reply a non-chat reply."""
+    child = message
+    for parent in chain:
+        if (
+            parent.author.id == bot_id
+            and is_utility_message(parent)
+            and not mentions_user(child.content, bot_id)
+        ):
+            return parent
+        child = parent
+    return None
+
+
+def _history_entry(message: discord.Message, bot_id: int) -> dict:
+    """A message as the chat service expects it in its conversation history."""
+    content = strip_bot_mentions(message.content, bot_id)
+    return {
+        "username": message.author.display_name,
+        "message": add_metadata_to_message(message.author.display_name, content),
+        "author_id": message.author.id,
+    }
+
+
+async def _bio_for(profiles, user_id: int) -> str | None:
+    """The member's stored bio, or None when there is none."""
+    try:
+        return await profiles.bio_for(user_id)
+    except Exception:
+        return None
+
+
+async def _reply_quietly(message: discord.Message, content: str) -> None:
+    """Reply without a mention; a failed reply is not worth reporting."""
+    try:
+        await message.reply(content, mention_author=False)
+    except Exception:
+        logger.debug("Could not send chat reply", exc_info=True)
+
+
+async def _respond(
+    interaction: discord.Interaction, content: str, *, ephemeral: bool = False
+) -> None:
+    """Answer through the followup once acknowledged, otherwise directly."""
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(content, ephemeral=ephemeral)
+        else:
+            await interaction.response.send_message(content, ephemeral=ephemeral)
+    except Exception:
+        logger.debug("Could not send chat response", exc_info=True)
+
+
 async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     if message.guild is None or bot.user is None:
         return
@@ -102,92 +181,29 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
     if chat_service is None or profiles is None:
         return
     configure_chat(bot)
+    bot_id = bot.user.id
 
-    parent = None
-    if message.reference is not None:
-        try:
-            parent = await _resolve_referenced_message(message)
-        except Exception:
-            logger.exception("Failed to resolve referenced message")
-            parent = None
-    if (
-        parent is not None
-        and parent.author.id == bot.user.id
-        and is_utility_message(parent)
-        and not mentions_user(message.content, bot.user.id)
-    ):
+    chain = await _reply_chain(message, chat_service.history_depth)
+    ignored = _utility_reply_in_chain(message, chain, bot_id)
+    if ignored is not None:
         logger.debug(
             "Ignoring reply to utility message %s in channel %s",
-            parent.id,
+            ignored.id,
             message.channel.id,
         )
         return
 
-    sup_parent = None
-    if parent is not None:
-        if parent.reference is not None:
-            try:
-                sup_parent = await _resolve_referenced_message(parent)
-            except Exception:
-                logger.exception("Failed to resolve referenced message")
-                sup_parent = None
-        if (
-            sup_parent is not None
-            and sup_parent.author.id == bot.user.id
-            and is_utility_message(sup_parent)
-            and not mentions_user(parent.content, bot.user.id)
-        ):
-            logger.debug(
-                "Ignoring reply to utility message %s in channel %s",
-                sup_parent.id,
-                message.channel.id,
-            )
-            return
-
     if not chatbot_enabled(bot):
-        try:
-            await message.reply(t("chat.disabled"), mention_author=False)
-        except Exception:
-            pass
+        await _reply_quietly(message, t("chat.disabled"))
         return
 
-    content = strip_bot_mentions(message.content, bot.user.id)
-
+    content = strip_bot_mentions(message.content, bot_id)
     if not content:
-        try:
-            await message.reply(t("chat.empty_ping"), mention_author=False)
-        except Exception:
-            pass
+        await _reply_quietly(message, t("chat.empty_ping"))
         return
-    else:
-        content = add_metadata_to_message(message.author.display_name, content)
+    content = add_metadata_to_message(message.author.display_name, content)
 
-    previous = None
-    sup_previous = None
-    if parent is not None:
-        ref_content = strip_bot_mentions(parent.content, bot.user.id)
-        previous = {
-            "username": parent.author.display_name,
-            "message": add_metadata_to_message(
-                parent.author.display_name, ref_content
-            ),
-            "author_id": parent.author.id,
-        }
-    if sup_parent is not None:
-        ref_content = strip_bot_mentions(sup_parent.content, bot.user.id)
-        sup_previous = {
-            "username": sup_parent.author.display_name,
-            "message": add_metadata_to_message(
-                sup_parent.author.display_name, ref_content
-            ),
-            "author_id": sup_parent.author.id,
-        }
-
-    bio = None
-    try:
-        bio = await profiles.bio_for(message.author.id)
-    except Exception:
-        bio = None
+    bio = await _bio_for(profiles, message.author.id)
     try:
         async with message.channel.typing():
             reply = await chat_service.chat(
@@ -196,91 +212,60 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
                 message.author.display_name,
                 bio,
                 content,
-                previous_message=previous,
-                sup_previous_message=sup_previous,
+                history=[_history_entry(entry, bot_id) for entry in reversed(chain)],
             )
-        if reply:
-            await message.reply(reply, mention_author=False)
-        else:
-            try:
-                await message.reply(t("chat.unavailable"), mention_author=False)
-            except Exception:
-                pass
     except ChatCooldownError:
         return
     except ChatTimeoutError:
-        try:
-            await message.reply(t("chat.timeout"), mention_author=False)
-        except Exception:
-            pass
+        await _reply_quietly(message, t("chat.timeout"))
+        return
     except ChatUnavailableError:
-        try:
-            await message.reply(t("chat.unavailable"), mention_author=False)
-        except Exception:
-            pass
+        await _reply_quietly(message, t("chat.unavailable"))
+        return
     except Exception:
         logger.exception("Mention chat failed")
-        try:
-            await message.reply(t("chat.unavailable"), mention_author=False)
-        except Exception:
-            pass
+        await _reply_quietly(message, t("chat.unavailable"))
+        return
+
+    await _reply_quietly(message, reply or t("chat.unavailable"))
 
 
 @app_commands.command(name="chat", description=t("chat.description"))
 @app_commands.describe(message=t("chat.param_message"))
 async def chat_command(interaction: discord.Interaction, message: str) -> None:
     if not chatbot_enabled(interaction.client):
-        await interaction.response.send_message(
-            t("chat.disabled"), ephemeral=True
-        )
+        await _respond(interaction, t("chat.disabled"), ephemeral=True)
         return
+
     chat_service = getattr(interaction.client, "chat", None)
     profiles = getattr(interaction.client, "member_profiles", None)
-    display_name = interaction.user.display_name
-    message = add_metadata_to_message(display_name, message)
-
     if chat_service is None or profiles is None:
-        await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
+        await _respond(interaction, t("chat.unavailable"), ephemeral=True)
         return
+
     configure_chat(interaction.client)
-    bio = None
-    try:
-        bio = await profiles.bio_for(interaction.user.id)
-    except Exception:
-        bio = None
+    display_name = interaction.user.display_name
+    content = add_metadata_to_message(display_name, message)
+    bio = await _bio_for(profiles, interaction.user.id)
+    guild_id = interaction.guild.id if interaction.guild else 0
+
     try:
         await interaction.response.defer(thinking=True)
         reply = await chat_service.chat(
-            interaction.guild.id if interaction.guild else 0,
-            interaction.user.id,
-            display_name,
-            bio,
-            message
+            guild_id, interaction.user.id, display_name, bio, content
         )
-        if reply:
-            await interaction.followup.send(reply)
-        else:
-            await interaction.followup.send(t("chat.unavailable"))
     except ChatCooldownError:
-        try:
-            await interaction.followup.send(t("chat.cooldown"), ephemeral=True)
-        except Exception:
-            await interaction.response.send_message(
-                t("chat.cooldown"), ephemeral=True
-            )
+        await _respond(interaction, t("chat.cooldown"), ephemeral=True)
+        return
     except ChatTimeoutError:
-        try:
-            await interaction.followup.send(t("chat.timeout"))
-        except Exception:
-            await interaction.response.send_message(t("chat.timeout"), ephemeral=True)
+        await _respond(interaction, t("chat.timeout"))
+        return
     except ChatUnavailableError:
-        try:
-            await interaction.followup.send(t("chat.unavailable"))
-        except Exception:
-            await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
+        await _respond(interaction, t("chat.unavailable"))
+        return
     except Exception:
         logger.exception("Chat command failed")
-        try:
-            await interaction.followup.send(t("chat.unavailable"))
-        except Exception:
-            await interaction.response.send_message(t("chat.unavailable"), ephemeral=True)
+        await _respond(interaction, t("chat.unavailable"))
+        return
+
+    await _respond(interaction, reply or t("chat.unavailable"))

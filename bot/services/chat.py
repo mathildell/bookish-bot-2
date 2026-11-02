@@ -26,6 +26,23 @@ _CODE_FENCE_RE = re.compile(r"^```[\w-]*\s*\n?(?P<body>.*?)\n?```\s*$", re.DOTAL
 MODEL_CACHE_SECONDS = 30
 MODEL_FETCH_TIMEOUT = 2.0
 REPLY_MAX_LENGTH = 400
+DEFAULT_HISTORY_DEPTH = 3
+
+
+class ChatError(Exception):
+    pass
+
+
+class ChatCooldownError(ChatError):
+    pass
+
+
+class ChatTimeoutError(ChatError):
+    pass
+
+
+class ChatUnavailableError(ChatError):
+    pass
 
 
 def curl_command(url: str, payload: dict[str, Any]) -> str:
@@ -44,6 +61,12 @@ def _as_id(value: Any) -> int:
         return int(value)
     except (TypeError, ValueError):
         return 0
+
+
+def _clean_override(value: str | None) -> str | None:
+    """Normalise a stored prompt override, treating blanks as unset."""
+    text = str(value).strip() if value else ""
+    return text or None
 
 
 def configure_chat(client) -> None:
@@ -71,6 +94,8 @@ class ChatService:
         self.max_tokens = int(cfg.get("max_tokens") or 200)
         self.temperature = float(cfg.get("temperature") or 0.8)
         self.num_ctx = int(cfg.get("num_ctx") or 4096)
+        # How many replied-to messages to walk up the reply ladder for context.
+        self.history_depth = max(int(cfg.get("history") or DEFAULT_HISTORY_DEPTH), 0)
         # Filled in from the logged-in user once the bot is ready.
         self.bot_user_id = 0
 
@@ -92,9 +117,7 @@ class ChatService:
         prompt_info: str | None = None,
     ) -> None:
         self.model = (
-            str(model).strip()
-            if model and str(model).strip()
-            else self._default_model
+            str(model).strip() if model and str(model).strip() else self._default_model
         )
         self._persona_override = _clean_override(persona)
         self._prompt_name_override = _clean_override(prompt_name)
@@ -111,86 +134,86 @@ class ChatService:
             await self._session.close()
         self._session = None
 
+    def _ollama_root(self) -> str:
+        """The Ollama native API root, i.e. ``base_url`` without its ``/v1``."""
+        return (
+            self.base_url[: -len("/v1")]
+            if self.base_url.endswith("/v1")
+            else self.base_url
+        )
+
     @staticmethod
     def _format_model_display(name: str, details: dict | None = None) -> str:
+        """The model name with its size or architecture when the API reports it."""
         details = details or {}
-        parts = [name]
-        size = details.get("size") or details.get("size_bytes") or details.get("details", {}).get("size")
+        meta = details.get("details")
+        meta = meta if isinstance(meta, dict) else {}
+
+        size = details.get("size") or details.get("size_bytes") or meta.get("size")
         if isinstance(size, int) and size > 0:
-            # bytes -> GB
-            gb = size / (1024 ** 3)
+            gb = size / (1024**3)
             if gb >= 1:
-                parts.append(f"({gb:.1f} GB)")
-            else:
-                mb = size / (1024 ** 2)
-                parts.append(f"({mb:.0f} MB)")
-        family = details.get("details", {}).get("family") if isinstance(details.get("details"), dict) else None
-        parameter_size = details.get("details", {}).get("parameter_size") if isinstance(details.get("details"), dict) else None
-        if parameter_size and not any("GB" in p or "MB" in p for p in parts):
-            parts.append(f"({parameter_size})")
-        elif family and len(parts) == 1:
-            parts.append(f"({family})")
-        return " ".join(parts)
+                return f"{name} ({gb:.1f} GB)"
+            return f"{name} ({size / 1024**2:.0f} MB)"
+
+        for hint in (meta.get("parameter_size"), meta.get("family")):
+            if hint:
+                return f"{name} ({hint})"
+        return name
+
+    async def _fetch_models(
+        self, session: aiohttp.ClientSession, url: str, items_key: str
+    ) -> list[tuple[str, dict]]:
+        """The models one endpoint lists, as ``(name, raw entry)`` pairs."""
+        timeout = aiohttp.ClientTimeout(total=MODEL_FETCH_TIMEOUT)
+        try:
+            async with session.get(url, timeout=timeout) as resp:
+                if resp.status >= 400:
+                    return []
+                data = await resp.json()
+        except Exception:
+            logger.debug("Could not list chat models from %s", url, exc_info=True)
+            return []
+
+        found: list[tuple[str, dict]] = []
+        for item in data.get(items_key) or []:
+            name = item.get("id") or item.get("name") or item.get("model")
+            if name:
+                found.append((str(name), item))
+        return found
 
     async def list_models(self) -> list[str]:
         now = time.monotonic()
-        if now - self._models_at < MODEL_CACHE_SECONDS and self._models:
+        if self._models and now - self._models_at < MODEL_CACHE_SECONDS:
             return list(self._models)
 
         session = await self._get_session()
-        timeout = aiohttp.ClientTimeout(total=MODEL_FETCH_TIMEOUT)
-        models: list[str] = []
-        details: dict[str, dict] = {}
-        # try OpenAI compatible first
-        try:
-            async with session.get(f"{self.base_url}/models", timeout=timeout) as resp:
-                if resp.status < 400:
-                    data = await resp.json()
-                    for m in data.get("data") or []:
-                        mid = m.get("id") or m.get("name")
-                        if mid:
-                            models.append(str(mid))
-                            details[str(mid)] = m
-        except Exception:
-            pass
-        # fallback to ollama api/tags
-        if not models:
-            try:
-                root = self.base_url
-                if root.endswith("/v1"):
-                    root = root[: -len("/v1")]
-                async with session.get(f"{root}/api/tags", timeout=timeout) as resp:
-                    if resp.status < 400:
-                        data = await resp.json()
-                        for m in data.get("models") or []:
-                            name = m.get("name") or m.get("model")
-                            if name:
-                                models.append(str(name))
-                                details[str(name)] = m
-            except Exception:
-                logger.warning("Could not list chat models", exc_info=True)
+        # Try the OpenAI-compatible endpoint first, then Ollama's native tags.
+        found = await self._fetch_models(session, f"{self.base_url}/models", "data")
+        if not found:
+            found = await self._fetch_models(
+                session, f"{self._ollama_root()}/api/tags", "models"
+            )
+        if not found:
+            logger.warning("Could not list chat models")
 
-        # deduplicate preserving order
-        seen = set()
-        ordered: list[str] = []
-        for name in models:
-            if name not in seen:
-                seen.add(name)
-                ordered.append(name)
-        ordered = sorted(ordered)
-        self._models = ordered
+        details: dict[str, dict] = {}
+        for name, item in found:
+            details.setdefault(name, item)
+        self._models = sorted(details)
         self._model_details = details
         self._models_at = now
         return list(self._models)
 
     async def list_models_detailed(self) -> list[tuple[str, str]]:
         models = await self.list_models()
-        result = []
-        for name in models:
-            result.append((self._format_model_display(name, self._model_details.get(name)), name))
-        return result
+        return [
+            (self._format_model_display(name, self._model_details.get(name)), name)
+            for name in models
+        ]
 
     def _check_cooldown(self, guild_id: int, user_id: int) -> bool:
+        """Whether the member may chat now, starting a new cooldown when so."""
         key = (guild_id, user_id)
         now = time.monotonic()
         last = self._cooldowns.get(key)
@@ -199,9 +222,7 @@ class ChatService:
         self._cooldowns[key] = now
         return True
 
-    def build_system_prompt(
-        self, display_name: str | None, bio: str | None
-    ) -> str:
+    def build_system_prompt(self, display_name: str | None, bio: str | None) -> str:
         """The system message: persona plus the optional name and bio hints."""
         parts = [self._persona_override or t("chat.persona")]
         bio = (bio or "").strip()
@@ -230,33 +251,62 @@ class ChatService:
     @staticmethod
     def extract_reply(payload: dict[str, Any]) -> str:
         try:
-            choices = payload.get("choices") or []
-            if not choices:
-                return ""
-            message = choices[0].get("message") or {}
-            content = message.get("content") or ""
-            if not content:
-                return ""
-            return str(content).strip()
-        except Exception:
+            content = payload["choices"][0]["message"].get("content") or ""
+        except (KeyError, IndexError, TypeError, AttributeError):
             return ""
+        return str(content).strip()
 
     @staticmethod
-    def truncate_reply(text: str, limit: int = 400) -> str:
+    def truncate_reply(text: str, limit: int = REPLY_MAX_LENGTH) -> str:
         text = (text or "").strip()
         if len(text) <= limit:
             return text
-        # try to cut at sentence boundary
         truncated = text[: limit + 50]
-        # find last sentence end before limit
-        last = -1
-        for match in _SENTENCE_END.finditer(truncated):
-            end = match.end()
-            if end <= limit:
-                last = end
-        if last > 0:
-            return truncated[:last].strip()
+        last_end = max(
+            (
+                match.end()
+                for match in _SENTENCE_END.finditer(truncated)
+                if match.end() <= limit
+            ),
+            default=0,
+        )
+        if last_end > 0:
+            return truncated[:last_end].strip()
         return text[:limit].rstrip() + "..."
+
+    def _history_entry(self, entry: dict | None) -> dict | None:
+        """A replied-to message as a chat message, or None when there is none."""
+        if not entry:
+            return None
+        author_id = _as_id(entry.get("author_id"))
+        role = "assistant" if author_id == self.bot_user_id else "user"
+        return {"role": role, "content": entry.get("message", "")}
+
+    async def _request_completion(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """POST the payload (one request at a time) and return the JSON body."""
+        url = f"{self.base_url}/chat/completions"
+        logger.info(
+            "LLM request (model=%s, messages=%d):\n%s",
+            self.model,
+            len(payload["messages"]),
+            curl_command(url, payload),
+        )
+        session = await self._get_session()
+        async with self._lock:
+            try:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        logger.warning("Chat API error %s: %s", resp.status, text[:200])
+                        raise ChatUnavailableError()
+                    return await resp.json()
+            except ChatError:
+                raise
+            except asyncio.TimeoutError:
+                raise ChatTimeoutError()
+            except Exception:
+                logger.exception("Chat request failed")
+                raise ChatUnavailableError()
 
     async def chat(
         self,
@@ -265,32 +315,20 @@ class ChatService:
         display_name: str | None,
         bio: str | None,
         user_message: str,
-        previous_message: dict | None = None,
-        sup_previous_message: dict | None = None,
+        history: list[dict] | None = None,
     ) -> str | None:
         if not self._check_cooldown(guild_id, user_id):
             raise ChatCooldownError()
         user_message = (user_message or "").strip()
         if not user_message:
             return None
-        system = self.build_system_prompt(display_name, bio)
 
-        messages = [{"role": "system", "content": system}]
-        # The message the member replied to, when there is one.
-        if sup_previous_message is not None:
-            sup_prev_author_id = _as_id(sup_previous_message.get("author_id"))
-            role = "assistant" if sup_prev_author_id == self.bot_user_id else "user"
-            messages.append(
-                {"role": role, "content": sup_previous_message.get("message", "")}
-            )
-        if previous_message is not None:
-            prev_author_id = _as_id(previous_message.get("author_id"))
-            role = "assistant" if prev_author_id == self.bot_user_id else "user"
-            messages.append(
-                {"role": role, "content": previous_message.get("message", "")}
-            )
-        messages.append({"role": "user", "content": user_message})
-
+        # History arrives oldest first; an empty list adds no context.
+        messages = [
+            {"role": "system", "content": self.build_system_prompt(display_name, bio)},
+            *(self._history_entry(entry) for entry in history or [] if entry),
+            {"role": "user", "content": user_message},
+        ]
         payload = {
             "model": self.model,
             "messages": messages,
@@ -299,54 +337,8 @@ class ChatService:
             "stream": False,
             "options": {"num_ctx": self.num_ctx},
         }
-        session = await self._get_session()
-        url = f"{self.base_url}/chat/completions"
-
-        logger.info(
-            "LLM request (model=%s, messages=%d):\n%s",
-            self.model,
-            len(messages),
-            curl_command(url, payload),
-        )
-
-        async with self._lock:
-            try:
-                async with session.post(url, json=payload) as resp:
-                    if resp.status >= 400:
-                        text = await resp.text()
-                        logger.warning("Chat API error %s: %s", resp.status, text[:200])
-                        raise ChatUnavailableError()
-                    data = await resp.json()
-            except ChatUnavailableError:
-                raise
-            except asyncio.TimeoutError:
-                raise ChatTimeoutError()
-            except Exception:
-                logger.exception("Chat request failed")
-                raise ChatUnavailableError()
+        data = await self._request_completion(payload)
         reply = self.clean_reply(self.extract_reply(data))
         if not reply:
             raise ChatUnavailableError()
         return self.truncate_reply(reply, REPLY_MAX_LENGTH)
-
-
-def _clean_override(value: str | None) -> str | None:
-    """Normalise a stored prompt override, treating blanks as unset."""
-    text = str(value).strip() if value else ""
-    return text or None
-
-
-class ChatError(Exception):
-    pass
-
-
-class ChatCooldownError(ChatError):
-    pass
-
-
-class ChatTimeoutError(ChatError):
-    pass
-
-
-class ChatUnavailableError(ChatError):
-    pass
