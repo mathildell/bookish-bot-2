@@ -123,6 +123,27 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         )
         return
 
+    sup_parent = None
+    if parent is not None:
+        if parent.reference is not None:
+            try:
+                sup_parent = await _resolve_referenced_message(parent)
+            except Exception:
+                logger.exception("Failed to resolve referenced message")
+                sup_parent = None
+        if (
+            sup_parent is not None
+            and sup_parent.author.id == bot.user.id
+            and is_utility_message(sup_parent)
+            and not mentions_user(parent.content, bot.user.id)
+        ):
+            logger.debug(
+                "Ignoring reply to utility message %s in channel %s",
+                sup_parent.id,
+                message.channel.id,
+            )
+            return
+
     if not chatbot_enabled(bot):
         try:
             await message.reply(t("chat.disabled"), mention_author=False)
@@ -142,6 +163,7 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
         content = add_metadata_to_message(message.author.display_name, content)
 
     previous = None
+    sup_previous = None
     if parent is not None:
         ref_content = strip_bot_mentions(parent.content, bot.user.id)
         previous = {
@@ -150,6 +172,15 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
                 parent.author.display_name, ref_content
             ),
             "author_id": parent.author.id,
+        }
+    if sup_parent is not None:
+        ref_content = strip_bot_mentions(sup_parent.content, bot.user.id)
+        sup_previous = {
+            "username": sup_parent.author.display_name,
+            "message": add_metadata_to_message(
+                sup_parent.author.display_name, ref_content
+            ),
+            "author_id": sup_parent.author.id,
         }
 
     bio = None
@@ -166,6 +197,7 @@ async def handle_mention(message: discord.Message, bot: discord.Client) -> None:
                 bio,
                 content,
                 previous_message=previous,
+                sup_previous_message=sup_previous,
             )
         if reply:
             await message.reply(reply, mention_author=False)

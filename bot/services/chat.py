@@ -266,6 +266,7 @@ class ChatService:
         bio: str | None,
         user_message: str,
         previous_message: dict | None = None,
+        sup_previous_message: dict | None = None,
     ) -> str | None:
         if not self._check_cooldown(guild_id, user_id):
             raise ChatCooldownError()
@@ -276,6 +277,12 @@ class ChatService:
 
         messages = [{"role": "system", "content": system}]
         # The message the member replied to, when there is one.
+        if sup_previous_message is not None:
+            sup_prev_author_id = _as_id(sup_previous_message.get("author_id"))
+            role = "assistant" if sup_prev_author_id == self.bot_user_id else "user"
+            messages.append(
+                {"role": role, "content": sup_previous_message.get("message", "")}
+            )
         if previous_message is not None:
             prev_author_id = _as_id(previous_message.get("author_id"))
             role = "assistant" if prev_author_id == self.bot_user_id else "user"
