@@ -1213,9 +1213,9 @@ class ReminderDueTests(unittest.IsolatedAsyncioTestCase):
                 now or self.now
             )
 
-    def goal(self, reminder, custom_hour=14):
+    def goal(self, reminder, custom_hour=14, timezone="UTC"):
         return SimpleNamespace(
-            timezone="UTC", reminder=reminder, custom_hour=custom_hour
+            timezone=timezone, reminder=reminder, custom_hour=custom_hour
         )
 
     def streak(self, *, last_log_date=None, custom_sent=None, lastchance_sent=None):
@@ -1236,6 +1236,44 @@ class ReminderDueTests(unittest.IsolatedAsyncioTestCase):
             self.streak(custom_sent=self.today), self.goal("custom")
         )
         self.assertEqual(due, [])
+
+    async def test_custom_reminder_waits_for_its_hour(self) -> None:
+        due = await self._due(
+            self.streak(), self.goal("custom"), now=datetime(2026, 10, 22, 13)
+        )
+        self.assertEqual(due, [])
+
+    async def test_custom_reminder_catches_up_after_a_late_run(self) -> None:
+        due = await self._due(
+            self.streak(), self.goal("custom"), now=datetime(2026, 10, 22, 18)
+        )
+        self.assertEqual([reminder.kind for reminder in due], ["custom"])
+
+    async def test_custom_reminder_after_dst_fall_back(self) -> None:
+        # 16:00 in Los Angeles is 23:00 UTC before the switch and 00:00 UTC
+        # after it. A run an hour late must still deliver the reminder.
+        due = await self._due(
+            self.streak(),
+            self.goal("custom", custom_hour=16, timezone="America/Los_Angeles"),
+            now=datetime(2026, 11, 1, 22),
+        )
+        self.assertEqual(due, [])
+        due = await self._due(
+            self.streak(),
+            self.goal("custom", custom_hour=16, timezone="America/Los_Angeles"),
+            now=datetime(2026, 11, 2, 1),
+        )
+        self.assertEqual([reminder.kind for reminder in due], ["custom"])
+
+    async def test_custom_reminder_during_a_skipped_dst_hour(self) -> None:
+        # 02:00 does not exist in New York on 2026-03-08; the next run
+        # (03:00 local) still owes the reminder.
+        due = await self._due(
+            self.streak(),
+            self.goal("custom", custom_hour=2, timezone="America/New_York"),
+            now=datetime(2026, 3, 8, 7),
+        )
+        self.assertEqual([reminder.kind for reminder in due], ["custom"])
 
     async def test_last_chance_is_skipped_after_logging(self) -> None:
         due = await self._due(

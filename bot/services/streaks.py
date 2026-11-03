@@ -1079,17 +1079,21 @@ class StreakService:
             for streak, goal in rows:
                 today = local_date(now, goal.timezone)
                 hour = local_hour(now, goal.timezone)
+                # A passed hour still counts: if a tick is missed (restart,
+                # downtime, a run landing on the other side of a DST shift)
+                # the reminder catches up later the same local day instead of
+                # being silently dropped.
                 if (
                     goal.reminder in ("custom", "both")
                     and goal.custom_hour is not None
-                    and hour == goal.custom_hour
+                    and hour >= goal.custom_hour
                     and streak.last_custom_reminder_on != today
                 ):
                     due.append(Reminder(streak=streak, goal=goal, kind="custom"))
                 elif (
                     streak.last_log_date != today
                     and goal.reminder in ("last_chance", "both")
-                    and hour == LAST_CHANCE_HOUR
+                    and hour >= LAST_CHANCE_HOUR
                     and streak.last_lastchance_reminder_on != today
                 ):
                     due.append(
