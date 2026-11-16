@@ -51,6 +51,7 @@ from .commands.reviews import reviews_group
 from .commands.settings import settings_group
 from .commands.streaks import (
     STREAK_ACTION_LIFETIME_SECONDS,
+    STREAK_ACTION_VIEW_KIND,
     STREAK_LOG_VIEW_KIND,
     StreakEditButtonView,
     StreakLeaderboardFallbackView,
@@ -215,6 +216,11 @@ async def _post_streak_reminders(
             "streaks.reminders.last_chance_title",
             "streaks.reminders.last_chance_content",
         ),
+        (
+            "rescue",
+            "streaks.reminders.rescue_title",
+            "streaks.reminders.rescue_content",
+        ),
     )
     sent: list[Reminder] = []
     for kind, title_key, content_key in groups:
@@ -241,9 +247,15 @@ async def _post_streak_reminders(
             description=interpolate(template, mentions=names),
             colour=colour,
         )
-        embed.set_footer(text=t("streaks.reminders.footer"))
+        if kind == "rescue":
+            embed.set_footer(text=t("streaks.reminders.rescue_footer"))
+            view = StreakRescueView()
+            view_kind = STREAK_ACTION_VIEW_KIND
+        else:
+            embed.set_footer(text=t("streaks.reminders.footer"))
+            view = StreakLogView()
+            view_kind = STREAK_LOG_VIEW_KIND
         set_transparent_image(embed, client)
-        view = StreakLogView()
         try:
             message = await channel.send(
                 content=mentions, embed=embed, view=view
@@ -257,7 +269,7 @@ async def _post_streak_reminders(
         await track_view(
             client,
             message,
-            kind=STREAK_LOG_VIEW_KIND,
+            kind=view_kind,
             lifetime=STREAK_ACTION_LIFETIME_SECONDS,
         )
         sent.extend(due)

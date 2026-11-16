@@ -216,6 +216,32 @@ def is_rescuable(streak: Streak, tz_name: str, now_utc: datetime) -> bool:
     return False
 
 
+def _reminder_marker(
+    goal: StreakGoal, streak: Streak, *, today: date, hour: int
+) -> str | None:
+    """Which reminder, if any, this streak is owed at ``hour`` today.
+
+    A passed hour still counts: if a tick is missed (restart, downtime, a run
+    landing on the other side of a DST shift) the reminder catches up later the
+    same local day instead of being silently dropped.
+    """
+    if (
+        goal.reminder in ("custom", "both")
+        and goal.custom_hour is not None
+        and hour >= goal.custom_hour
+        and streak.last_custom_reminder_on != today
+    ):
+        return "custom"
+    if (
+        streak.last_log_date != today
+        and goal.reminder in ("last_chance", "both")
+        and hour >= LAST_CHANCE_HOUR
+        and streak.last_lastchance_reminder_on != today
+    ):
+        return "last_chance"
+    return None
+
+
 def slot_emoji(
     log: StreakLog | None,
     *,
@@ -379,7 +405,8 @@ class ClosedStreak:
 class Reminder:
     streak: Streak
     goal: StreakGoal
-    kind: str  # "custom" or "last_chance"
+    kind: str  # "custom", "last_chance" or "rescue"
+    marker: str = "custom"  # idempotency column, "custom" or "last_chance"
 
 
 # --------------------------------------------------------------- DB helpers
@@ -1062,43 +1089,60 @@ class StreakService:
         return closed
 
     async def due_reminders(self, now: datetime | None = None) -> list[Reminder]:
-        """Ongoing streaks that are owed a ping at this exact local hour."""
+        """Ongoing or rescuable streaks that are owed a ping right now."""
         now = now or utcnow()
         due: list[Reminder] = []
+        cutoff = now.date() - timedelta(days=GOLDEN_WINDOW.days + 2)
         async with session_scope() as session:
             rows = (
                 await session.execute(
                     select(Streak, StreakGoal)
                     .join(StreakGoal, StreakGoal.id == Streak.goal_id)
                     .where(
-                        Streak.status == STATUS_ONGOING,
+                        Streak.status.in_((STATUS_ONGOING, STATUS_CLOSED)),
                         StreakGoal.reminder != "none",
+                        (Streak.end_date.is_(None))
+                        | (Streak.end_date >= cutoff),
                     )
+                    .order_by(Streak.id.desc())
                 )
             ).all()
+            goals: dict[int, tuple[StreakGoal, list[Streak]]] = {}
             for streak, goal in rows:
+                goals.setdefault(goal.id, (goal, []))[1].append(streak)
+            for goal, streaks in goals.values():
                 today = local_date(now, goal.timezone)
                 hour = local_hour(now, goal.timezone)
-                # A passed hour still counts: if a tick is missed (restart,
-                # downtime, a run landing on the other side of a DST shift)
-                # the reminder catches up later the same local day instead of
-                # being silently dropped.
-                if (
-                    goal.reminder in ("custom", "both")
-                    and goal.custom_hour is not None
-                    and hour >= goal.custom_hour
-                    and streak.last_custom_reminder_on != today
-                ):
-                    due.append(Reminder(streak=streak, goal=goal, kind="custom"))
-                elif (
-                    streak.last_log_date != today
-                    and goal.reminder in ("last_chance", "both")
-                    and hour >= LAST_CHANCE_HOUR
-                    and streak.last_lastchance_reminder_on != today
-                ):
-                    due.append(
-                        Reminder(streak=streak, goal=goal, kind="last_chance")
+                ongoing = next(
+                    (
+                        streak
+                        for streak in streaks
+                        if streak.status == STATUS_ONGOING
+                    ),
+                    None,
+                )
+                rescuable = next(
+                    (
+                        streak
+                        for streak in streaks
+                        if is_rescuable(streak, goal.timezone, now)
+                    ),
+                    None,
+                )
+                # A rescuable closed streak takes priority over a newer
+                # ongoing one: repairing it is time-limited, logging is not.
+                target = rescuable or ongoing
+                if target is None:
+                    continue
+                marker = _reminder_marker(goal, target, today=today, hour=hour)
+                if marker is None:
+                    continue
+                kind = "rescue" if rescuable is not None else marker
+                due.append(
+                    Reminder(
+                        streak=target, goal=goal, kind=kind, marker=marker
                     )
+                )
         return due
 
     async def mark_reminder(self, reminders: list[Reminder]) -> None:
@@ -1112,7 +1156,7 @@ class StreakService:
                     )
                 ).scalar_one()
                 today = local_date(utcnow(), reminder.goal.timezone)
-                if reminder.kind == "custom":
+                if reminder.marker == "custom":
                     streak.last_custom_reminder_on = today
                 else:
                     streak.last_lastchance_reminder_on = today
