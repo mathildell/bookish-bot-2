@@ -563,7 +563,8 @@ async def run() -> None:
     async def _wait_ready_releases() -> None:
         await bot.wait_until_ready()
         # Catch up on anything missed while the bot was down; the work is
-        # idempotent thanks to the announcement/monthly markers.
+        # idempotent thanks to the announcement/monthly markers, and the
+        # service itself waits for the configured post hour.
         try:
             await post_releases_now()
             await releases.purge_expired_drafts()

@@ -57,6 +57,15 @@ def today_utc() -> date:
     return utcnow().date()
 
 
+def is_post_due(now: datetime, *, post_hour: int) -> bool:
+    """Whether announcements may be posted at ``now`` (naive UTC).
+
+    Posts only on or after the configured hour, so a restart earlier in the
+    day does not announce the day's releases ahead of schedule.
+    """
+    return now.hour >= post_hour
+
+
 def _embed_size(embed: discord.Embed) -> int:
     size = len(embed.title or "") + len(embed.description or "")
     if embed.footer:
@@ -872,8 +881,16 @@ class ReleaseService:
         guild: discord.Guild,
         channel: discord.abc.Messageable,
         client: discord.Client,
+        *,
+        now: datetime | None = None,
     ) -> int:
-        """Post the day's releases and (once a month) the monthly overview."""
+        """Post the day's releases and (once a month) the monthly overview.
+
+        Does nothing before the configured UTC hour; everything stays due and
+        is posted by the next run at or after that hour.
+        """
+        if not is_post_due(now or utcnow(), post_hour=self._post_hour):
+            return 0
         async with self._post_lock:
             return await self._post_due(guild, channel, client)
 
