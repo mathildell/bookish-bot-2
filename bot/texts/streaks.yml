@@ -123,7 +123,7 @@ streaks:
   
   today:
     description: "Have you logged today?"
-    button: "Have I logged today?"
+    button: "Have I already logged today?"
     button_emoji: "❔"
     "yes": "✅ ‎ All good! Logged **%{amount} %{unit}** on %{date}."
     no_first: "❌ ‎ Oops, no. Looks like you haven’t logged anything yet."
