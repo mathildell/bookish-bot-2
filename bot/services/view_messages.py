@@ -99,6 +99,24 @@ class ViewMessageService:
             )
             await session.commit()
 
+    async def active(
+        self, kind: str, now: datetime | None = None
+    ) -> list[ViewMessage]:
+        """Tracked rows of ``kind`` whose buttons have not expired yet."""
+        async with session_scope() as session:
+            rows = (
+                await session.execute(
+                    select(ViewMessage)
+                    .where(
+                        ViewMessage.guild_id == self._guild_id,
+                        ViewMessage.kind == kind,
+                        ViewMessage.expires_at > (now or utcnow()),
+                    )
+                    .order_by(ViewMessage.expires_at)
+                )
+            ).scalars()
+        return list(rows)
+
     async def expired(
         self, now: datetime | None = None, limit: int | None = None
     ) -> list[ViewMessage]:

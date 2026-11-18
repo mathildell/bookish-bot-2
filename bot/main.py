@@ -53,6 +53,7 @@ from .commands.streaks import (
     STREAK_ACTION_LIFETIME_SECONDS,
     STREAK_ACTION_VIEW_KIND,
     STREAK_LOG_VIEW_KIND,
+    TODAY_CUSTOM_ID,
     StreakEditButtonView,
     StreakLeaderboardFallbackView,
     StreakLogView,
@@ -274,6 +275,18 @@ async def _post_streak_reminders(
         )
         sent.extend(due)
     return sent
+
+
+def _has_component(message: discord.Message, custom_id: str) -> bool:
+    """Whether an already-posted message carries a component with this id."""
+    try:
+        view = discord.ui.View.from_message(message, timeout=None)
+    except (TypeError, ValueError):
+        return False
+    return any(
+        getattr(child, "custom_id", None) == custom_id
+        for child in view.children
+    )
 
 
 async def run() -> None:
@@ -983,8 +996,58 @@ async def run() -> None:
         await post_biweekly_theme_now()
 
     # ------------------------- startup -------------------------
+    async def add_streak_today_buttons_now() -> None:
+        """Catch up streak reminders posted before the today button existed."""
+        rows = await view_messages.active(STREAK_LOG_VIEW_KIND)
+        if not rows:
+            return
+        guild = bot.get_guild(int(config.guild_id))
+        if guild is None:
+            return
+        updated = 0
+        for row in rows:
+            channel = await resolve_notify_channel(guild, row.channel_id)
+            if channel is None:
+                continue
+            try:
+                message = await channel.get_partial_message(
+                    row.message_id
+                ).fetch()
+            except discord.NotFound:
+                await view_messages.delete(row.message_id)
+                continue
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not fetch streak reminder message %s",
+                    row.message_id,
+                    exc_info=True,
+                )
+                continue
+            if _has_component(message, TODAY_CUSTOM_ID):
+                continue
+            remaining = (row.expires_at - utcnow()).total_seconds()
+            try:
+                await message.edit(
+                    view=StreakLogView(timeout=max(remaining, 1))
+                )
+            except discord.HTTPException:
+                logger.warning(
+                    "Could not add the today button to message %s",
+                    row.message_id,
+                    exc_info=True,
+                )
+                continue
+            updated += 1
+        if updated:
+            logger.info(
+                "Added the today button to %d streak reminder(s)", updated
+            )
+
+    streak_today_catch_up_done = False
+
     @bot.event
     async def on_ready() -> None:
+        nonlocal streak_today_catch_up_done
         logger.info("Logged in as %s (%s)", bot.user, bot.user.id)
 
         await reactor.reload()
@@ -1056,6 +1119,13 @@ async def run() -> None:
 
         await streaks.reload()
         logger.info("Streak channel: %s", streaks.channel_id)
+
+        if not streak_today_catch_up_done:
+            streak_today_catch_up_done = True
+            try:
+                await add_streak_today_buttons_now()
+            except Exception:
+                logger.exception("Could not add the streak today button")
 
         await birthdays.reload()
         logger.info(
