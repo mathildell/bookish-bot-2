@@ -47,6 +47,7 @@ from .views import (
 
 RESCUE_CUSTOM_ID = "streaks:rescue"
 LOG_CUSTOM_ID = "streaks:log"
+TODAY_CUSTOM_ID = "streaks:today"
 EDIT_CUSTOM_ID = "streaks:edit"
 LEADERBOARD_ONGOING_CUSTOM_ID = "streaks:leaderboard:ongoing"
 LEADERBOARD_ALL_TIME_CUSTOM_ID = "streaks:leaderboard:all"
@@ -1391,6 +1392,45 @@ class _LogModal(discord.ui.Modal):
         )
 
 
+async def _today_message(
+    service: streak_service.StreakService, user_id: int
+) -> str:
+    """The status text behind ``/streak today`` and the reminder button."""
+    try:
+        status = await service.today_status(user_id)
+    except streak_service.StreakError:
+        return t("streaks.today.not_registered")
+
+    goal = status.goal
+    if status.logged:
+        message = t(
+            "streaks.today.yes",
+            amount=status.amount,
+            unit=goal.unit,
+            date=_format_date(status.last_date),
+        )
+    else:
+        message = t("streaks.today.no_first")
+
+    after_five = streak_service.local_hour(
+        streak_service.utcnow(), goal.timezone
+    ) >= 17
+    if not status.logged and after_five and status.closes_at is not None:
+        if goal.amount > 1:
+            this = t("streaks.today.these")
+        else:
+            this = t("streaks.today.this")
+
+        message += "\n" + t(
+            "streaks.today.hurry",
+            this=this,
+            amount=goal.amount,
+            unit=goal.unit,
+            closes=f"<t:{int(status.closes_at.timestamp())}:R>",
+        )
+    return message
+
+
 class _LogButton(discord.ui.Button):
     def __init__(self) -> None:
         super().__init__(
@@ -1406,12 +1446,29 @@ class _LogButton(discord.ui.Button):
         )
 
 
+class _TodayButton(discord.ui.Button):
+    def __init__(self) -> None:
+        super().__init__(
+            label=t("streaks.today.button"),
+            emoji=t("streaks.today.button_emoji"),
+            style=discord.ButtonStyle.secondary,
+            custom_id=TODAY_CUSTOM_ID,
+        )
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        message = await _today_message(
+            interaction.client.streaks, interaction.user.id
+        )
+        await interaction.response.send_message(message, ephemeral=True)
+
+
 class StreakLogView(ExpiringView):
     def __init__(
         self, *, timeout: float | None = STREAK_ACTION_LIFETIME_SECONDS
     ) -> None:
         super().__init__(timeout=timeout)
         self.add_item(_LogButton())
+        self.add_item(_TodayButton())
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         return await tracked_check(interaction)
@@ -1703,42 +1760,7 @@ async def log(interaction: discord.Interaction, amount: str) -> None:
 async def today(interaction: discord.Interaction) -> None:
     if not await _channel_guard(interaction):
         return
-    try:
-        status = await _service(interaction).today_status(interaction.user.id)
-    except streak_service.StreakError:
-        await interaction.response.send_message(
-            t("streaks.today.not_registered"), ephemeral=True
-        )
-        return
-
-    goal = status.goal
-    if status.logged:
-        message = t(
-            "streaks.today.yes",
-            amount=status.amount,
-            unit=goal.unit,
-            date=_format_date(status.last_date),
-        )
-    else:
-        message = t("streaks.today.no_first")
-
-    after_five = streak_service.local_hour(
-        streak_service.utcnow(), goal.timezone
-    ) >= 17
-    if not status.logged and after_five and status.closes_at is not None:
-        if goal.amount > 1:
-            this=t("streaks.today.these")
-        else:
-            this=t("streaks.today.this")
-
-        message += "\n" + t(
-            "streaks.today.hurry",
-            this=this,
-            amount=goal.amount,
-            unit=goal.unit,
-            closes=f"<t:{int(status.closes_at.timestamp())}:R>",
-        )
-
+    message = await _today_message(_service(interaction), interaction.user.id)
     await interaction.response.send_message(message, ephemeral=True)
 
 
