@@ -1101,7 +1101,7 @@ class StreakService:
                     .where(
                         Streak.status.in_((STATUS_ONGOING, STATUS_CLOSED)),
                         StreakGoal.reminder != "none",
-                        (Streak.end_date.is_(None))
+                        (Streak.status == STATUS_ONGOING)
                         | (Streak.end_date >= cutoff),
                     )
                     .order_by(Streak.id.desc())
