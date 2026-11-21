@@ -8,6 +8,8 @@ Permissions:
 
 from __future__ import annotations
 
+import re
+
 import discord
 from discord import app_commands, PartialEmoji
 
@@ -58,6 +60,23 @@ def _member_name(
     return t("booster.unknown_name")
 
 
+_EMOJI_NAME_INVALID = re.compile(r"[^a-zA-Z0-9_]+")
+
+
+def _emoji_name(user: discord.User, interaction: discord.Interaction) -> str:
+    """Application emoji name, distilled from the display name.
+
+    Discord accepts 2-32 characters from ``[a-zA-Z0-9_]``.
+    """
+    cleaned = _EMOJI_NAME_INVALID.sub(
+        "_", _display_name(user, interaction)
+    ).strip("_")
+    name = cleaned[:32]
+    if len(name) < 2:
+        name = f"booster_{name}".strip("_")
+    return name
+
+
 def _nickname_extra(nicknames: str | None) -> str:
     """Render the extra nicknames as supplied, if any."""
     if not nicknames:
@@ -100,12 +119,14 @@ def _react_embed(row, member: discord.Member | None, client) -> discord.Embed:
     emoji=t("booster.react.set.param_emoji"),
     user=t("booster.react.set.param_user"),
     nicknames=t("booster.react.set.param_nicknames"),
+    image=t("booster.react.set.param_image"),
 )
 async def set_react(
     interaction: discord.Interaction,
     emoji: str | None = None,
     user: discord.User | None = None,
     nicknames: str | None = None,
+    image: discord.Attachment | None = None,
 ) -> None:
     target = user if user is not None else interaction.user
     denial = denial_message(interaction, target, scope="react")
@@ -115,14 +136,18 @@ async def set_react(
 
     await interaction.response.defer()
 
+    if emoji is not None and image is not None:
+        await interaction.followup.send(t("booster.icon_conflict"), ephemeral=True)
+        return
+
     service = interaction.client.booster_reacts
     record = await service.find(target.id)
-    if record is None and emoji is None:
+    if record is None and emoji is None and image is None:
         await interaction.followup.send(
             t("booster.react.set.emoji_required"), ephemeral=True
         )
         return
-    if record is not None and emoji is None and nicknames is None:
+    if record is not None and emoji is None and image is None and nicknames is None:
         await interaction.followup.send(
             t("booster.react.set.nothing_to_change"), ephemeral=True
         )
@@ -146,6 +171,18 @@ async def set_react(
             return
 
     new_emoji = emoji
+    if image is not None:
+        try:
+            uploaded = await interaction.client.create_application_emoji(
+                name=_emoji_name(target, interaction), image=await image.read()
+            )
+        except discord.HTTPException as exc:
+            await interaction.followup.send(
+                t("booster.react.set.image_failed", error=str(exc)),
+                ephemeral=True,
+            )
+            return
+        new_emoji = str(uploaded)
     if new_emoji is None and record is not None:
         new_emoji = record.emoji
     identifiers = merge_identifiers(

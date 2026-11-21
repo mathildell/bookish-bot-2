@@ -116,9 +116,7 @@ async def edit(
     await interaction.response.defer()
 
     if emoji is not None and image is not None:
-        await interaction.followup.send(
-            t("booster.role.edit.icon_conflict"), ephemeral=True
-        )
+        await interaction.followup.send(t("booster.icon_conflict"), ephemeral=True)
         return
 
     if all(value is None for value in (name, color, gradient, emoji, image)):

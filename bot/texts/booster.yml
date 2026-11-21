@@ -14,15 +14,20 @@ booster:
   # Fallback name when a listed member can no longer be resolved.
   unknown_name: "Mysterious internet user"
 
+  # Shared by the react and role editors, which both take an emoji or an image.
+  icon_conflict: "Pick either an emoji or an image; we’re not hosting a maximalist fashion revival honey."
+
   react:
     group_description: "Manage custom booster reacts"
     emoji_taken: "Looks like %{user} beat you to the punch; that emoji is already spoken for."
     set:
       description: "Add or change a custom react emoji"
-      param_emoji: "Emoji to react with (required when adding a registration)"
+      param_emoji: "Emoji to react with (a server emoji; required when adding unless you upload an image)"
       param_user: "Who to set it for (defaults to you)"
       param_nicknames: "Optional comma-separated nicknames (leave empty to keep current)"
-      emoji_required: "I need an emoji to create a booster react."
+      param_image: "Or upload a PNG/JPEG/GIF image, added to the bot's emojis"
+      emoji_required: "I need an emoji or an image to create a booster react."
+      image_failed: "Couldn’t upload that emoji: %{error}"
       invalid_emoji: "Am I blind? `%{emoji}` doesn’t look like a valid emoji to me."
       nothing_to_change: "Nothing to change then? That’s fine, no worries, I wasn’t doing anything important..."
       created: "Saved the reaction %{emoji} for %{user}%{extra}"
@@ -53,7 +58,6 @@ booster:
       param_gradient: "Secondary color for a gradient, hex (use `none` to clear)"
       param_emoji: "Unicode emoji icon (use `none` to clear)"
       param_image: "Or upload a PNG/JPEG image to use as the icon"
-      icon_conflict: "Pick either an emoji or an image; we’re not hosting a maximalist fashion revival honey."
       nothing_to_change: "Provide a new name, color, gradient, emoji or image to change."
       not_found: "%{user} doesn’t have a booster role yet!"
       invalid_name: ":telephone_receiver: Hello-hello? Discord called me and said that role name was illegal. Straight to jail!"

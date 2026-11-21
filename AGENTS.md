@@ -8,7 +8,8 @@ Guidance for AI coding agents working in this repository.
 
 Implemented features:
 - **Booster reacts** — auto-react to messages that mention a registered booster's
-  name/nickname.
+  name/nickname. The react is a server emoji or an uploaded image, which is
+  turned into an application emoji.
 - **Booster roles** — let boosters rename/recolour a custom role an admin linked
   to them.
 - **Levels** — members earn XP from messages; each level grants the configured

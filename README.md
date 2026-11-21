@@ -11,12 +11,14 @@ Tie an emoji to a booster's name/nickname; the bot then reacts with that emoji
 whenever the name is mentioned.
 
 ```
-/booster react set [emoji:] [user:] [nicknames:]
+/booster react set [emoji:] [user:] [nicknames:] [image:]
 ```
 **Permissions:** Admin (anyone) / Booster (self only)
 Create a booster's react registration or change an existing one. Only the
 values you pass are replaced; omitted values keep their current setting. An
-emoji is required when creating a registration.
+emoji or an uploaded image is required when creating a registration: the image
+is uploaded to the bot's application emojis, while the emoji argument only
+accepts emojis from the server.
 
 ```
 /booster react view [user:]
