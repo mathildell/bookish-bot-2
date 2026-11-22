@@ -826,6 +826,7 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
     async def test_modal_log_replies_to_the_alert(self) -> None:
         modal = command_streaks._LogModal()
         modal.amount._value = "42"
+        modal.book._value = "Dune"
         interaction = SimpleNamespace(message=SimpleNamespace(id=7))
 
         with patch.object(
@@ -834,7 +835,7 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
             await modal.on_submit(interaction)
 
         perform.assert_awaited_once_with(
-            interaction, "42", reply_to=interaction.message
+            interaction, "42", book="Dune", reply_to=interaction.message
         )
 
     async def test_log_button_hands_the_alert_to_the_modal(self) -> None:

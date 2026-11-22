@@ -80,6 +80,9 @@ admin_group = app_commands.Group(
 )
 
 
+BOOK_MAX_LENGTH = 100
+
+
 def _service(interaction: discord.Interaction) -> streak_service.StreakService:
     return bot_of(interaction).streaks
 
@@ -422,6 +425,7 @@ def _log_embed(
     result: streak_service.LogResult,
     coupon_url: str | None = None,
     coupon_color: int | None = None,
+    book: str | None = None,
 ) -> discord.Embed:
     goal = result.goal
     log = result.log
@@ -439,6 +443,12 @@ def _log_embed(
         value=t("streaks.log.amount_value", amount=log.amount, unit=goal.unit),
         inline=True,
     )
+    if book:
+        embed.add_field(
+            name=t("streaks.log.book_field"),
+            value=discord.utils.escape_markdown(book),
+            inline=True,
+        )
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t(
@@ -525,6 +535,7 @@ async def _perform_log(
     interaction: discord.Interaction,
     amount: str,
     *,
+    book: str | None = None,
     ephemeral: bool = False,
     reply_to: discord.Message | None = None,
 ) -> None:
@@ -565,6 +576,7 @@ async def _perform_log(
         result,
         coupon_url=coupon_url,
         coupon_color=getattr(coupons[0], "color", None) if coupons else None,
+        book=(book or "").strip() or None,
     )
     if as_new_message:
         message = await _reply_to_alert(interaction, reply_to, embed, view)
@@ -1395,11 +1407,19 @@ class _LogModal(discord.ui.Modal):
             placeholder=t("streaks.log.modal_placeholder"),
         )
         self.add_item(self.amount)
+        self.book = discord.ui.TextInput(
+            label=t("streaks.log.modal_book"),
+            placeholder=t("streaks.log.modal_book_placeholder"),
+            required=False,
+            max_length=BOOK_MAX_LENGTH,
+        )
+        self.add_item(self.book)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await _perform_log(
             interaction,
             str(self.amount.value),
+            book=str(self.book.value),
             reply_to=self.reply_to or interaction.message,
         )
 
@@ -1751,11 +1771,17 @@ async def edit(interaction: discord.Interaction) -> None:
 
 
 @streaks_group.command(name="log", description=t("streaks.log.description"))
-@app_commands.describe(amount=t("streaks.log.param_amount"))
-async def log(interaction: discord.Interaction, amount: str) -> None:
+@app_commands.describe(
+    amount=t("streaks.log.param_amount"), book=t("streaks.log.param_book")
+)
+async def log(
+    interaction: discord.Interaction,
+    amount: str,
+    book: app_commands.Range[str, 1, BOOK_MAX_LENGTH] | None = None,
+) -> None:
     if not await _channel_guard(interaction):
         return
-    await _perform_log(interaction, amount)
+    await _perform_log(interaction, amount, book=book)
 
 
 @streaks_group.command(name="today", description=t("streaks.today.description"))
