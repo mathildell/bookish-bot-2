@@ -4,9 +4,8 @@ reminders:
 
   shared:
     param_message: "The reminder text (up to 240 characters)"
-    param_schedule: "When to fire, e.g. `at 2pm`, `on monday at 2pm`, `every 2 days at 2pm`, `in 30 minutes` or `on the last day of the month at 2pm`"
-    param_repeat: "How often it should repeat"
-    param_timezone: "Timezone the schedule is read in (defaults to your streak timezone)"
+    param_schedule: "When, in plain words: `every two weeks on saturday at 3pm Berlin time` (9 AM if no time)"
+    param_timezone: "Timezone to read it in (default: the one you name, then your streak timezone)"
     param_channel: "Post in another channel instead (admins only)"
     param_role: "Also ping a role when it posts (admins only)"
     param_reminder: "Which reminder (start typing to search)"
@@ -15,15 +14,11 @@ reminders:
     next_field: "Next run"
     channel_field: "Channel"
     role_field: "Role"
-    hour_value_am: "%{hour}:00 AM"
-    hour_value_pm: "%{hour}:00 PM"
-
-  repeat:
-    once: "Once"
-    daily: "Every day"
-    weekly: "Every week"
-    monthly: "Every month"
-    interval: "Every N days"
+    time_am: "%{hour}:%{minute} AM"
+    time_pm: "%{hour}:%{minute} PM"
+    timezone_field: "Timezone"
+    phrase_field: "You wrote"
+    list_and: "%{head} and %{last}"
 
   schedule:
     once: "Once, %{when}"
@@ -35,13 +30,69 @@ reminders:
     monthly_before_plural: "Every month %{days} days before the end at %{hour}"
     interval: "Every %{days} day at %{hour}"
     interval_plural: "Every %{days} days at %{hour}"
+    interval_weeks: "Every %{weeks} weeks on %{weekday} at %{hour}"
+    weekly_many: "Every %{weekdays} at %{hour}"
+    weekdays_all: "weekday"
+    weekends_all: "weekend"
+    monthly_every: "Every %{months} months on the %{day} at %{hour}"
+    monthly_every_last: "Every %{months} months on the last day at %{hour}"
+    monthly_every_before: "Every %{months} months %{days} days before the end at %{hour}"
+    monthly_nth: "Every month on the %{nth} %{weekday} at %{hour}"
+    monthly_nth_every: "Every %{months} months on the %{nth} %{weekday} at %{hour}"
+    yearly: "Every year on %{month} %{day} at %{hour}"
+    rolling_minutes: "Every %{count} minutes"
+    rolling_hours: "Every %{count} hours"
+    rolling_hour: "Every hour"
+    nth:
+      first: "first"
+      second: "second"
+      third: "third"
+      fourth: "fourth"
+      last: "last"
 
-  schedule_help:
-    once: "`in 30 minutes`, `2026-10-29 at 14:00`, `thursday at 2pm` or `tomorrow at 9am`"
-    daily: "`at 2pm` or `every day at 2pm`"
-    weekly: "`on monday at 2pm` or `every monday at 2pm`"
-    monthly: "`on the 15th at 2pm`, `on the last day of the month at 2pm` or `2 days before the end of the month at 2pm`"
-    interval: "`every 2 days at 2pm`"
+  interpreter:
+    prompt: |-
+      You turn a reminder schedule written in everyday language into JSON. Reply with one JSON object and nothing else. Never compute dates yourself.
+
+      Today is %{weekday}, %{today}. The member's timezone is %{timezone}.
+
+      Keys (use null when the phrase does not say):
+      - "repeat": "once", "daily", "weekly", "monthly", "yearly" or "rolling". A single occurrence is "once". "rolling" is for repeating every few minutes or hours.
+      - "time": the time of day as 24-hour "HH:MM" (3pm is "15:00", noon "12:00", midnight "00:00", morning "09:00", afternoon "15:00", evening "18:00", night "21:00").
+      - "timezone": an IANA name only if the phrase names a place or zone ("Berlin time" is "Europe/Berlin", "EST" is "America/New_York").
+      - "day": for "once", "today", "tomorrow" or a lowercase weekday name.
+      - "weekdays": for "weekly", a list of lowercase weekday names; "every weekday" is ["weekdays"] and "every weekend" is ["weekends"].
+      - "date": a calendar date "YYYY-MM-DD", only when the phrase gives an exact date including the year.
+      - "month" and "day_of_month": a month (1-12) and day, for "yearly" or for a "once" like "March 4th" with no year.
+      - "in_amount" and "in_unit": for "in 45 minutes" or "in 2 hours". The unit is "minutes", "hours", "days" or "weeks".
+      - "every": the step between repeats as a number: "every two weeks" and "every other week" are 2, "every 3 months" is 3. Use 1 or null for plain "every week".
+      - "unit": for "rolling", "minutes" or "hours".
+      - "day_of_month": 1 to 31, for "monthly" on a fixed day ("the 15th").
+      - "days_before_month_end": for "monthly" counted back from the end; the last day is 0, "3 days before the end" is 3.
+      - "nth": for "monthly" on a weekday of the month: "first", "second", "third", "fourth" or "last", together with "weekdays".
+
+      Examples:
+      "Every two weeks on saturday" -> {"repeat":"weekly","every":2,"weekdays":["saturday"],"time":null}
+      "Next saturday at 3PM Berlin time" -> {"repeat":"once","day":"saturday","time":"15:00","timezone":"Europe/Berlin"}
+      "3 days before the end of the month, every month, at 9am" -> {"repeat":"monthly","days_before_month_end":3,"time":"09:00"}
+      "every 3 months on the 1st at 10am" -> {"repeat":"monthly","every":3,"day_of_month":1,"time":"10:00"}
+      "every weekday at 8:30am" -> {"repeat":"weekly","weekdays":["weekdays"],"time":"08:30"}
+      "mondays and thursdays at 6pm" -> {"repeat":"weekly","weekdays":["monday","thursday"],"time":"18:00"}
+      "the first monday of every month at noon" -> {"repeat":"monthly","nth":"first","weekdays":["monday"],"time":"12:00"}
+      "every year on march 4th" -> {"repeat":"yearly","month":3,"day_of_month":4,"time":null}
+      "every 2 hours" -> {"repeat":"rolling","every":2,"unit":"hours"}
+      "every day at 8:30pm" -> {"repeat":"daily","time":"20:30"}
+      "in 45 minutes" -> {"repeat":"once","in_amount":45,"in_unit":"minutes"}
+      "december 24th at 6pm" -> {"repeat":"once","month":12,"day_of_month":24,"time":"18:00"}
+      "2027-03-04 at 7am" -> {"repeat":"once","date":"2027-03-04","time":"07:00"}
+
+  confirm:
+    prompt: "Here is how I read that. Save it?"
+    title: "Confirm reminder"
+    save: "Save"
+    cancel: "Cancel"
+    saved: "Saved."
+    cancelled: "Cancelled. Nothing was saved."
 
   add:
     description: "Create a reminder"
@@ -91,17 +142,23 @@ reminders:
   errors:
     generic: "Something went wrong with that reminder."
     not_allowed: "Only the reminder’s owner or a member with the pinged role can use these buttons."
-    missing_schedule: "Tell me when to fire. For **%{repeat}** reminders, use %{examples}."
-    invalid_schedule: "I couldn’t read that schedule. For **%{repeat}** reminders, use %{examples}."
-    invalid_time: "I couldn’t read that time. Use `2pm` or `14:00`."
+    not_understood: "I couldn’t work out when that should be. Try something like `next saturday at 3pm`, `every two weeks on saturday at 10am` or `in 45 minutes`."
+    unsupported_schedule: "I can’t read that combination yet (for example every few weeks on several days, or every few years). Try splitting it into separate reminders."
+    invalid_month_interval: "`%{months}` isn’t a valid number of months between runs (1-%{maximum})."
+    invalid_month_week: "`%{nth}` isn’t a valid weekday of the month; use first to fourth, or last."
+    invalid_month: "`%{month}` isn’t a month I recognise."
+    invalid_rolling: "Repeating every few minutes or hours works from %{minimum} minutes up to a week."
+    ai_disabled: "Reading schedules needs the chatbot, and an admin has switched it off."
+    ai_unavailable: "I couldn’t reach my schedule reader just now. Try again in a moment."
+    invalid_time: "I couldn’t read that time. Use something like `3pm` or `15:30`."
     invalid_minutes: "`%{minutes}` isn’t a valid number of minutes (1-%{maximum})."
     missing_message: "The reminder text can’t be empty."
     message_too_long: "That reminder text is %{length} characters long; the max is %{maximum}."
     invalid_hour: "`%{hour}` isn’t a valid hour of the day (0-23)."
     invalid_timezone: "`%{timezone}` isn’t a timezone I recognise; try looking up a metropolis near you instead."
     invalid_kind: "`%{kind}` isn’t a schedule I know."
-    missing_date: "One-off reminders need a date (`2026-10-29` or a weekday like `thursday`) or a delay like `in 30 minutes`."
-    invalid_date: "`%{date}` isn’t a date I recognise; use `2026-10-29` or a weekday like `thursday`."
+    missing_date: "Tell me which day: a date, `tomorrow`, a weekday like `thursday`, or a delay like `in 30 minutes`."
+    invalid_date: "`%{date}` isn’t a date I recognise."
     past_date: "`%{date}` is already in the past, so it would never fire. Pick a future date."
     invalid_weekday: "`%{weekday}` isn’t a day of the week I recognise."
     missing_weekday: "Weekly reminders need a weekday to fire on."

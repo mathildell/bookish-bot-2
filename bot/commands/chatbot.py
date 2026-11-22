@@ -7,6 +7,7 @@ from typing import Literal
 import discord
 from discord import app_commands
 
+from ..services.chat import configure_chat
 from ..services.members import resolve_members
 from ..services.embeds import new_embed, set_transparent_image
 from ..client import bot_of
@@ -67,6 +68,97 @@ async def model_autocomplete(
         for display, value in detailed[:MAX_CHOICES]:
             matches.append(app_commands.Choice(name=display[:100], value=value))
     return matches
+
+
+def _prompt_state(value: str | None) -> str:
+    return t("chatbot.settings.custom" if value else "chatbot.settings.builtin")
+
+
+@chatbot_group.command(name="settings", description=t("chatbot.settings.description"))
+async def chatbot_settings(interaction: discord.Interaction) -> None:
+    if not await require_admin(interaction):
+        return
+    await interaction.response.defer(ephemeral=True)
+    bot = bot_of(interaction)
+    settings = bot.bot_settings
+    chat = getattr(bot, "chat", None)
+
+    embed = new_embed(interaction.client)
+    embed.title = t("chatbot.settings.title")
+    embed.add_field(
+        name=t("chatbot.settings.status_field"),
+        value=t(
+            "chatbot.settings.status_on"
+            if settings.chat_enabled
+            else "chatbot.settings.status_off"
+        ),
+        inline=False,
+    )
+    if chat is None:
+        embed.add_field(
+            name=t("chatbot.settings.model_field"),
+            value=t("chatbot.settings.no_service"),
+            inline=False,
+        )
+    else:
+        configure_chat(bot)
+        source = (
+            "chatbot.settings.model_set"
+            if settings.chat_model
+            else "chatbot.settings.model_default"
+        )
+        if not settings.chat_enabled:
+            reach = "chatbot.settings.reach_skipped"
+        else:
+            try:
+                installed = chat.model in await chat.list_models()
+                reach = (
+                    "chatbot.settings.reach_ok"
+                    if installed
+                    else "chatbot.settings.reach_missing"
+                )
+            except Exception:
+                reach = "chatbot.settings.reach_down"
+        embed.add_field(
+            name=t("chatbot.settings.model_field"),
+            value=t(
+                "chatbot.settings.model_value",
+                model=chat.model,
+                source=t(source),
+                reach=t(reach),
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name=t("chatbot.settings.limits_field"),
+            value=t(
+                "chatbot.settings.limits_value",
+                cooldown=chat.cooldown_seconds,
+                timeout=chat.timeout_seconds,
+                tokens=chat.max_tokens,
+                temperature=chat.temperature,
+                context=chat.num_ctx,
+                history=chat.history_depth,
+            ),
+            inline=False,
+        )
+    embed.add_field(
+        name=t("chatbot.settings.prompts_field"),
+        value=t(
+            "chatbot.settings.prompts_value",
+            persona=_prompt_state(settings.chat_persona),
+            name=_prompt_state(settings.chat_prompt_name),
+            info=_prompt_state(settings.chat_prompt_info),
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name=t("chatbot.settings.bios_field"),
+        value=str(len(await bot.member_profiles.all())),
+        inline=False,
+    )
+    set_transparent_image(embed, interaction.client)
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @chatbot_group.command(name="toggle", description=t("chatbot.toggle.description"))

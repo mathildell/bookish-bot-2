@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -16,16 +17,24 @@ from discord import app_commands
 
 from ..services import reminders as reminder_service
 from ..services.members import resolve_members
+from ..services.reminder_interpreter import (
+    InterpreterDisabled,
+    InterpreterUnavailable,
+    ReminderInterpreter,
+)
 from ..services.reminders import (
     KIND_DAILY,
     KIND_INTERVAL,
     KIND_MONTHLY,
     KIND_ONCE,
+    KIND_ROLLING,
     KIND_WEEKLY,
-    KINDS,
+    KIND_YEARLY,
     Reminder,
     ReminderService,
 )
+from ..services.chat import configure_chat
+from ..services.level import utcnow
 from ..services.text import ordinal
 from ..services.timezones import as_utc
 from ..services.weekdays import WEEKDAY_NAMES
@@ -33,6 +42,7 @@ from ..services.embeds import new_embed, set_transparent_image
 from ..client import bot_of
 from ..texts import t
 from .autocomplete import timezone_autocomplete
+from .chat import chatbot_enabled
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
@@ -40,7 +50,13 @@ from .listing import (
     send_paginated,
     set_author,
 )
-from .views import ExpiringView, delete_interaction_view, delete_view, tracked_row
+from .views import (
+    ExpiringView,
+    delete_interaction_view,
+    delete_view,
+    ensure_author,
+    tracked_row,
+)
 
 logger = logging.getLogger("bh2.reminders")
 
@@ -62,14 +78,11 @@ def _service(interaction: discord.Interaction) -> ReminderService:
     return bot_of(interaction).reminders
 
 
-def _hour_value(hour: int) -> str:
-    display = hour % 12 or 12
+def _time_value(hour: int, minute: int = 0) -> str:
     key = (
-        "reminders.shared.hour_value_am"
-        if hour < 12
-        else "reminders.shared.hour_value_pm"
+        "reminders.shared.time_am" if hour < 12 else "reminders.shared.time_pm"
     )
-    return t(key, hour=display)
+    return t(key, hour=hour % 12 or 12, minute=f"{minute:02d}")
 
 
 def _weekday_name(weekday: int) -> str:
@@ -80,9 +93,78 @@ def _format_run(moment: datetime) -> str:
     return discord.utils.format_dt(as_utc(moment), "f")
 
 
+def _weekday_list(weekdays: tuple[int, ...]) -> str:
+    if weekdays == (0, 1, 2, 3, 4):
+        return t("reminders.schedule.weekdays_all")
+    if weekdays == (5, 6):
+        return t("reminders.schedule.weekends_all")
+    names = [_weekday_name(day) for day in weekdays]
+    if len(names) == 1:
+        return names[0]
+    return t("reminders.shared.list_and", head=", ".join(names[:-1]), last=names[-1])
+
+
+def _monthly_summary(reminder: Reminder, hour: str) -> str:
+    months = getattr(reminder, "month_interval", None) or 1
+    weekdays = reminder_service.weekdays_of(reminder)
+    month_week = getattr(reminder, "month_week", None)
+    if month_week is not None:
+        nth = t(
+            "reminders.schedule.nth."
+            + {1: "first", 2: "second", 3: "third", 4: "fourth", -1: "last"}[
+                month_week
+            ]
+        )
+        key = (
+            "reminders.schedule.monthly_nth"
+            if months == 1
+            else "reminders.schedule.monthly_nth_every"
+        )
+        return t(
+            key,
+            nth=nth,
+            weekday=_weekday_name(weekdays[0]),
+            months=months,
+            hour=hour,
+        )
+    offset = reminder.month_end_offset
+    if offset is not None:
+        if months > 1:
+            if offset == 0:
+                return t(
+                    "reminders.schedule.monthly_every_last",
+                    months=months,
+                    hour=hour,
+                )
+            return t(
+                "reminders.schedule.monthly_every_before",
+                months=months,
+                days=offset,
+                hour=hour,
+            )
+        if offset == 0:
+            return t("reminders.schedule.monthly_last", hour=hour)
+        key = (
+            "reminders.schedule.monthly_before"
+            if offset == 1
+            else "reminders.schedule.monthly_before_plural"
+        )
+        return t(key, days=offset, hour=hour)
+    day = ordinal(reminder.day_of_month or 1)
+    if months > 1:
+        return t(
+            "reminders.schedule.monthly_every",
+            months=months,
+            day=day,
+            hour=hour,
+        )
+    return t("reminders.schedule.monthly", day=day, hour=hour)
+
+
 def schedule_summary(reminder: Reminder) -> str:
     """Human-readable schedule, used in confirmations and posted reminders."""
-    hour = _hour_value(reminder.hour)
+    hour = _time_value(reminder.hour, reminder.minute or 0)
+    weekdays = reminder_service.weekdays_of(reminder)
     if reminder.kind == KIND_ONCE:
         return t(
             "reminders.schedule.once", when=_format_run(reminder.next_run_at)
@@ -90,28 +172,41 @@ def schedule_summary(reminder: Reminder) -> str:
     if reminder.kind == KIND_DAILY:
         return t("reminders.schedule.daily", hour=hour)
     if reminder.kind == KIND_WEEKLY:
+        if len(weekdays) == 1:
+            return t(
+                "reminders.schedule.weekly",
+                weekday=_weekday_name(weekdays[0]),
+                hour=hour,
+            )
         return t(
-            "reminders.schedule.weekly",
-            weekday=_weekday_name(reminder.weekday),
+            "reminders.schedule.weekly_many",
+            weekdays=_weekday_list(weekdays),
             hour=hour,
         )
     if reminder.kind == KIND_MONTHLY:
-        if reminder.month_end_offset is not None:
-            offset = reminder.month_end_offset
-            if offset == 0:
-                return t("reminders.schedule.monthly_last", hour=hour)
-            key = (
-                "reminders.schedule.monthly_before"
-                if offset == 1
-                else "reminders.schedule.monthly_before_plural"
-            )
-            return t(key, days=offset, hour=hour)
+        return _monthly_summary(reminder, hour)
+    if reminder.kind == KIND_YEARLY:
         return t(
-            "reminders.schedule.monthly",
+            "reminders.schedule.yearly",
+            month=t(f"components.months.{reminder.month}"),
             day=ordinal(reminder.day_of_month or 1),
             hour=hour,
         )
+    if reminder.kind == KIND_ROLLING:
+        minutes = reminder.interval_minutes or 0
+        if minutes == 60:
+            return t("reminders.schedule.rolling_hour")
+        if minutes % 60 == 0:
+            return t("reminders.schedule.rolling_hours", count=minutes // 60)
+        return t("reminders.schedule.rolling_minutes", count=minutes)
     days = reminder.interval_days or 1
+    if weekdays and days % 7 == 0:
+        return t(
+            "reminders.schedule.interval_weeks",
+            weeks=days // 7,
+            weekday=_weekday_name(weekdays[0]),
+            hour=hour,
+        )
     key = (
         "reminders.schedule.interval"
         if days == 1
@@ -156,11 +251,21 @@ def snoozed_title(task_text: str) -> str:
 
 
 def _confirmation_embed(
-    client: discord.Client, reminder: Reminder, title: str
+    client: discord.Client,
+    reminder: Reminder,
+    title: str,
+    *,
+    phrase: str | None = None,
 ) -> discord.Embed:
     embed = reminder_embed(client, reminder.message)
     embed.title = title
     embed.description = f"> {reminder.message}"
+    if phrase:
+        embed.add_field(
+            name=t("reminders.shared.phrase_field"),
+            value=phrase[:1024],
+            inline=False,
+        )
     embed.add_field(
         name=t("reminders.shared.summary_field"),
         value=schedule_summary(reminder),
@@ -169,6 +274,11 @@ def _confirmation_embed(
     embed.add_field(
         name=t("reminders.shared.next_field"),
         value=_format_run(reminder.next_run_at),
+        inline=True,
+    )
+    embed.add_field(
+        name=t("reminders.shared.timezone_field"),
+        value=reminder.timezone,
         inline=True,
     )
     embed.add_field(
@@ -470,68 +580,112 @@ class ReminderActionsFallbackView(_ReminderActions, discord.ui.View):
         self.add_item(_SnoozeButton())
 
 
-REPEAT_CHOICES = [
-    app_commands.Choice(name=t(f"reminders.repeat.{kind}"), value=kind)
-    for kind in KINDS
-]
-
-SCHEDULE_EXAMPLES = {
-    KIND_ONCE: (
-        "2026-10-29 at 14:00",
-        "thursday at 2pm",
-        "tomorrow at 9am",
-        "in 30 minutes",
-    ),
-    KIND_DAILY: ("at 2pm", "every day at 2pm"),
-    KIND_WEEKLY: ("on monday at 2pm", "every monday at 2pm"),
-    KIND_MONTHLY: (
-        "on the 15th at 2pm",
-        "on the last day of the month at 2pm",
-        "2 days before the end of the month at 2pm",
-        "3 days before the end of the month at 2pm",
-    ),
-    KIND_INTERVAL: ("every 2 days at 2pm",),
-}
-
-
-def _option_value(interaction: discord.Interaction, name: str):
-    for option in (interaction.data or {}).get("options", []):
-        if option.get("name") == name:
-            return option.get("value")
-    return None
-
-
 def _error_text(exc: reminder_service.ReminderError) -> str:
-    variables = dict(exc.variables)
-    if isinstance(exc, reminder_service.ScheduleError):
-        kind = variables["kind"]
-        variables["repeat"] = t(f"reminders.repeat.{kind}")
-        variables["examples"] = t(f"reminders.schedule_help.{kind}")
-    return t(exc.key, **variables)
+    return t(exc.key, **exc.variables)
 
 
-async def schedule_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[str]]:
-    kind = _option_value(interaction, "repeat")
-    options = (interaction.data or {}).get("options", [])
-    editing = any(option.get("name") == "reminder" for option in options)
-    if kind in SCHEDULE_EXAMPLES:
-        examples = SCHEDULE_EXAMPLES[kind]
-    elif editing:
-        examples = [
-            example
-            for group in SCHEDULE_EXAMPLES.values()
-            for example in group
-        ]
-    else:
-        examples = SCHEDULE_EXAMPLES[KIND_ONCE]
-    needle = (current or "").strip().lower()
-    return [
-        app_commands.Choice(name=example, value=example)
-        for example in examples
-        if needle in example.lower()
-    ][:25]
+async def _interpret(
+    interaction: discord.Interaction,
+    phrase: str,
+    *,
+    default_timezone: str,
+    explicit_timezone: str | None,
+):
+    """Read ``phrase`` with the chat model, or raise a reminder error."""
+    bot = bot_of(interaction)
+    chat = getattr(bot, "chat", None)
+    if not chatbot_enabled(bot):
+        raise InterpreterDisabled()
+    if chat is None:
+        raise InterpreterUnavailable()
+    configure_chat(bot)
+    return await ReminderInterpreter(chat).interpret(
+        phrase,
+        default_timezone=default_timezone,
+        explicit_timezone=explicit_timezone,
+        now=utcnow(),
+    )
+
+
+CONFIRM_LIFETIME_SECONDS = 5 * 60
+
+
+class ConfirmReminderView(ExpiringView):
+    """Private Save/Cancel step shown before an interpreted reminder is stored."""
+
+    def __init__(
+        self,
+        author_id: int,
+        save: Callable[[], Awaitable[Reminder]],
+        done_title: str,
+    ) -> None:
+        super().__init__(timeout=CONFIRM_LIFETIME_SECONDS)
+        self.author_id = author_id
+        self._save = save
+        self._done_title = done_title
+        save_button = discord.ui.Button(
+            label=t("reminders.confirm.save"),
+            style=discord.ButtonStyle.success,
+        )
+        save_button.callback = self._on_save
+        cancel_button = discord.ui.Button(
+            label=t("reminders.confirm.cancel"),
+            style=discord.ButtonStyle.secondary,
+        )
+        cancel_button.callback = self._on_cancel
+        self.add_item(save_button)
+        self.add_item(cancel_button)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return await ensure_author(interaction, self.author_id)
+
+    async def _on_save(self, interaction: discord.Interaction) -> None:
+        self.stop()
+        try:
+            reminder = await self._save()
+        except reminder_service.ReminderError as exc:
+            await interaction.response.edit_message(
+                content=_error_text(exc), embed=None, view=None
+            )
+            return
+        await interaction.response.edit_message(
+            content=t("reminders.confirm.saved"), embed=None, view=None
+        )
+        await interaction.followup.send(
+            embed=_confirmation_embed(
+                interaction.client, reminder, self._done_title
+            )
+        )
+
+    async def _on_cancel(self, interaction: discord.Interaction) -> None:
+        self.stop()
+        await interaction.response.edit_message(
+            content=t("reminders.confirm.cancelled"), embed=None, view=None
+        )
+
+
+async def _ask_to_confirm(
+    interaction: discord.Interaction,
+    preview: Reminder,
+    save: Callable[[], Awaitable[Reminder]],
+    *,
+    phrase: str,
+    title: str,
+) -> None:
+    """Show what the AI understood, privately, and store only on Save."""
+    view = ConfirmReminderView(interaction.user.id, save, title)
+    view.message = await interaction.followup.send(
+        content=t("reminders.confirm.prompt"),
+        embed=_confirmation_embed(
+            interaction.client,
+            preview,
+            t("reminders.confirm.title"),
+            phrase=phrase,
+        ),
+        view=view,
+        ephemeral=True,
+        wait=True,
+    )
 
 
 async def _reminder_autocomplete(
@@ -558,18 +712,14 @@ async def _reminder_autocomplete(
 @app_commands.describe(
     message=t("reminders.shared.param_message"),
     schedule=t("reminders.shared.param_schedule"),
-    repeat=t("reminders.shared.param_repeat"),
     timezone=t("reminders.shared.param_timezone"),
     channel=t("reminders.shared.param_channel"),
     role=t("reminders.shared.param_role"),
 )
-@app_commands.choices(repeat=REPEAT_CHOICES)
-@app_commands.autocomplete(schedule=schedule_autocomplete)
 async def add(
     interaction: discord.Interaction,
     message: str,
     schedule: str,
-    repeat: str = KIND_ONCE,
     timezone: str | None = None,
     channel: discord.TextChannel | None = None,
     role: discord.Role | None = None,
@@ -585,12 +735,18 @@ async def add(
         )
         return
     service = _service(interaction)
-    zone = timezone or await service.default_timezone(interaction.user.id)
+    await interaction.response.defer(ephemeral=True)
     try:
-        parsed = reminder_service.parse_schedule(
-            repeat, schedule, timezone=zone
+        reminder_service.validate_message(message)
+        interpretation = await _interpret(
+            interaction,
+            schedule,
+            default_timezone=await service.default_timezone(
+                interaction.user.id
+            ),
+            explicit_timezone=timezone,
         )
-        reminder = await service.add(
+        fields = dict(
             user_id=interaction.user.id,
             channel_id=(
                 channel.id
@@ -598,30 +754,20 @@ async def add(
                 else interaction.channel_id or 0
             ),
             message=message,
-            timezone=zone,
-            kind=repeat,
-            hour=parsed.hour,
-            weekday=parsed.weekday,
-            day_of_month=parsed.day_of_month,
-            month_end_offset=parsed.month_end_offset,
-            interval_days=parsed.interval_days,
-            date_raw=(
-                parsed.run_date.isoformat() if parsed.run_date else None
-            ),
-            run_at_raw=(
-                parsed.run_at.isoformat() if parsed.run_at else None
-            ),
+            timezone=interpretation.timezone,
+            schedule=interpretation.schedule,
             role_id=role.id if role is not None else None,
         )
+        preview = service.build(**fields)
     except reminder_service.ReminderError as exc:
-        await interaction.response.send_message(
-            _error_text(exc), ephemeral=True
-        )
+        await interaction.followup.send(_error_text(exc), ephemeral=True)
         return
-    await interaction.response.send_message(
-        embed=_confirmation_embed(
-            interaction.client, reminder, t("reminders.add.title")
-        ),
+    await _ask_to_confirm(
+        interaction,
+        preview,
+        lambda: service.add(**fields),
+        phrase=schedule,
+        title=t("reminders.add.title"),
     )
 
 
@@ -632,19 +778,15 @@ async def add(
     reminder=t("reminders.shared.param_reminder"),
     message=t("reminders.shared.param_message"),
     schedule=t("reminders.shared.param_schedule"),
-    repeat=t("reminders.shared.param_repeat"),
     timezone=t("reminders.shared.param_timezone"),
     channel=t("reminders.shared.param_channel"),
     role=t("reminders.shared.param_role"),
 )
-@app_commands.choices(repeat=REPEAT_CHOICES)
-@app_commands.autocomplete(schedule=schedule_autocomplete)
 async def edit(
     interaction: discord.Interaction,
     reminder: int,
     message: str | None = None,
     schedule: str | None = None,
-    repeat: str | None = None,
     timezone: str | None = None,
     channel: discord.TextChannel | None = None,
     role: discord.Role | None = None,
@@ -672,48 +814,49 @@ async def edit(
         )
         return
 
+    await interaction.response.defer(ephemeral=True)
     try:
-        kind = repeat or existing.kind
-        if schedule is None and repeat is not None and repeat != existing.kind:
-            raise reminder_service.MissingSchedule(kind=kind)
-        parsed = None
+        interpretation = None
         if schedule is not None:
-            parsed = reminder_service.parse_schedule(
-                kind, schedule, timezone=timezone or existing.timezone
+            interpretation = await _interpret(
+                interaction,
+                schedule,
+                default_timezone=existing.timezone,
+                explicit_timezone=timezone,
             )
-        updated = await service.edit(
-            reminder,
+        changes = dict(
             message=message,
-            timezone=timezone,
-            kind=repeat,
-            hour=parsed.hour if parsed else None,
-            weekday=parsed.weekday if parsed else None,
-            day_of_month=parsed.day_of_month if parsed else None,
-            month_end_offset=parsed.month_end_offset if parsed else None,
-            interval_days=parsed.interval_days if parsed else None,
-            date_raw=(
-                parsed.run_date.isoformat()
-                if parsed and parsed.run_date
-                else None
+            timezone=(
+                interpretation.timezone if interpretation else timezone
             ),
-            run_at_raw=(
-                parsed.run_at.isoformat()
-                if parsed and parsed.run_at
-                else None
-            ),
+            schedule=interpretation.schedule if interpretation else None,
             role_id=role.id if role is not None else None,
             channel_id=channel.id if channel is not None else None,
-            reschedule=parsed is not None or timezone is not None,
+        )
+        preview = reminder_service.merge_edit(existing, **changes)
+        # Nothing was interpreted, so there is nothing to double-check.
+        updated = (
+            await service.edit(reminder, **changes)
+            if interpretation is None
+            else None
         )
     except reminder_service.ReminderError as exc:
-        await interaction.response.send_message(
-            _error_text(exc), ephemeral=True
+        await interaction.followup.send(_error_text(exc), ephemeral=True)
+        return
+    if updated is not None:
+        await interaction.delete_original_response()
+        await interaction.followup.send(
+            embed=_confirmation_embed(
+                interaction.client, updated, t("reminders.edit.title")
+            )
         )
         return
-    await interaction.response.send_message(
-        embed=_confirmation_embed(
-            interaction.client, updated, t("reminders.edit.title")
-        ),
+    await _ask_to_confirm(
+        interaction,
+        preview,
+        lambda: service.edit(reminder, **changes),
+        phrase=schedule or "",
+        title=t("reminders.edit.title"),
     )
 
 

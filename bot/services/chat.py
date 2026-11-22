@@ -342,3 +342,29 @@ class ChatService:
         if not reply:
             raise ChatUnavailableError()
         return self.truncate_reply(reply, REPLY_MAX_LENGTH)
+
+    async def complete_json(
+        self, system: str, user_message: str, *, max_tokens: int = 300
+    ) -> str:
+        """A deterministic, JSON-only completion for structured extraction.
+
+        Unlike :meth:`chat` it uses no persona, no member cooldown and no
+        reply trimming; the raw text is returned for the caller to parse.
+        """
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user_message},
+            ],
+            "temperature": 0,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "response_format": {"type": "json_object"},
+            "options": {"num_ctx": self.num_ctx},
+        }
+        data = await self._request_completion(payload)
+        reply = self.clean_reply(self.extract_reply(data))
+        if not reply:
+            raise ChatUnavailableError()
+        return reply

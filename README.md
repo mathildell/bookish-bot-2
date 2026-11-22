@@ -488,38 +488,42 @@ when the snooze runs out, with `Snoozed: ` added to its title
 (snoozes survive bot restarts). Reminders missed while the bot was offline post
 if they are at most 24 hours late.
 
-A reminder is a message, a repeat kind and one schedule phrase. Schedules are
-read in the reminder's timezone, which defaults to your streak timezone (or UTC
-if you have none). Only the phrasings below are accepted, and the schedule
-option autocompletes them:
+A reminder is a message and a schedule written in plain words. The bot's local
+AI model reads the phrase into a structured schedule (so it needs the chatbot
+switched on); the bot itself then validates it and does all the date maths. The
+confirmation shows the schedule, the next run and the timezone it understood, so
+a misreading is easy to spot and fix with `/reminder edit`. Examples:
 
-| repeat | schedule examples |
-|---|---|
-| `once` | `2026-10-29 at 14:00`, `thursday at 2pm`, `tomorrow at 9am`, `in 30 minutes` |
-| `daily` | `at 2pm`, `every day at 2pm` |
-| `weekly` | `on monday at 2pm`, `every monday at 2pm` |
-| `monthly` | `on the 15th at 2pm`, `on the last day of the month at 2pm`, `2 days before the end of the month at 2pm` |
-| `interval` | `every 2 days at 2pm` |
+- one-off: `next saturday at 3pm Berlin time`, `tomorrow at 9am`, `in 45 minutes`,
+  `in 3 days at 2pm`, `december 24th at 6pm`, `2027-03-04 at 7am`
+- daily and every few days: `every day at 8:30pm`, `every 3 days at 9am`
+- weekly: `every monday at 9am`, `every weekday at 8:30am`, `every weekend`,
+  `mondays and thursdays at 6pm`, `every two weeks on saturday at 10am`
+- monthly: `on the 15th of every month`, `3 days before the end of the month`,
+  `the last day of the month`, `the first monday of every month at noon`,
+  `every 3 months on the 1st at 10am`
+- yearly: `every year on march 4th`
+- every few hours: `every 2 hours`, `every 45 minutes`
 
-Times are on the hour, written as `2pm` or `14:00`. A fixed monthly day uses
-the real month length (the 30th fires on the 28th/29th in February); month-end
-offsets count back from the last day, so `2 days before the end` is the 29th in
-a 31-day month.
+Times can include minutes; with no time the reminder fires at 9:00 AM. The
+timezone is the `timezone` option if given, else one named in the schedule,
+else your streak timezone (or UTC). Rolling reminders ("every 2 hours") run
+from 30 minutes up to a week. Not supported: several weekdays combined with
+"every N weeks", "every N years", or end dates. The poll runs every five minutes, so
+reminders can post a few minutes after their time.
 
 ```
-/reminder add message: schedule: [repeat:] [timezone:] [channel:] [role:]
+/reminder add message: schedule: [timezone:] [channel:] [role:]
 ```
 **Permissions:** Everyone (own channel only) / 🔒 Admin (another channel or role)
-Create a reminder in the current channel. `repeat` is `once` (default),
-`daily`, `weekly`, `monthly` or `interval`.
+Create a reminder in the current channel.
 
 ```
-/reminder edit reminder: [message:] [schedule:] [repeat:] [timezone:] [channel:] [role:]
+/reminder edit reminder: [message:] [schedule:] [timezone:] [channel:] [role:]
 ```
 **Permissions:** Admin (anyone) / Members (self only)
-Change a reminder; giving a schedule reschedules it from the moment of the
-edit. Changing `repeat` requires a new schedule. `channel` and `role` are
-admin-only.
+Change a reminder; giving a schedule or timezone reschedules it from the moment
+of the edit. `channel` and `role` are admin-only.
 
 ```
 /reminder remove reminder:
@@ -735,6 +739,7 @@ Chat with the bot. It also answers when it is mentioned in a message; an empty
 mention gets a prompt to actually say something.
 
 ```
+/chatbot settings
 /chatbot toggle state:
 /chatbot model set model:
 /chatbot prompt list
@@ -743,7 +748,7 @@ mention gets a prompt to actually say something.
 /chatbot userinfo list
 ```
 **Permissions:** 🔒 Admin
-Configure the chatbot: turn its AI replies on or off with `toggle on|off` (while off, members get "AI is turned off, try again later!" without Ollama being contacted), pick the model, set persona/name/biography instructions, and manage member bios used for chat context. `prompt list` shows the current persona and prompt overrides.
+Configure the chatbot: turn its AI replies on or off with `toggle on|off` (while off, members get "AI is turned off, try again later!" without Ollama being contacted), pick the model, set persona/name/biography instructions, and manage member bios used for chat context. `settings` shows whether AI is on, the model in use (and whether the model server is reachable), the chat limits, which prompts are customised and how many bios exist; `prompt list` shows the current persona and prompt overrides.
 
 ***
 

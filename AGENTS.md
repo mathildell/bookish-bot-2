@@ -67,24 +67,28 @@ Implemented features:
   read forum channel + reference message link and the Goodreads session cookie
   (write-only; only set/none is shown). This is the home for values that used to
   live in `config.yaml`.
-- **Chatbot** — `/chatbot` groups an on/off toggle for the AI replies (while off, members get a short notice and Ollama is never contacted), model selection, prompt overrides (persona/name/biography instructions), and member userinfo (moved from `/bio`). Member bios are auto-cleared when they leave the server.
+- **Chatbot** — `/chatbot` groups a settings overview (`/chatbot settings`: on/off, model and reachability, limits, prompt overrides), an on/off toggle for the AI replies (while off, members get a short notice and Ollama is never contacted), model selection, prompt overrides (persona/name/biography instructions), and member userinfo (moved from `/bio`). Member bios are auto-cleared when they leave the server.
 - **Bi-weekly themes** — admins maintain a deck of theme cards; members can search the deck (`/biweekly-theme cards search`) and suggest cards (`/biweekly-theme cards suggest`), which admins approve or refuse; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is attached directly to the Discord message, with the prompt as message content. Each post is pinned in the channel, unpinning the previous card's post. Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
-  add|edit|remove|list`) that fire in a chosen timezone (defaulting to the
-  streak timezone, then UTC) and are posted in the channel they were created
-  in, pinging the owner. A reminder is a message, a repeat kind and one
-  schedule phrase parsed against a closed grammar (`at 2pm`,
-  `on monday at 2pm`, `every 2 days at 2pm`, `on the last day of the month at
-  2pm`, …); the schedule option autocompletes the accepted phrasings. One-off
-  reminders also accept `in x minutes` (polled every five minutes). Monthly
-  reminders take a fixed day (clamped in short months) or days before the
-  month's end. Admins can post a reminder in another channel and ping a role
-  alongside its owner. Each post carries Mark completed and Snooze buttons (2h
-  lifetime) usable by the owner and members with the pinged role; the snooze
-  popup chooses 1-30 minutes/hours/days, deletes the original post, and the
-  reposted reminder is titled `Snoozed: …`. `/reminder list` shows every reminder
-  to admins and the member's own to everyone else. Reminders missed while
-  offline post if at most 24h late.
+  add|edit|remove|list`) that fire in a chosen timezone (defaulting to a zone
+  named in the schedule, then the streak timezone, then UTC) and are posted in
+  the channel they were created in, pinging the owner. A reminder is a message
+  and a schedule in natural language: the local LLM (`ChatService.complete_json`)
+  only extracts fields (repeat, time, weekday, "every N", month day/offset,
+  "in x minutes", timezone), and code validates and resolves them into a
+  normalized `Schedule` (once; daily; weekly on one or several weekdays; monthly
+  on a day, days before the month's end or the Nth/last weekday, every N months;
+  yearly; N-day/N-week intervals; rolling every 30 min-7 days; minute precision,
+  9:00 default). It requires the chatbot toggle to
+  be on. Add/edit with a schedule first shows an ephemeral Save/Cancel preview of
+  what the model understood; nothing is stored until Save. Monthly reminders take a fixed day (clamped in short months) or days
+  before the month's end. Admins can post a reminder in another channel and
+  ping a role alongside its owner. Each post carries Mark completed and Snooze
+  buttons (2h lifetime) usable by the owner and members with the pinged role;
+  the snooze popup chooses 1-30 minutes/hours/days, deletes the original post,
+  and the reposted reminder is titled `Snoozed: …`. `/reminder list` shows every
+  reminder to admins and the member's own to everyone else. Reminders missed
+  while offline post if at most 24h late.
 - **Birthdays** — members register a yearless birthday and optional timezone
   (defaulting to their streak timezone, then UTC); admins configure the
   announcement channel and a temporary role. At local midnight the bot pings the
@@ -191,7 +195,7 @@ bot/
     bot_edit.py            /bot edit (replace a message the bot sent)
     bot_react.py           /bot react (add an emoji reaction to a message)
     chat.py                /chat + mention replies
-    chatbot.py             /chatbot group (toggle/model/prompt/userinfo)
+    chatbot.py             /chatbot group (settings/toggle/model/prompt/userinfo)
     biweekly_theme.py      /biweekly-theme group + cards/channel/role/schedule
     settings.py            /settings group + list/edit (typed bot settings)
     ping.py                /ping (is the bot awake?)
@@ -225,7 +229,8 @@ bot/
     releases.py            release CRUD + embeds + daily/monthly announcements
     intro.py               intro channel/questions/answers + embed building
     streaks.py             streak rules (XP, slots, rescues) + log/close/revive/purge/leaderboards
-    reminders.py           reminder schedules (next run, staleness) + CRUD/snooze delivery
+    reminders.py           Schedule model, next-run rules, staleness + CRUD/snooze delivery
+    reminder_interpreter.py natural-language schedule -> Schedule (LLM extraction + resolution)
     birthdays.py           birthday dates/content/roles + XP gift + local-midnight posting
     biweekly_theme.py      theme deck/schedule/due-post helpers + validation
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry

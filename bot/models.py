@@ -740,18 +740,33 @@ class Reminder(Base):
     # IANA zone the schedule is interpreted in (wall-clock semantics).
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
 
-    # "once", "daily", "weekly", "monthly" or "interval"
+    # "once", "daily", "weekly", "monthly", "yearly", "interval" or "rolling"
     kind: Mapped[str] = mapped_column(String(16), nullable=False)
-    # Local hour (0-23); recurring reminders always fire on the hour.
+    # Local time of day the reminder fires at.
     hour: Mapped[int] = mapped_column(Integer, nullable=False)
-    # Python weekday (0-6); weekly only.
+    minute: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Python weekday (0-6); weekly, and the anchor day of week-based intervals.
     weekday: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Day of month (1-31); monthly only, clamped in short months.
     day_of_month: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Days before the month's last day (0 = the last day); monthly only.
     month_end_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    # Days between runs; interval only.
+    # Days between runs; interval only (a multiple of 7 for "every N weeks").
     interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Weekdays (bit 0 = Monday) when a weekly reminder has several; else null
+    # and ``weekday`` alone applies.
+    weekdays_mask: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Months between runs; monthly only (null means every month).
+    month_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Which weekday of the month (1-4, or -1 for the last) with ``weekday``;
+    # monthly only.
+    month_week: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Calendar month (1-12) with ``day_of_month``; yearly only.
+    month: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Minutes between runs; rolling only.
+    interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Local date of the single run; once only.
     run_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     # Exact naive-UTC fire time for "in x minutes" one-offs.

@@ -30,12 +30,15 @@ def utc(year, month, day, hour=0, minute=0) -> datetime:
 def reminder(**kwargs) -> SimpleNamespace:
     defaults = dict(
         id=1,
+        guild_id=1,
+        last_run_at=None,
         user_id=10,
         channel_id=20,
         message="Do the thing",
         timezone="UTC",
         kind=reminder_service.KIND_DAILY,
         hour=15,
+        minute=0,
         weekday=None,
         day_of_month=None,
         month_end_offset=None,
@@ -64,52 +67,6 @@ class ParseWeekdayTests(unittest.TestCase):
     def test_unknown_raises(self) -> None:
         with self.assertRaises(reminder_service.InvalidWeekday):
             reminder_service.parse_weekday("someday")
-
-
-class ParseOneOffDateTests(unittest.TestCase):
-    NOW = utc(2026, 10, 20, 14)  # Tuesday
-
-    def _parse(self, value: str, *, hour: int = 15) -> date:
-        return reminder_service.parse_one_off_date(
-            value, hour=hour, timezone="UTC", now_utc=self.NOW
-        )
-
-    def test_future_iso_date(self) -> None:
-        self.assertEqual(self._parse("2026-10-29"), date(2026, 10, 29))
-
-    def test_past_iso_date_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.PastDate):
-            self._parse("2026-10-19")
-
-    def test_today_with_the_hour_still_ahead_is_kept(self) -> None:
-        self.assertEqual(self._parse("2026-10-20", hour=16), date(2026, 10, 20))
-
-    def test_today_with_the_hour_passed_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.PastDate):
-            self._parse("2026-10-20", hour=13)
-
-    def test_weekday_name_resolves_forward(self) -> None:
-        self.assertEqual(self._parse("thursday"), date(2026, 10, 22))
-
-    def test_weekday_name_today_but_the_hour_passed_rolls_a_week(self) -> None:
-        self.assertEqual(self._parse("tuesday", hour=13), date(2026, 10, 27))
-
-    def test_weekday_name_today_with_the_hour_ahead_is_kept(self) -> None:
-        now = utc(2026, 10, 20, 9)
-        self.assertEqual(
-            reminder_service.parse_one_off_date(
-                "tuesday", hour=15, timezone="UTC", now_utc=now
-            ),
-            date(2026, 10, 20),
-        )
-
-    def test_unparseable_value_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.InvalidDate):
-            self._parse("someday")
-
-    def test_empty_value_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.MissingDate):
-            self._parse("  ")
 
 
 class NextDailyTests(unittest.TestCase):
@@ -463,7 +420,7 @@ class ScheduleSummaryTests(unittest.TestCase):
         text = reminder_cmds.schedule_summary(reminder(hour=15))
         self.assertEqual(
             text,
-            t("reminders.schedule.daily", hour=t("reminders.shared.hour_value_pm", hour=3)),
+            t("reminders.schedule.daily", hour=t("reminders.shared.time_pm", hour=3, minute="00")),
         )
 
     def test_weekly(self) -> None:
@@ -475,7 +432,30 @@ class ScheduleSummaryTests(unittest.TestCase):
             t(
                 "reminders.schedule.weekly",
                 weekday=t("components.weekday.sunday"),
-                hour=t("reminders.shared.hour_value_am", hour=9),
+                hour=t("reminders.shared.time_am", hour=9, minute="00"),
+            ),
+        )
+
+    def test_minutes_are_shown(self) -> None:
+        text = reminder_cmds.schedule_summary(reminder(hour=15, minute=30))
+        self.assertIn("3:30 PM", text)
+
+    def test_week_based_interval(self) -> None:
+        text = reminder_cmds.schedule_summary(
+            reminder(
+                kind=reminder_service.KIND_INTERVAL,
+                interval_days=14,
+                weekday=5,
+                hour=15,
+            )
+        )
+        self.assertEqual(
+            text,
+            t(
+                "reminders.schedule.interval_weeks",
+                weeks=2,
+                weekday=t("components.weekday.saturday"),
+                hour="3:00 PM",
             ),
         )
 
@@ -488,7 +468,7 @@ class ScheduleSummaryTests(unittest.TestCase):
             t(
                 "reminders.schedule.monthly",
                 day=ordinal(30),
-                hour=t("reminders.shared.hour_value_pm", hour=3),
+                hour=t("reminders.shared.time_pm", hour=3, minute="00"),
             ),
         )
 
@@ -499,7 +479,7 @@ class ScheduleSummaryTests(unittest.TestCase):
                 self.assertEqual(ordinal(day), f"{day}{suffix}")
 
     def test_monthly_month_end_wordings(self) -> None:
-        hour = t("reminders.shared.hour_value_pm", hour=3)
+        hour = t("reminders.shared.time_pm", hour=3, minute="00")
         last = reminder_cmds.schedule_summary(
             reminder(
                 kind=reminder_service.KIND_MONTHLY, month_end_offset=0, hour=15
@@ -530,7 +510,7 @@ class ScheduleSummaryTests(unittest.TestCase):
         three = reminder_cmds.schedule_summary(
             reminder(kind=reminder_service.KIND_INTERVAL, interval_days=3, hour=15)
         )
-        hour = t("reminders.shared.hour_value_pm", hour=3)
+        hour = t("reminders.shared.time_pm", hour=3, minute="00")
         self.assertEqual(one, t("reminders.schedule.interval", days=1, hour=hour))
         self.assertEqual(
             three, t("reminders.schedule.interval_plural", days=3, hour=hour)
@@ -769,275 +749,6 @@ class ReminderPermissionTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
-class ParseTimeTests(unittest.TestCase):
-    def test_meridiem_forms(self) -> None:
-        self.assertEqual(reminder_service.parse_time("2pm"), 14)
-        self.assertEqual(reminder_service.parse_time("2 pm"), 14)
-        self.assertEqual(reminder_service.parse_time("2:00pm"), 14)
-        self.assertEqual(reminder_service.parse_time("9am"), 9)
-        self.assertEqual(reminder_service.parse_time("12am"), 0)
-        self.assertEqual(reminder_service.parse_time("12pm"), 12)
-
-    def test_twenty_four_hour_forms(self) -> None:
-        self.assertEqual(reminder_service.parse_time("14:00"), 14)
-        self.assertEqual(reminder_service.parse_time("23"), 23)
-        self.assertEqual(reminder_service.parse_time("00:00"), 0)
-
-    def test_ambiguous_plain_hour_is_rejected(self) -> None:
-        for value in ("2", "9", "12"):
-            with self.subTest(value=value), self.assertRaises(
-                reminder_service.InvalidTime
-            ):
-                reminder_service.parse_time(value)
-
-    def test_off_the_hour_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.InvalidTime):
-            reminder_service.parse_time("2:30pm")
-
-    def test_out_of_range_is_rejected(self) -> None:
-        for value in ("24", "25:00", "13pm", "0pm", "abc", ""):
-            with self.subTest(value=value), self.assertRaises(
-                reminder_service.InvalidTime
-            ):
-                reminder_service.parse_time(value)
-
-
-class ParseScheduleTests(unittest.TestCase):
-    NOW = utc(2026, 10, 20, 9)  # Tuesday
-
-    def _parse(self, kind: str, text: str) -> reminder_service.ParsedSchedule:
-        return reminder_service.parse_schedule(
-            kind, text, timezone="UTC", now=self.NOW
-        )
-
-    def test_once_iso_date(self) -> None:
-        parsed = self._parse(
-            reminder_service.KIND_ONCE, "2026-10-29 at 14:00"
-        )
-        self.assertEqual(parsed.hour, 14)
-        self.assertEqual(parsed.run_date, date(2026, 10, 29))
-
-    def test_once_weekday(self) -> None:
-        parsed = self._parse(reminder_service.KIND_ONCE, "thursday at 2pm")
-        self.assertEqual(parsed.run_date, date(2026, 10, 22))
-
-    def test_once_tomorrow(self) -> None:
-        parsed = self._parse(reminder_service.KIND_ONCE, "tomorrow at 9am")
-        self.assertEqual(parsed.run_date, date(2026, 10, 21))
-        self.assertEqual(parsed.hour, 9)
-
-    def test_once_past_date_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.PastDate):
-            self._parse(reminder_service.KIND_ONCE, "2026-10-19 at 14:00")
-
-    def test_once_in_minutes(self) -> None:
-        parsed = self._parse(reminder_service.KIND_ONCE, "in 30 minutes")
-        self.assertEqual(
-            parsed.run_at, self.NOW + timedelta(minutes=30)
-        )
-        self.assertEqual(parsed.hour, 9)
-        self.assertEqual(parsed.run_date, date(2026, 10, 20))
-
-    def test_once_in_one_minute(self) -> None:
-        parsed = self._parse(reminder_service.KIND_ONCE, "in 1 minute")
-        self.assertEqual(
-            parsed.run_at, self.NOW + timedelta(minutes=1)
-        )
-
-    def test_once_minutes_must_be_within_the_allowed_range(self) -> None:
-        for text in (
-            "in 0 minutes",
-            f"in {reminder_service.MINUTES_MAX + 1} minutes",
-        ):
-            with self.subTest(text=text), self.assertRaises(
-                reminder_service.InvalidMinutes
-            ):
-                self._parse(reminder_service.KIND_ONCE, text)
-        self.assertIsNotNone(
-            self._parse(
-                reminder_service.KIND_ONCE,
-                f"in {reminder_service.MINUTES_MAX} minutes",
-            ).run_at
-        )
-
-    def test_minutes_are_only_accepted_for_once(self) -> None:
-        for kind in (
-            reminder_service.KIND_DAILY,
-            reminder_service.KIND_WEEKLY,
-            reminder_service.KIND_MONTHLY,
-            reminder_service.KIND_INTERVAL,
-        ):
-            with self.subTest(kind=kind), self.assertRaises(
-                reminder_service.InvalidSchedule
-            ):
-                self._parse(kind, "in 30 minutes")
-
-    def test_daily(self) -> None:
-        self.assertEqual(
-            self._parse(reminder_service.KIND_DAILY, "at 2pm").hour, 14
-        )
-        self.assertEqual(
-            self._parse(reminder_service.KIND_DAILY, "every day at 2pm").hour,
-            14,
-        )
-        self.assertEqual(
-            self._parse(reminder_service.KIND_DAILY, "everyday at 2pm").hour,
-            14,
-        )
-
-    def test_weekly(self) -> None:
-        for text in (
-            "on monday at 2pm",
-            "every monday at 2pm",
-            "monday at 2pm",
-            "on mon at 2pm",
-        ):
-            with self.subTest(text=text):
-                parsed = self._parse(reminder_service.KIND_WEEKLY, text)
-                self.assertEqual(parsed.hour, 14)
-                self.assertEqual(parsed.weekday, 0)
-
-    def test_monthly_fixed_day(self) -> None:
-        for text in (
-            "on the 15th at 2pm",
-            "the 15th at 2pm",
-            "15 at 2pm",
-            "every month on the 15th at 2pm",
-        ):
-            with self.subTest(text=text):
-                parsed = self._parse(reminder_service.KIND_MONTHLY, text)
-                self.assertEqual(parsed.hour, 14)
-                self.assertEqual(parsed.day_of_month, 15)
-                self.assertIsNone(parsed.month_end_offset)
-
-    def test_monthly_last_day(self) -> None:
-        for text in (
-            "on the last day of the month at 2pm",
-            "last day at 2pm",
-            "every month on the last day at 2pm",
-        ):
-            with self.subTest(text=text):
-                parsed = self._parse(reminder_service.KIND_MONTHLY, text)
-                self.assertEqual(parsed.hour, 14)
-                self.assertEqual(parsed.month_end_offset, 0)
-                self.assertIsNone(parsed.day_of_month)
-
-    def test_monthly_days_before_the_end(self) -> None:
-        for text, days in (
-            ("2 days before the end of the month at 2pm", 2),
-            ("3 days before the end of the month at 2pm", 3),
-            ("2 days before the end at 2pm", 2),
-        ):
-            with self.subTest(text=text):
-                parsed = self._parse(reminder_service.KIND_MONTHLY, text)
-                self.assertEqual(parsed.hour, 14)
-                self.assertEqual(parsed.month_end_offset, days)
-                self.assertIsNone(parsed.day_of_month)
-
-    def test_interval(self) -> None:
-        for text, days in (
-            ("every 2 days at 2pm", 2),
-            ("every 1 day at 9am", 1),
-        ):
-            with self.subTest(text=text):
-                parsed = self._parse(reminder_service.KIND_INTERVAL, text)
-                self.assertEqual(parsed.interval_days, days)
-
-    def test_blank_phrase_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.MissingSchedule):
-            self._parse(reminder_service.KIND_DAILY, "   ")
-
-    def test_wrong_phrasing_is_rejected(self) -> None:
-        for kind, text in (
-            (reminder_service.KIND_DAILY, "on monday at 2pm"),
-            (reminder_service.KIND_WEEKLY, "at 2pm"),
-            (reminder_service.KIND_MONTHLY, "every 2 days at 2pm"),
-            (reminder_service.KIND_INTERVAL, "on the last day at 2pm"),
-            (reminder_service.KIND_ONCE, "at 2pm"),
-        ):
-            with self.subTest(kind=kind, text=text), self.assertRaises(
-                reminder_service.InvalidSchedule
-            ):
-                self._parse(kind, text)
-
-    def test_unknown_kind_is_rejected(self) -> None:
-        with self.assertRaises(reminder_service.InvalidKind):
-            self._parse("sometimes", "at 2pm")
-
-
-class ScheduleExampleTests(unittest.TestCase):
-    def test_every_kind_has_examples(self) -> None:
-        self.assertEqual(
-            set(reminder_cmds.SCHEDULE_EXAMPLES), set(reminder_service.KINDS)
-        )
-
-    def test_examples_parse_with_their_kind(self) -> None:
-        now = utc(2026, 10, 20, 9)
-        for kind, examples in reminder_cmds.SCHEDULE_EXAMPLES.items():
-            for example in examples:
-                with self.subTest(kind=kind, example=example):
-                    reminder_service.parse_schedule(
-                        kind, example, timezone="UTC", now=now
-                    )
-
-    def test_help_keys_exist_for_every_kind(self) -> None:
-        for kind in reminder_service.KINDS:
-            with self.subTest(kind=kind):
-                t(f"reminders.schedule_help.{kind}")
-
-
-class ScheduleAutocompleteTests(unittest.TestCase):
-    @staticmethod
-    def _interaction(options: list[dict]) -> SimpleNamespace:
-        return SimpleNamespace(data={"options": options})
-
-    def test_offers_the_selected_kinds_examples(self) -> None:
-        interaction = self._interaction(
-            [{"name": "repeat", "value": reminder_service.KIND_MONTHLY}]
-        )
-        choices = asyncio.run(
-            reminder_cmds.schedule_autocomplete(interaction, "")
-        )
-        self.assertEqual(
-            [choice.value for choice in choices],
-            list(reminder_cmds.SCHEDULE_EXAMPLES[reminder_service.KIND_MONTHLY]),
-        )
-
-    def test_filters_by_what_was_typed(self) -> None:
-        interaction = self._interaction(
-            [{"name": "repeat", "value": reminder_service.KIND_MONTHLY}]
-        )
-        choices = asyncio.run(
-            reminder_cmds.schedule_autocomplete(interaction, "last")
-        )
-        self.assertEqual(
-            [choice.value for choice in choices],
-            ["on the last day of the month at 2pm"],
-        )
-
-    def test_add_defaults_to_once_examples(self) -> None:
-        interaction = self._interaction([{"name": "message", "value": "Hi"}])
-        choices = asyncio.run(
-            reminder_cmds.schedule_autocomplete(interaction, "")
-        )
-        self.assertEqual(
-            [choice.value for choice in choices],
-            list(reminder_cmds.SCHEDULE_EXAMPLES[reminder_service.KIND_ONCE]),
-        )
-
-    def test_edit_without_repeat_offers_every_kind(self) -> None:
-        interaction = self._interaction([{"name": "reminder", "value": 3}])
-        choices = asyncio.run(
-            reminder_cmds.schedule_autocomplete(interaction, "")
-        )
-        expected = [
-            example
-            for group in reminder_cmds.SCHEDULE_EXAMPLES.values()
-            for example in group
-        ]
-        self.assertEqual([choice.value for choice in choices], expected)
-
-
 class TextKeyTests(unittest.TestCase):
     def test_error_keys_all_exist(self) -> None:
         for error in (
@@ -1055,16 +766,225 @@ class TextKeyTests(unittest.TestCase):
             reminder_service.InvalidDay,
             reminder_service.BothDayAndMonthEnd,
             reminder_service.InvalidMonthEnd,
-            reminder_service.MissingSchedule,
-            reminder_service.InvalidSchedule,
             reminder_service.InvalidTime,
             reminder_service.InvalidMinutes,
             reminder_service.MissingInterval,
             reminder_service.InvalidInterval,
             reminder_service.ReminderNotFound,
+            reminder_service.InvalidMonthInterval,
+            reminder_service.InvalidMonthWeek,
+            reminder_service.InvalidMonth,
+            reminder_service.InvalidRolling,
         ):
             with self.subTest(error=error.__name__):
                 t(error.key)
+
+
+class MergeEditTests(unittest.TestCase):
+    NOW = utc(2026, 10, 20, 9)
+
+    def test_message_only_keeps_the_schedule(self) -> None:
+        existing = reminder(next_run_at=utc(2026, 10, 21, 15))
+        merged = reminder_service.merge_edit(
+            existing, message="New text", now=self.NOW
+        )
+        self.assertEqual(merged.message, "New text")
+        self.assertEqual(merged.next_run_at, utc(2026, 10, 21, 15))
+        self.assertEqual(merged.kind, reminder_service.KIND_DAILY)
+
+    def test_new_schedule_reschedules(self) -> None:
+        merged = reminder_service.merge_edit(
+            reminder(),
+            schedule=reminder_service.Schedule(
+                reminder_service.KIND_WEEKLY, 10, 30, weekdays=(5,)
+            ),
+            now=self.NOW,
+        )
+        self.assertEqual(merged.kind, reminder_service.KIND_WEEKLY)
+        self.assertEqual((merged.hour, merged.minute), (10, 30))
+        self.assertEqual(merged.next_run_at, utc(2026, 10, 24, 10, 30))
+
+    def test_timezone_alone_rereads_the_stored_schedule(self) -> None:
+        merged = reminder_service.merge_edit(
+            reminder(hour=15), timezone="Europe/Berlin", now=self.NOW
+        )
+        self.assertEqual(merged.timezone, "Europe/Berlin")
+        self.assertEqual(merged.next_run_at, utc(2026, 10, 20, 13))
+
+    def test_unknown_timezone_is_rejected(self) -> None:
+        with self.assertRaises(reminder_service.InvalidTimezone):
+            reminder_service.merge_edit(
+                reminder(), timezone="Narnia/Cair", now=self.NOW
+            )
+
+    def test_does_not_touch_the_original(self) -> None:
+        existing = reminder()
+        reminder_service.merge_edit(existing, message="X", channel_id=99)
+        self.assertEqual(existing.message, "Do the thing")
+        self.assertEqual(existing.channel_id, 20)
+
+
+class BuildTests(unittest.TestCase):
+    def test_build_validates_without_saving(self) -> None:
+        service = reminder_service.ReminderService(1)
+        built = service.build(
+            user_id=10,
+            channel_id=20,
+            message="  Hi  ",
+            timezone="UTC",
+            schedule=reminder_service.Schedule(
+                reminder_service.KIND_DAILY, 9, 30
+            ),
+            now=utc(2026, 10, 20, 9),
+        )
+        self.assertEqual(built.message, "Hi")
+        self.assertEqual(built.next_run_at, utc(2026, 10, 20, 9, 30))
+
+    def test_build_rejects_bad_input(self) -> None:
+        service = reminder_service.ReminderService(1)
+        schedule = reminder_service.Schedule(reminder_service.KIND_DAILY, 9)
+        for fields, error in (
+            (dict(message=" ", timezone="UTC"), reminder_service.MissingMessage),
+            (dict(message="x", timezone="Nope/Zone"), reminder_service.InvalidTimezone),
+        ):
+            with self.subTest(error=error.__name__), self.assertRaises(error):
+                service.build(
+                    user_id=1, channel_id=2, schedule=schedule, **fields
+                )
+
+
+class BroadSummaryTests(unittest.TestCase):
+    def test_several_weekdays(self) -> None:
+        cases = (
+            ((0, 1, 2, 3, 4), t("reminders.schedule.weekdays_all")),
+            ((5, 6), t("reminders.schedule.weekends_all")),
+            ((0, 3), "Monday and Thursday"),
+            ((0, 2, 4), "Monday, Wednesday and Friday"),
+        )
+        for days, expected in cases:
+            with self.subTest(days=days):
+                mask = reminder_service.weekdays_to_mask(days)
+                text = reminder_cmds.schedule_summary(
+                    reminder(
+                        kind=reminder_service.KIND_WEEKLY,
+                        weekday=days[0],
+                        weekdays_mask=mask,
+                        hour=9,
+                    )
+                )
+                self.assertIn(expected, text)
+
+    def test_monthly_every_n(self) -> None:
+        base = dict(kind=reminder_service.KIND_MONTHLY, hour=10, month_interval=3)
+        self.assertIn(
+            "Every 3 months on the 1st",
+            reminder_cmds.schedule_summary(reminder(day_of_month=1, **base)),
+        )
+        self.assertIn(
+            "Every 3 months on the last day",
+            reminder_cmds.schedule_summary(reminder(month_end_offset=0, **base)),
+        )
+        self.assertIn(
+            "Every 3 months 2 days before the end",
+            reminder_cmds.schedule_summary(reminder(month_end_offset=2, **base)),
+        )
+
+    def test_nth_weekday(self) -> None:
+        text = reminder_cmds.schedule_summary(
+            reminder(
+                kind=reminder_service.KIND_MONTHLY,
+                month_week=-1,
+                weekday=4,
+                hour=9,
+            )
+        )
+        self.assertIn("last Friday", text)
+        text = reminder_cmds.schedule_summary(
+            reminder(
+                kind=reminder_service.KIND_MONTHLY,
+                month_week=2,
+                weekday=1,
+                month_interval=2,
+                hour=9,
+            )
+        )
+        self.assertIn("Every 2 months on the second Tuesday", text)
+
+    def test_yearly_and_rolling(self) -> None:
+        self.assertIn(
+            "Every year on March 4th",
+            reminder_cmds.schedule_summary(
+                reminder(
+                    kind=reminder_service.KIND_YEARLY, month=3, day_of_month=4
+                )
+            ),
+        )
+        for minutes, expected in (
+            (45, "Every 45 minutes"),
+            (60, "Every hour"),
+            (120, "Every 2 hours"),
+        ):
+            with self.subTest(minutes=minutes):
+                self.assertEqual(
+                    reminder_cmds.schedule_summary(
+                        reminder(
+                            kind=reminder_service.KIND_ROLLING,
+                            interval_minutes=minutes,
+                        )
+                    ),
+                    expected,
+                )
+
+
+class ConfirmViewTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _interaction(user_id: int = 5) -> SimpleNamespace:
+        return SimpleNamespace(
+            user=SimpleNamespace(id=user_id),
+            client=SimpleNamespace(),
+            response=SimpleNamespace(
+                edit_message=AsyncMock(), send_message=AsyncMock()
+            ),
+            followup=SimpleNamespace(send=AsyncMock()),
+        )
+
+    async def test_save_stores_and_announces(self) -> None:
+        saved = reminder()
+        save = AsyncMock(return_value=saved)
+        view = reminder_cmds.ConfirmReminderView(5, save, "Reminder set")
+        interaction = self._interaction()
+        await view._on_save(interaction)
+        save.assert_awaited_once()
+        edited = interaction.response.edit_message.call_args.kwargs
+        self.assertEqual(edited["content"], t("reminders.confirm.saved"))
+        self.assertIsNone(edited["view"])
+        interaction.followup.send.assert_awaited_once()
+
+    async def test_save_failure_is_reported_and_not_announced(self) -> None:
+        save = AsyncMock(side_effect=reminder_service.PastDate(date="x"))
+        view = reminder_cmds.ConfirmReminderView(5, save, "Reminder set")
+        interaction = self._interaction()
+        await view._on_save(interaction)
+        edited = interaction.response.edit_message.call_args.kwargs
+        self.assertEqual(
+            edited["content"], t("reminders.errors.past_date", date="x")
+        )
+        interaction.followup.send.assert_not_called()
+
+    async def test_cancel_saves_nothing(self) -> None:
+        save = AsyncMock()
+        view = reminder_cmds.ConfirmReminderView(5, save, "Reminder set")
+        interaction = self._interaction()
+        await view._on_cancel(interaction)
+        save.assert_not_called()
+        edited = interaction.response.edit_message.call_args.kwargs
+        self.assertEqual(edited["content"], t("reminders.confirm.cancelled"))
+
+    async def test_only_the_author_may_answer(self) -> None:
+        view = reminder_cmds.ConfirmReminderView(5, AsyncMock(), "x")
+        stranger = self._interaction(user_id=6)
+        self.assertFalse(await view.interaction_check(stranger))
+        self.assertTrue(await view.interaction_check(self._interaction()))
 
 
 if __name__ == "__main__":
