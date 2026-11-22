@@ -249,6 +249,7 @@ async def _generate_coupons(
             on_date=on_date,
             xp=award.xp,
             fallback_image=fallback,
+            frozen=progress.xp_frozen,
         )
         coupon_results.append(coupon)
     return coupon_results
@@ -387,6 +388,8 @@ def _hour_embed(client: discord.Client) -> discord.Embed:
 
 def _level_progress_text(progress: streak_service.LevelProgress) -> str:
     """Describe how the streak XP moved the member's normal level."""
+    if progress.xp_frozen:
+        return t("streaks.shared.xp_frozen")
     if (
         progress.xp_old_level is None
         or progress.xp_new_level is None
@@ -497,7 +500,11 @@ def _log_embed(
             ),
             inline=False,
         )
-    if result.progress.dry_run and result.progress.xp_awarded > 0:
+    if (
+        result.progress.dry_run
+        and not result.progress.xp_frozen
+        and result.progress.xp_awarded > 0
+    ):
         embed.add_field(
             name=t("streaks.info.dry_run_field"),
             value=t("streaks.log.dry_run", xp=result.progress.xp_awarded),
@@ -653,6 +660,7 @@ def _view_embed(
     rescued: streak_service.ReviveResult | None = None,
     coupon_url: str | None = None,
     coupon_color: int | None = None,
+    xp_frozen: bool = False,
 ) -> discord.Embed:
     embed = new_embed(client)
     set_author(embed, member, member.display_name)
@@ -819,7 +827,7 @@ def _view_embed(
         name=t("streaks.info.total_xp_field"),
         value=t(
             "streaks.info.total_xp_value",
-            xp=f"{marker}{streak.last_xp_amount}",
+            xp=f"{marker}{0 if xp_frozen else streak.last_xp_amount}",
         ),
         inline=True,
     )
@@ -829,7 +837,12 @@ def _view_embed(
         )
         embed.add_field(
             name=t("streaks.info.on_track_field"),
-            value=t("streaks.info.on_track_value", xp=f"{marker}{projected}"),
+            value=t(
+                "streaks.info.on_track_frozen_value"
+                if xp_frozen
+                else "streaks.info.on_track_value",
+                xp=f"{marker}{projected}",
+            ),
             inline=True,
         )
     if rescued is not None and rescued.progress.leveled:
@@ -852,10 +865,15 @@ def _view_embed(
                 level=rescued.progress.level,
                 level_emoji=t("streaks.icons.level_emoji"),
                 xp=rescued.progress.xp_awarded,
+                level_progress=_level_progress_text(rescued.progress),
             ),
             inline=False,
         )
-        if rescued.progress.dry_run and rescued.progress.xp_awarded > 0:
+        if (
+            rescued.progress.dry_run
+            and not rescued.progress.xp_frozen
+            and rescued.progress.xp_awarded > 0
+        ):
             embed.add_field(
                 name=t("streaks.info.dry_run_field"),
                 value=t("streaks.log.dry_run", xp=rescued.progress.xp_awarded),
@@ -1299,6 +1317,7 @@ async def _do_rescue(interaction: discord.Interaction) -> None:
         rescued=result,
         coupon_url=coupons[0].url if coupons else None,
         coupon_color=getattr(coupons[0], "color", None) if coupons else None,
+        xp_frozen=result.progress.xp_frozen,
     )
     view = _ViewActions(rescue=False, edit=True, log=True)
     view.message = interaction.message
@@ -1785,7 +1804,13 @@ async def view(
     )
     await interaction.response.send_message(
         embed=_view_embed(
-            interaction.client, target, goal, streak, logs, rescuable=can_rescue
+            interaction.client,
+            target,
+            goal,
+            streak,
+            logs,
+            rescuable=can_rescue,
+            xp_frozen=await _service(interaction).is_xp_frozen(target.id),
         ),
         view=actions,
     )
@@ -1897,16 +1922,23 @@ async def admin_log(
             t(exc.key, **exc.variables), ephemeral=True
         )
         return
-    await interaction.response.send_message(
-        t(
-            "streaks.admin.log.success_reopened"
-            if result.reopened
-            else "streaks.admin.log.success",
-            amount=result.log.amount,
-            user=user.mention,
-            date=result.log.log_date.isoformat(),
-        )
+    message = t(
+        "streaks.admin.log.success_reopened"
+        if result.reopened
+        else "streaks.admin.log.success",
+        amount=result.log.amount,
+        user=user.mention,
+        date=result.log.log_date.isoformat(),
     )
+    level_progress = _level_progress_text(result.progress)
+    if level_progress and result.progress.xp_awarded > 0:
+        message += t(
+            "streaks.admin.log.xp_reward",
+            user=user.mention,
+            xp=result.progress.xp_awarded,
+            level_progress=level_progress,
+        )
+    await interaction.response.send_message(message)
     coupons = await _generate_coupons(
         interaction, user, result.goal, result.progress
     )

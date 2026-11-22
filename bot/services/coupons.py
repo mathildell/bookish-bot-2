@@ -91,7 +91,7 @@ def _extract_color_from_template(template: Path) -> int | None:
 
 
 def render_coupon(
-    *, display_name: str, level: int, on_date: date, xp: int
+    *, display_name: str, level: int, on_date: date, xp: int, frozen: bool = False
 ) -> tuple[Path, int | None]:
     """Draw the coupon onto a random template, returning the temporary file and color."""
     template = random.choice(_templates())
@@ -115,6 +115,16 @@ def render_coupon(
             fill=(255, 255, 255),
             anchor="ms",
         )
+        if frozen and (x, y) == XP_CENTER:
+            left, top, right, bottom = draw.textbbox(
+                (x, y), fitted, font=font, anchor="ms"
+            )
+            middle = (top + bottom) // 2
+            draw.line(
+                (left - 6, middle, right + 6, middle),
+                fill=(255, 255, 255),
+                width=4,
+            )
 
     handle, path = tempfile.mkstemp(prefix="coupon-", suffix=".png")
     os.close(handle)
@@ -136,13 +146,17 @@ class CouponService:
         on_date: date,
         xp: int,
         fallback_image: str,
+        frozen: bool = False,
     ) -> Coupon:
         """Render, upload and delete a coupon, using the fallback on any error."""
         path: Path | None = None
         color: int | None = None
         try:
             path, color = render_coupon(
-                display_name=display_name, level=level, on_date=on_date, xp=xp
+                display_name=display_name, level=level,
+                on_date=on_date,
+                xp=xp,
+                frozen=frozen,
             )
             url = await self._host.upload(
                 path, expiration_seconds=IMGBB_EXPIRATION_SECONDS

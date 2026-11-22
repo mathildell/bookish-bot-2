@@ -310,6 +310,7 @@ class LevelProgress:
     golden_granted: int
     anniversary: bool
     dry_run: bool = False
+    xp_frozen: bool = False
     top_up: bool = False
     xp_old_level: int | None = None
     xp_new_level: int | None = None
@@ -475,6 +476,10 @@ async def _apply_level_progress(
     clawed back (so a later lower re-log keeps the XP already earned).
     """
     previous_level = streak.level
+    user_xp = await level_service.get_user_xp(
+        session, guild_id=guild_id, user_id=user_id
+    )
+    frozen = bool(user_xp and user_xp.xp_frozen)
     progress = LevelProgress(
         previous_level=previous_level,
         level=previous_level,
@@ -484,6 +489,7 @@ async def _apply_level_progress(
         golden_granted=0,
         anniversary=False,
         dry_run=dry_run,
+        xp_frozen=frozen,
     )
     target_level = streak.days_logged // LEVEL_THRESHOLD
 
@@ -521,7 +527,7 @@ async def _apply_level_progress(
         progress.leveled = True
         progress.xp_awarded = total_award
 
-        if total_award > 0:
+        if total_award > 0 and not frozen:
             streak.last_xp_amount = last_award
             streak.total_xp_awarded += total_award
             streak.last_xp_at = now
@@ -550,7 +556,7 @@ async def _apply_level_progress(
         if (streak.level * LEVEL_THRESHOLD) % 365 == 0:
             award *= 2
         difference = award - streak.window_xp_paid
-        if difference > 0:
+        if difference > 0 and not frozen:
             streak.window_xp_paid = award
             streak.last_xp_amount = award
             streak.total_xp_awarded += difference
@@ -701,6 +707,13 @@ class StreakService:
             if streak is not None:
                 logs = await _recent_logs(session, streak_id=streak.id)
             return goal, streak, logs
+
+    async def is_xp_frozen(self, user_id: int) -> bool:
+        async with session_scope() as session:
+            user_xp = await level_service.get_user_xp(
+                session, guild_id=self.guild_id, user_id=user_id
+            )
+            return bool(user_xp and user_xp.xp_frozen)
 
     async def today_status(
         self, user_id: int, now: datetime | None = None

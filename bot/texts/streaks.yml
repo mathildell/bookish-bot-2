@@ -24,6 +24,7 @@ streaks:
     date_field: "Date"
     rescue_button: "Repair streak"
     level_progress_up: " (XP Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
+    xp_frozen: " (🧊 your XP is frozen, so this reward won’t be added to your total)"
     level_progress: " (Level `%{l}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
     reminder:
       none: "No reminder"
@@ -118,8 +119,8 @@ streaks:
 
   rescue:
     title: "Streak rescued"
-    content: "Your **%{emoji} ‎ Streak Rescue** saved **%{days} days**, completing **%{level_emoji} Level %{level}** and earning you **%{xp} XP**."
-    content_one: "Your **%{emoji} ‎ Streak Rescue** saved **1 day**, completing **%{level_emoji} Level %{level}** and earning you **%{xp} XP**."
+    content: "Your **%{emoji} ‎ Streak Rescue** saved **%{days} days**, completing **%{level_emoji} Level %{level}** and earning you **%{xp} XP**%{level_progress}."
+    content_one: "Your **%{emoji} ‎ Streak Rescue** saved **1 day**, completing **%{level_emoji} Level %{level}** and earning you **%{xp} XP**%{level_progress}."
   
   today:
     description: "Have you logged today?"
@@ -160,6 +161,7 @@ streaks:
     total_xp_value: "%{xp} XP"
     on_track_field: "Next XP"
     on_track_value: "**%{xp} XP**"
+    on_track_frozen_value: "**~~%{xp} XP~~** 🧊"
     yesterday_field: "Last achievement"
     yesterday_value: "%{amount} %{unit}"
     yesterday_percent: "-# %{percent}% achieved"
@@ -200,6 +202,7 @@ streaks:
       param_date: "Date to record it for (YYYY-MM-DD; defaults to today)"
       success: "Recorded `%{amount}` for %{user} on %{date}."
       success_reopened: "Recorded `%{amount}` for %{user} on %{date}, and reopened the streak it broke."
+      xp_reward: "\n%{user} earned **`%{xp}` XP**%{level_progress}."
     dryrun:
       description: "Turn XP gain from streaks on or off"
       param_state: "Whether streak XP reaches members"

@@ -321,6 +321,10 @@ class CouponGenerationTests(unittest.IsolatedAsyncioTestCase):
         generated = await self._generate(self._progress(dry_run=True))
         self.assertEqual(len(generated), 2)
 
+    async def test_frozen_xp_is_passed_to_the_coupon(self) -> None:
+        await self._generate(self._progress(xp_frozen=True))
+        self.assertTrue(all(call["frozen"] for call in self.service.calls))
+
     async def test_generates_when_a_level_cleared_without_recorded_awards(self) -> None:
         generated = await self._generate(
             self._progress(level=1, xp_awarded=250, awards=[])
