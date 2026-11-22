@@ -440,9 +440,7 @@ def _log_embed(
     )
     amount_value = t("streaks.log.amount_value", amount=log.amount, unit=goal.unit)
     if book:
-        amount_value += t(
-            "streaks.log.book_line", book=discord.utils.escape_markdown(book)
-        )
+        amount_value += t("streaks.log.book_line", book=book)
     embed.add_field(
         name=t("streaks.log.amount_field"), value=amount_value, inline=True
     )
