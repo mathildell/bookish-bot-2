@@ -1,5 +1,11 @@
 # Texts for reusable UI components (pagination buttons, permissions, etc.).
 components:
+  ordinal:
+    format: "%{number}%{suffix}"
+    st: "st"
+    nd: "nd"
+    rd: "rd"
+    th: "th"
   pagination:
     prev: "Prev"
     prev_emoji: "<:chevronPrev:1559682407987413145>"

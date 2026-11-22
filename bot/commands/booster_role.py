@@ -11,19 +11,19 @@ import discord
 from discord import app_commands
 
 from ..services.booster_react import CUSTOM_EMOJI_RE
-from ..services.booster_role import resolve_notify_channel
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..services.channels import resolve_updates_channel
+from ..client import bot_of
 from ..texts import t
 from .checks import denial_message, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     boost_value,
     chunked,
-    new_embed,
     parse_hex_colour,
     send_paginated,
     set_author,
-    set_transparent_image,
 )
 
 role_group = app_commands.Group(
@@ -125,7 +125,7 @@ async def edit(
         )
         return
 
-    record = await interaction.client.booster_roles.find_by_user(target.id)
+    record = await bot_of(interaction).booster_roles.find_by_user(target.id)
     role = interaction.guild.get_role(record.role_id) if record else None
     if role is None:
         await interaction.followup.send(
@@ -232,7 +232,7 @@ async def link(
 
     await interaction.response.defer()
 
-    owner = await interaction.client.booster_roles.find_by_role(role.id)
+    owner = await bot_of(interaction).booster_roles.find_by_role(role.id)
     if owner is not None and owner.discord_user_id != user.id:
         await interaction.followup.send(
             t(
@@ -244,7 +244,7 @@ async def link(
         )
         return
 
-    existing = await interaction.client.booster_roles.find_by_user(user.id)
+    existing = await bot_of(interaction).booster_roles.find_by_user(user.id)
     if existing is not None and existing.role_id != role.id:
         await interaction.followup.send(
             t(
@@ -277,7 +277,7 @@ async def link(
         )
         return
 
-    await interaction.client.booster_roles.upsert(user.id, role.id)
+    await bot_of(interaction).booster_roles.upsert(user.id, role.id)
 
     await interaction.followup.send(
         t("booster.role.link.success", user=user.mention, role=role.mention)
@@ -295,7 +295,7 @@ async def remove(
 
     await interaction.response.defer()
 
-    record = await interaction.client.booster_roles.find_by_user(user.id)
+    record = await bot_of(interaction).booster_roles.find_by_user(user.id)
     if record is None:
         await interaction.followup.send(
             t("booster.role.remove.not_found", user=user.mention),
@@ -321,7 +321,7 @@ async def remove(
             )
             return
 
-    await interaction.client.booster_roles.delete_by_user(user.id)
+    await bot_of(interaction).booster_roles.delete_by_user(user.id)
 
     await interaction.followup.send(
         t("booster.role.remove.success", user=user.mention)
@@ -335,11 +335,10 @@ async def sync(interaction: discord.Interaction) -> None:
 
     await interaction.response.defer()
 
-    channel = await resolve_notify_channel(
-        interaction.guild,
-        getattr(interaction.client, "bot_updates_channel_id", 0),
+    channel = await resolve_updates_channel(
+        interaction.client, interaction.guild
     )
-    unlinked = await interaction.client.booster_roles.reconcile(
+    unlinked = await bot_of(interaction).booster_roles.reconcile(
         interaction.guild, channel
     )
 
@@ -355,7 +354,7 @@ async def list_roles(interaction: discord.Interaction) -> None:
 
     await interaction.response.defer(ephemeral=True)
 
-    records = await interaction.client.booster_roles.all()
+    records = await bot_of(interaction).booster_roles.all()
     if not records:
         await interaction.followup.send(
             t("booster.role.list.empty"), ephemeral=True

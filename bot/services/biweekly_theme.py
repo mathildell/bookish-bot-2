@@ -19,6 +19,7 @@ from sqlalchemy import select, update
 from ..db import session_scope
 from ..models import BiweeklyThemeCard, BiweeklyThemeSetting, BiweeklyThemeSuggestion
 from ..texts import t
+from .hours import check_hour
 from .level import utcnow
 from .search import search_key
 from .theme_images import render_theme, theme_period
@@ -79,9 +80,6 @@ class ThemeImageError(BiweeklyThemeError):
         self.cause = cause
 
 
-# ----------------------------------------------------------------- pure rules
-
-
 def normalize_title(title: str) -> str:
     """Fold a title to its comparison form.
 
@@ -121,9 +119,8 @@ def validate_weekday(weekday: int) -> int:
 
 
 def validate_hour(hour: int) -> int:
-    if not isinstance(hour, int) or not 0 <= hour <= 23:
-        raise InvalidHour(hour=hour)
-    return hour
+    return check_hour(hour, InvalidHour)
+
 
 def is_post_due(
     now: datetime,
@@ -197,9 +194,6 @@ def credit_description(description: str | None, name: str) -> str:
     return candidate
 
 
-# ------------------------------------------------------------------- service
-
-
 class BiweeklyThemeService:
     """Settings plus the card deck behind the bi-weekly theme posts."""
 
@@ -248,8 +242,6 @@ class BiweeklyThemeService:
     @property
     def pinned_message_id(self) -> int | None:
         return self._pinned_message_id
-
-    # ------------------------------------------------------------- settings
 
     async def reload(self) -> None:
         async with session_scope() as session:
@@ -352,8 +344,6 @@ class BiweeklyThemeService:
             session.add(row)
             await session.flush()
         return row
-
-    # ---------------------------------------------------------------- cards
 
     async def list_cards(self) -> list[BiweeklyThemeCard]:
         async with session_scope() as session:
@@ -472,8 +462,6 @@ class BiweeklyThemeService:
             for card in cards
         )
 
-    # ----------------------------------------------------------------- deck
-
     async def unsent_cards(self) -> list[BiweeklyThemeCard]:
         async with session_scope() as session:
             statement = (
@@ -525,8 +513,6 @@ class BiweeklyThemeService:
             card.sent = True
             card.sent_at = now
             await session.commit()
-
-    # -------------------------------------------------------------- posting
 
     async def post_card(
         self,

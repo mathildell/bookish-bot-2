@@ -30,6 +30,7 @@ from ..services.releases import (
     today_utc,
 )
 from ..services.members import resolve_members
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
 from .listing import Paginator, chunked, send_paginated
@@ -78,7 +79,7 @@ force_group = app_commands.Group(
 
 
 def _service(interaction: discord.Interaction) -> ReleaseService:
-    return interaction.client.releases
+    return bot_of(interaction).releases
 
 
 async def _resolve_book(
@@ -141,7 +142,7 @@ async def _scrape(
 ) -> BookData | None:
     """Fetch book data, replying with a friendly error on failure."""
     try:
-        return await interaction.client.release_scraper.fetch(url.strip())
+        return await bot_of(interaction).release_scraper.fetch(url.strip())
     except BookScrapeError as exc:
         await interaction.followup.send(
             t(exc.key, **exc.variables), ephemeral=True
@@ -623,7 +624,7 @@ async def set_channel(
         return
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
-        t("releases.channel.set.success", channel=channel.mention)
+        t("releases.channel.set.success", channel=channel.mention), ephemeral=True
     )
 
 
@@ -636,7 +637,7 @@ async def set_role(
         return
     await _service(interaction).set_ping_role(role.id)
     await interaction.response.send_message(
-        t("releases.role.set.success", role=role.mention)
+        t("releases.role.set.success", role=role.mention), ephemeral=True
     )
 
 

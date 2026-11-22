@@ -9,13 +9,14 @@ from ..db import session_scope
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_member_roles
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
-from .listing import new_embed, set_transparent_image
 
 
 def _rewards(interaction: discord.Interaction) -> LevelRewardService:
-    return interaction.client.level_rewards
+    return bot_of(interaction).level_rewards
 
 
 def register_rewards_group(xp_group: app_commands.Group) -> None:

@@ -11,7 +11,6 @@ Ported from the old Ruby "Introduction" feature:
 
 from __future__ import annotations
 
-from datetime import timezone
 
 import discord
 from sqlalchemy import delete, func, select
@@ -19,7 +18,9 @@ from sqlalchemy import delete, func, select
 from ..db import session_scope
 from ..models import IntroPost, IntroQuestion, IntroSetting
 from ..texts import t
+from .embeds import new_embed, set_transparent_image
 from .text import truncate
+from .timezones import as_utc
 
 # Discord modals hold at most five text inputs.
 MODAL_QUESTION_LIMIT = 5
@@ -39,13 +40,6 @@ def select_modal_questions(questions: list) -> list:
     ]
 
 
-def _utc(value):
-    """Attach UTC to a naive datetime so Discord renders it correctly."""
-    if value is None:
-        return None
-    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
-
-
 def build_intro_embed(
     user: discord.abc.User,
     questions: list,
@@ -54,9 +48,9 @@ def build_intro_embed(
     client: discord.Client,
 ) -> discord.Embed:
     """Build the embed posted for a member's introduction."""
-    embed = discord.Embed(
-        colour=getattr(client, "default_embed_color", None),
-        timestamp=_utc(last_edited_at),
+    embed = new_embed(
+        client,
+        timestamp=as_utc(last_edited_at) if last_edited_at else None,
     )
 
     embed.title = discord.utils.escape_markdown(
@@ -76,10 +70,7 @@ def build_intro_embed(
             inline=False,
         )
 
-    image = getattr(client, "transparent_embed_image", None)
-    if image:
-        embed.set_image(url=image)
-
+    set_transparent_image(embed, client)
     return embed
 
 
@@ -98,8 +89,6 @@ class IntroService:
     @property
     def sticky_message_id(self) -> int | None:
         return self._sticky_message_id
-
-    # ----------------------------------------------------------- settings
 
     async def reload(self) -> None:
         async with session_scope() as session:
@@ -149,8 +138,6 @@ class IntroService:
                 )
             )
         ).scalar_one_or_none()
-
-    # ---------------------------------------------------------- questions
 
     async def all_questions(self) -> list[IntroQuestion]:
         async with session_scope() as session:
@@ -273,8 +260,6 @@ class IntroService:
                 select(IntroQuestion).where(IntroQuestion.id == question_id)
             )
         ).scalar_one_or_none()
-
-    # -------------------------------------------------------------- posts
 
     async def get_post(self, user_id: int) -> IntroPost | None:
         async with session_scope() as session:

@@ -5,13 +5,14 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
-from .listing import new_embed, set_transparent_image
 
 
 def _boosts(interaction: discord.Interaction):
-    return interaction.client.xp_boosts
+    return bot_of(interaction).xp_boosts
 
 
 def register_boosts_group(xp_group: app_commands.Group) -> None:

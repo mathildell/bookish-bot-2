@@ -14,7 +14,7 @@ from datetime import time as dt_time, timedelta
 
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import tasks
 
 from .commands.birthdays import birthday_group
 from .commands.booster import register_commands
@@ -33,7 +33,7 @@ from .commands.level import (
     weekly_leaderboard_embed,
     xp_group,
 )
-from .commands.listing import parse_hex_colour, set_transparent_image
+from .commands.listing import parse_hex_colour
 from .commands.ping import ping_command
 from .commands.randomize import RandomizeRerollFallbackView, randomize_command
 from .commands.reminders import (
@@ -76,6 +76,7 @@ from .commands.biweekly_theme import (
     ThemeSuggestionReviewView,
     biweekly_theme_group,
 )
+from .client import BookishBot
 from .config import load_config
 from .db import close_db, create_tables, init_db, session_scope
 from .notifications import (
@@ -87,10 +88,15 @@ from .notifications import (
 from .services import level as level_service
 from .services.birthdays import BirthdayService
 from .services.booster_react import BoosterReactService, parse_emoji
-from .services.booster_role import BoosterRoleService, resolve_notify_channel
-from .services.channels import resolve_text_channel
+from .services.booster_role import BoosterRoleService
+from .services.channels import (
+    resolve_notify_channel,
+    resolve_text_channel,
+    resolve_updates_channel,
+)
 from .services.chat import ChatService, configure_chat
-from .services.coupons import DEFAULT_FALLBACK_IMAGE, CouponService
+from .services.coupons import CouponService
+from .services.embeds import new_embed, set_transparent_image
 from .services.intro import IntroService
 from .services.level import WeeklyLeaderboardService, utcnow
 from .services.level_rewards import LevelRewardService, sync_member_roles
@@ -145,7 +151,7 @@ def _sticky_is_last(
 
 
 async def _award_message_xp(
-    bot: commands.Bot, message: discord.Message
+    bot: BookishBot, message: discord.Message
 ) -> None:
     """Roll XP for a message, apply reward roles on level up, and report it."""
     guild_id = message.guild.id
@@ -207,7 +213,6 @@ async def _post_streak_reminders(
     reminders: list[Reminder],
     *,
     guild: discord.Guild | None = None,
-    colour: discord.Colour | None,
 ) -> list[Reminder]:
     """Post the due reminders, returning only the ones actually delivered."""
     groups = (
@@ -243,10 +248,10 @@ async def _post_streak_reminders(
             for member in members
         )
         template = t_choice_template(content_key)
-        embed = discord.Embed(
+        embed = new_embed(
+            client,
             title=t(title_key),
             description=interpolate(template, mentions=names),
-            colour=colour,
         )
         if kind == "rescue":
             embed.set_footer(text=t("streaks.reminders.rescue_footer"))
@@ -325,7 +330,7 @@ async def run() -> None:
     intents = discord.Intents.default()
     intents.message_content = True
 
-    bot = commands.Bot(command_prefix="", intents=intents)
+    bot = BookishBot(command_prefix="", intents=intents)
     bot.booster_reacts = reactor
     bot.booster_role_id = int(config.get("booster_role_id", 0) or 0)
     bot.booster_roles = booster_roles
@@ -367,18 +372,7 @@ async def run() -> None:
     bot.add_view(ThemeSuggestView())
     bot.add_view(ThemeSuggestionReviewView())
     bot.add_view(RandomizeRerollFallbackView())
-    # Bot-wide settings are loaded from the database in on_ready; start with
-    # the disabled/unset defaults so nothing fires before the first reload.
-    bot.bot_updates_channel_id = 0
-    bot.transparent_embed_image = None
-    bot.default_embed_color = None
-    bot.reference_forum_channel_id = 0
-    bot.reference_channel_id = 0
-    bot.reference_message_id = 0
-    bot.admin_test_channel_id = 0
-    bot.coupon_fallback_image = DEFAULT_FALLBACK_IMAGE
 
-    # ---------------- registered slash commands ----------------
     register_commands(bot, guild_id=int(config.guild_id))
     guild = discord.Object(id=int(config.guild_id))
     bot.tree.add_command(xp_group, guild=guild)
@@ -397,7 +391,6 @@ async def run() -> None:
     bot.tree.add_command(chat_command, guild=guild)
     bot.tree.add_command(chatbot_group, guild=guild)
 
-    # ------------------------ message reactor ------------------------
     @bot.event
     async def on_message(message: discord.Message) -> None:
         # Only act inside the configured server, and never on bots.
@@ -436,7 +429,6 @@ async def run() -> None:
                     "Could not react to message %s: %s", message.id, exc
                 )
 
-    # ---------------------- role deletions ----------------------
     @bot.event
     async def on_guild_role_delete(role: discord.Role) -> None:
         if role.guild.id != int(config.guild_id):
@@ -444,7 +436,6 @@ async def run() -> None:
         if await booster_roles.delete_by_role(role.id):
             logger.info("Unlinked deleted booster role %s", role.id)
 
-    # ------------------- pinned forum reference -------------------
     # Repost a fixed reference message and pin it in every new forum thread.
     @bot.event
     async def on_thread_create(thread: discord.Thread) -> None:
@@ -454,7 +445,6 @@ async def run() -> None:
         if await post_reference(bot, thread):
             logger.info("Posted reference message in thread %s", thread.id)
 
-    # ------------------- member leaves -------------------
     @bot.event
     async def on_member_remove(member: discord.Member) -> None:
         if member.guild.id != int(config.guild_id):
@@ -463,9 +453,7 @@ async def run() -> None:
             service = bot.birthdays
             removed, had_linked = await service.remove_birthday_and_unlink_content(member.id)
             if removed or had_linked:
-                channel = await resolve_notify_channel(
-                    member.guild, getattr(bot, "bot_updates_channel_id", 0)
-                )
+                channel = await resolve_updates_channel(bot, member.guild)
                 if channel is not None:
                     try:
                         await channel.send(
@@ -485,18 +473,13 @@ async def run() -> None:
         except Exception:
             logger.exception("Failed to clean up member profile on leave")
 
-
-
-    # ------------------- booster role upkeep -------------------
     # No Members intent: poll daily to catch boosters who stopped boosting.
     # The single-member fetch used by reconcile() does not need the intent.
     async def reconcile_boosters_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
             return
-        channel = await resolve_notify_channel(
-            guild, bot.bot_updates_channel_id
-        )
+        channel = await resolve_updates_channel(bot, guild)
         unlinked = await booster_roles.reconcile(guild, channel)
         logger.info("Booster role sync: unlinked %d", len(unlinked))
 
@@ -512,7 +495,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Booster role catch-up failed")
 
-    # ------------------- Goodreads review updates -------------------
     async def poll_reviews_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
@@ -526,13 +508,11 @@ async def run() -> None:
         if result.auth_failed or result.missing_cookie:
             now = utcnow()
             if reviews.auth_notice_due(now):
-                updates = await resolve_notify_channel(
-                    guild, bot.bot_updates_channel_id
-                )
+                updates = await resolve_updates_channel(bot, guild)
                 await announce_review_auth_failed(
+                    bot,
                     updates,
                     missing_cookie=result.missing_cookie,
-                    colour=getattr(bot, "default_embed_color", None),
                 )
                 reviews.mark_auth_notice_sent(now)
 
@@ -548,7 +528,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Review poll catch-up failed")
 
-    # ------------------- book release announcements -------------------
     async def post_releases_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
@@ -596,7 +575,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Release purge catch-up failed")
 
-    # ---------------------- reading streak upkeep ----------------------
     async def send_streak_reminders(guild: discord.Guild) -> None:
         reminders = await streaks.due_reminders()
         if not reminders:
@@ -610,7 +588,6 @@ async def run() -> None:
             channel,
             reminders,
             guild=guild,
-            colour=getattr(bot, "default_embed_color", None),
         )
         await streaks.mark_reminder(sent)
 
@@ -621,13 +598,11 @@ async def run() -> None:
         closed = await streaks.close_due()
         if closed:
             logger.info("Closed %d streak(s)", len(closed))
-            channel = await resolve_notify_channel(
-                guild, bot.bot_updates_channel_id
-            )
+            channel = await resolve_updates_channel(bot, guild)
             await announce_streak_closed(
+                bot,
                 channel,
                 closed=closed,
-                colour=getattr(bot, "default_embed_color", None),
             )
         await send_streak_reminders(guild)
 
@@ -662,10 +637,9 @@ async def run() -> None:
         except Exception:
             logger.exception("Streak log purge catch-up failed")
 
-    # ------------------------ member reminders ------------------------
     async def _post_reminder_message(
         channel: discord.abc.Messageable,
-        bot: commands.Bot,
+        bot: BookishBot,
         *,
         user_id: int,
         task_text: str,
@@ -762,7 +736,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Reminder catch-up failed")
 
-    # ------------------------ birthday upkeep ------------------------
     async def post_birthdays_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
@@ -799,7 +772,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Birthday catch-up failed")
 
-    # ------------------------ timed view upkeep ------------------------
     async def expire_view_buttons_now() -> None:
         rows = await view_messages.expired()
         if not rows:
@@ -876,7 +848,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Timed view purge catch-up failed")
 
-    # ------------------------ ticket upkeep ------------------------
     async def expire_ticket_buttons_now() -> None:
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
@@ -897,7 +868,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Ticket button expiry catch-up failed")
 
-    # ---------------------- weekly XP leaderboard ----------------------
     async def post_weekly_leaderboard_now() -> None:
         now = level_service.utcnow()
         if not weekly.is_due(now):
@@ -949,7 +919,6 @@ async def run() -> None:
         except Exception:
             logger.exception("Weekly leaderboard catch-up failed")
 
-    # ---------------------- bi-weekly theme posts ----------------------
     async def post_biweekly_theme_now() -> None:
         now = level_service.utcnow()
         if not biweekly_theme.is_due(now):
@@ -969,14 +938,12 @@ async def run() -> None:
             )
         except ThemeImageError as exc:
             logger.warning("Could not create the theme image", exc_info=True)
-            updates = await resolve_notify_channel(
-                guild, bot.bot_updates_channel_id
-            )
+            updates = await resolve_updates_channel(bot, guild)
             await announce_theme_failed(
+                bot,
                 updates,
                 title=exc.card.title,
                 error=exc.cause,
-                colour=bot.default_embed_color,
             )
             await biweekly_theme.mark_attempted(now.date())
             return
@@ -995,7 +962,6 @@ async def run() -> None:
         # missed while the bot was down is skipped, not made up.
         await post_biweekly_theme_now()
 
-    # ------------------------- startup -------------------------
     async def add_streak_today_buttons_now() -> None:
         """Catch up streak reminders posted before the today button existed."""
         rows = await view_messages.active(STREAK_LOG_VIEW_KIND)

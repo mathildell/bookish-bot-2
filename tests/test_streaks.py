@@ -1215,11 +1215,14 @@ class ReminderDueTests(unittest.IsolatedAsyncioTestCase):
 
     def goal(self, reminder, custom_hour=14, timezone="UTC"):
         return SimpleNamespace(
-            timezone=timezone, reminder=reminder, custom_hour=custom_hour
+            id=1, timezone=timezone, reminder=reminder, custom_hour=custom_hour
         )
 
     def streak(self, *, last_log_date=None, custom_sent=None, lastchance_sent=None):
         return SimpleNamespace(
+            id=1,
+            status=streaks.STATUS_ONGOING,
+            end_date=None,
             last_log_date=last_log_date,
             last_custom_reminder_on=custom_sent,
             last_lastchance_reminder_on=lastchance_sent,

@@ -19,6 +19,7 @@ import discord
 
 from bot.commands import reminders as reminder_cmds
 from bot.services import reminders as reminder_service
+from bot.services.text import ordinal
 from bot.texts import t
 
 
@@ -486,8 +487,7 @@ class ScheduleSummaryTests(unittest.TestCase):
             text,
             t(
                 "reminders.schedule.monthly",
-                day=30,
-                suffix=t("reminders.shared.suffix.th"),
+                day=ordinal(30),
                 hour=t("reminders.shared.hour_value_pm", hour=3),
             ),
         )
@@ -496,9 +496,7 @@ class ScheduleSummaryTests(unittest.TestCase):
         for day, suffix in ((1, "st"), (2, "nd"), (3, "rd"), (11, "th"),
                             (21, "st"), (22, "nd"), (23, "rd"), (31, "st")):
             with self.subTest(day=day):
-                self.assertEqual(
-                    reminder_cmds._ordinal(day), t(f"reminders.shared.suffix.{suffix}")
-                )
+                self.assertEqual(ordinal(day), f"{day}{suffix}")
 
     def test_monthly_month_end_wordings(self) -> None:
         hour = t("reminders.shared.hour_value_pm", hour=3)

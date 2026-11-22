@@ -44,11 +44,6 @@ def parse_hex_colour(value: str) -> discord.Colour:
     return discord.Colour(int(match.group("hex"), 16))
 
 
-def new_embed(client: discord.Client) -> discord.Embed:
-    """Create an embed using the configured default colour, if one is set."""
-    return discord.Embed(colour=getattr(client, "default_embed_color", None))
-
-
 def chunked(items: Sequence, size: int) -> Iterator[list]:
     """Yield ``items`` in lists of at most ``size`` elements."""
     for start in range(0, len(items), size):
@@ -71,13 +66,6 @@ def boost_value(member: discord.Member | None) -> str:
     if member is not None and member.premium_since is not None:
         return f"<t:{int(member.premium_since.timestamp())}:f>"
     return t("booster.boost.not_boosting")
-
-
-def set_transparent_image(embed: discord.Embed, client: discord.Client) -> None:
-    """Apply the configured transparent background image, if any."""
-    url = getattr(client, "transparent_embed_image", None)
-    if url:
-        embed.set_image(url=url)
 
 
 class Paginator(ExpiringView):

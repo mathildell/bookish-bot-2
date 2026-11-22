@@ -28,11 +28,12 @@ from sqlalchemy import delete, func, select, update
 from ..db import session_scope
 from ..models import BookRelease, ReleaseEditDraft, ReleaseSetting
 from ..texts import t
+from .embeds import new_embed, set_transparent_image
 from .level import utcnow
 from .members import resolve_members
 from .release_sources import BookData, book_data_to_dict
 from .search import search_key
-from .text import truncate
+from .text import ordinal, truncate
 
 logger = logging.getLogger("bh2.releases")
 
@@ -238,7 +239,7 @@ def build_book_embed(
     include_blurb: bool = True,
 ) -> discord.Embed:
     """Build the embed shown for a single release (command or announcement)."""
-    embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
+    embed = new_embed(client)
 
     title = getattr(book, "title", None) or t("releases.embed.untitled_book")
     embed.title = (f"{prefix} ‎ " if prefix else "") + discord.utils.escape_markdown(
@@ -301,21 +302,18 @@ def build_book_embed(
             )
         )
 
-    background = getattr(client, "transparent_embed_image", None)
-    if background:
-        embed.set_image(url=background)
+    set_transparent_image(embed, client)
     return embed
 
 
 def build_confirm_embed(client: discord.Client) -> discord.Embed:
     """The instructions embed shown above the update preview buttons."""
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("releases.update.instruction_title"),
         description=t("releases.update.instruction_body"),
     )
-    background = getattr(client, "transparent_embed_image", None)
-    if background:
-        embed.set_image(url=background)
+    set_transparent_image(embed, client)
     return embed
 
 
@@ -359,23 +357,11 @@ def group_by_date(books: list) -> list[tuple[date, list]]:
     return groups
 
 
-_ORDINAL_SUFFIXES = {1: "st", 2: "nd", 3: "rd"}
-
-
-def _ordinal(day: int) -> str:
-    """``16`` -> ``"16th"``, taking the 11th/12th/13th exception into account."""
-    if 10 <= day % 100 <= 20:
-        suffix = "th"
-    else:
-        suffix = _ORDINAL_SUFFIXES.get(day % 10, "th")
-    return f"{day}{suffix}"
-
-
 def _month_day_label(day: date) -> str:
     return t(
         "releases.month_embed.date",
         month=t(f"components.months.{day.month}"),
-        day=_ordinal(day.day),
+        day=ordinal(day.day),
     )
 
 
@@ -427,10 +413,7 @@ def build_month_embeds(books: list, client: discord.Client) -> list[discord.Embe
     embeds: list[discord.Embed] = []
 
     def start_embed() -> discord.Embed:
-        return discord.Embed(
-            colour=getattr(client, "default_embed_color", None),
-            title=month_title,
-        )
+        return new_embed(client, title=month_title)
 
     embed = start_embed()
     for day, day_books in groups:
@@ -487,8 +470,6 @@ class ReleaseService:
     @property
     def post_hour(self) -> int:
         return self._post_hour
-
-    # ----------------------------------------------------------- settings
 
     async def reload(self) -> None:
         async with session_scope() as session:
@@ -599,8 +580,6 @@ class ReleaseService:
                 row.last_monthly_post = period
             await session.commit()
         self._last_monthly_post = period
-
-    # ------------------------------------------------------------ releases
 
     async def get(self, book_id: int) -> BookRelease | None:
         async with session_scope() as session:
@@ -829,8 +808,6 @@ class ReleaseService:
             )
             await session.commit()
 
-    # -------------------------------------------------------------- drafts
-
     async def create_draft(
         self, book_id: int, author_id: int, data: BookData
     ) -> ReleaseEditDraft:
@@ -873,8 +850,6 @@ class ReleaseService:
             )
             await session.commit()
         return result.rowcount
-
-    # -------------------------------------------------------------- worker
 
     async def post_due(
         self,

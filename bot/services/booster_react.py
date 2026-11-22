@@ -108,8 +108,6 @@ class BoosterReactService:
         # booster_id -> {record fields, compiled regexes}
         self._records: dict[int, dict] = {}
 
-    # ------------------------------------------------------------------ cache
-
     @property
     def records(self) -> list[dict]:
         return list(self._records.values())
@@ -183,8 +181,6 @@ class BoosterReactService:
             if emoji_key(entry["emoji"]) == key:
                 return entry["discord_user_id"]
         return None
-
-    # ------------------------------------------------------------------- CRUD
 
     async def upsert(
         self,

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import discord
 
+from ..client import bot_of
 from ..texts import t
 
 
@@ -19,7 +20,7 @@ def is_admin(interaction: discord.Interaction) -> bool:
 
 
 def is_booster(interaction: discord.Interaction) -> bool:
-    role_id = getattr(interaction.client, "booster_role_id", 0)
+    role_id = bot_of(interaction).booster_role_id
     if not role_id:
         return False
     roles = getattr(interaction.user, "roles", None) or []
@@ -31,7 +32,7 @@ def in_admin_test_channel(interaction: discord.Interaction) -> bool:
 
     Channel-locked commands skip their lock there so admins can try them out.
     """
-    channel_id = getattr(interaction.client, "admin_test_channel_id", 0)
+    channel_id = bot_of(interaction).admin_test_channel_id
     return bool(channel_id) and interaction.channel_id == channel_id
 
 

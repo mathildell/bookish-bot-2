@@ -22,16 +22,19 @@ from ..services.biweekly_theme import (
     validate_description,
     validate_title,
 )
-from ..services.booster_role import resolve_notify_channel
 from ..services.weekdays import WEEKDAY_NAMES
+from ..services.embeds import new_embed, set_transparent_image
+from ..services.channels import (
+    resolve_notify_channel,
+    resolve_updates_channel,
+)
+from ..client import bot_of
 from ..texts import t
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     chunked,
-    new_embed,
     send_paginated,
-    set_transparent_image,
 )
 logger = logging.getLogger("bh2.biweekly_theme")
 
@@ -71,7 +74,7 @@ DAY_CHOICES = [
 
 
 def _service(interaction: discord.Interaction) -> BiweeklyThemeService:
-    return interaction.client.biweekly_theme
+    return bot_of(interaction).biweekly_theme
 
 
 def _hour_value(hour: int) -> str:
@@ -108,15 +111,14 @@ async def _notify_failure(
     """Report an image failure to the admins' updates channel."""
     if interaction.guild is None:
         return
-    channel = await resolve_notify_channel(
-        interaction.guild,
-        getattr(interaction.client, "bot_updates_channel_id", 0),
+    channel = await resolve_updates_channel(
+        interaction.client, interaction.guild
     )
     await announce_theme_failed(
+        interaction.client,
         channel,
         title=exc.card.title,
         error=exc.cause,
-        colour=getattr(interaction.client, "default_embed_color", None),
     )
 
 
@@ -213,7 +215,7 @@ class ThemeSuggestView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ) -> None:
         service = _service(interaction)
-        updates_id = getattr(interaction.client, "bot_updates_channel_id", 0)
+        updates_id = bot_of(interaction).bot_updates_channel_id
         if not updates_id:
             await interaction.response.send_message(
                 t("biweekly_theme.cards.review.no_feed"), ephemeral=True
@@ -259,7 +261,7 @@ class ThemeSuggestModal(discord.ui.Modal):
                 t(exc.key, **exc.variables), ephemeral=True
             )
             return
-        updates_id = getattr(interaction.client, "bot_updates_channel_id", 0)
+        updates_id = bot_of(interaction).bot_updates_channel_id
         if not updates_id:
             await interaction.response.send_message(
                 t("biweekly_theme.cards.review.no_feed"), ephemeral=True
@@ -432,9 +434,6 @@ async def _card_autocomplete(
     return choices
 
 
-# ------------------------------------------------------------------ commands
-
-
 @channel_group.command(
     name="set", description=t("biweekly_theme.channel.set.description")
 )
@@ -446,7 +445,8 @@ async def set_channel(
         return
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
-        t("biweekly_theme.channel.set.success", channel=channel.mention)
+        t("biweekly_theme.channel.set.success", channel=channel.mention),
+        ephemeral=True,
     )
 
 
@@ -461,7 +461,7 @@ async def set_role(
         return
     await _service(interaction).set_role(role.id)
     await interaction.response.send_message(
-        t("biweekly_theme.role.set.success", role=role.mention)
+        t("biweekly_theme.role.set.success", role=role.mention), ephemeral=True
     )
 
 
@@ -713,7 +713,7 @@ async def suggest_card(
     description: str | None = None,
 ) -> None:
     service = _service(interaction)
-    updates_id = getattr(interaction.client, "bot_updates_channel_id", 0)
+    updates_id = bot_of(interaction).bot_updates_channel_id
     if not updates_id:
         await interaction.response.send_message(
             t("biweekly_theme.cards.review.no_feed"), ephemeral=True

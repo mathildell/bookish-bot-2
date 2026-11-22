@@ -59,6 +59,16 @@ async def expire_interaction(interaction: discord.Interaction) -> None:
     await interaction.followup.send(t("components.expired"), ephemeral=True)
 
 
+async def respond(
+    interaction: discord.Interaction, content: str, *, ephemeral: bool = False
+) -> None:
+    """Answer through the followup once acknowledged, otherwise directly."""
+    if interaction.response.is_done():
+        await interaction.followup.send(content, ephemeral=ephemeral)
+    else:
+        await interaction.response.send_message(content, ephemeral=ephemeral)
+
+
 async def ensure_author(interaction: discord.Interaction, author_id: int) -> bool:
     """Whether the clicker owns the view, telling anyone else it is not theirs."""
     if interaction.user.id == author_id:

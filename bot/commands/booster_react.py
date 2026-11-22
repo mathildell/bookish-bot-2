@@ -15,16 +15,16 @@ from discord import app_commands, PartialEmoji
 
 from ..services.booster_react import merge_identifiers, parse_emoji
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import denial_message, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     boost_value,
     chunked,
-    new_embed,
     send_paginated,
     set_author,
-    set_transparent_image,
 )
 
 react_group = app_commands.Group(
@@ -140,7 +140,7 @@ async def set_react(
         await interaction.followup.send(t("booster.icon_conflict"), ephemeral=True)
         return
 
-    service = interaction.client.booster_reacts
+    service = bot_of(interaction).booster_reacts
     record = await service.find(target.id)
     if record is None and emoji is None and image is None:
         await interaction.followup.send(
@@ -221,7 +221,7 @@ async def view(
 
     await interaction.response.defer()
 
-    record = await interaction.client.booster_reacts.find(target.id)
+    record = await bot_of(interaction).booster_reacts.find(target.id)
     if record is None:
         await interaction.followup.send(
             t("booster.react.view.not_found", user=target.mention),
@@ -258,7 +258,7 @@ async def remove(
 
     await interaction.response.defer()
 
-    removed = await interaction.client.booster_reacts.delete(target.id)
+    removed = await bot_of(interaction).booster_reacts.delete(target.id)
     if removed:
         await interaction.followup.send(
             t("booster.react.remove.success", user=target.mention)
@@ -277,7 +277,7 @@ async def list_reacts(interaction: discord.Interaction) -> None:
 
     await interaction.response.defer(ephemeral=True)
 
-    records = await interaction.client.booster_reacts.all()
+    records = await bot_of(interaction).booster_reacts.all()
     if not records:
         await interaction.followup.send(
             t("booster.react.list.empty"), ephemeral=True

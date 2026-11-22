@@ -26,21 +26,6 @@ from .members import resolve_member_lookups
 logger = logging.getLogger("bh2.booster_role")
 
 
-async def resolve_notify_channel(
-    guild: discord.Guild, channel_id: int
-) -> discord.abc.Messageable | None:
-    """Return the configured notify channel, or ``None`` if unavailable."""
-    if not channel_id:
-        return None
-    channel = guild.get_channel(channel_id)
-    if channel is None:
-        try:
-            channel = await guild.fetch_channel(channel_id)
-        except discord.HTTPException:
-            return None
-    return channel
-
-
 class BoosterRoleService:
     """CRUD for the user <-> role mappings, plus the reconciliation poll."""
 

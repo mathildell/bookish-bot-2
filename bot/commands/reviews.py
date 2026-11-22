@@ -10,7 +10,6 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
-from ..services.booster_role import resolve_notify_channel
 from ..services.members import resolve_members
 from ..services.reviews import (
     ReviewService,
@@ -18,15 +17,16 @@ from ..services.reviews import (
     normalize_entry_id,
     normalize_profile_url,
 )
+from ..services.embeds import new_embed, set_transparent_image
+from ..services.channels import resolve_notify_channel
+from ..client import bot_of
 from ..texts import t
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     chunked,
-    new_embed,
     send_paginated,
     set_author,
-    set_transparent_image,
 )
 
 reviews_group = app_commands.Group(
@@ -48,7 +48,7 @@ channel_group = app_commands.Group(
 
 
 def _service(interaction: discord.Interaction) -> ReviewService:
-    return interaction.client.reviews
+    return bot_of(interaction).reviews
 
 
 @feed_group.command(name="add", description=t("reviews.feed.add.description"))
@@ -158,7 +158,7 @@ async def set_channel(
         return
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
-        t("reviews.channel.set.success", channel=channel.mention)
+        t("reviews.channel.set.success", channel=channel.mention), ephemeral=True
     )
 
 

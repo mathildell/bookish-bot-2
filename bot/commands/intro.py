@@ -20,9 +20,10 @@ from ..services.intro import (
 )
 from ..services.level import utcnow
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
-from .listing import new_embed, set_transparent_image
 from .views import ExpiringView, ensure_author
 
 logger = logging.getLogger("bh2.intro")
@@ -52,7 +53,7 @@ QUESTION_SELECT_LIMIT = 25
 
 
 def _service(interaction: discord.Interaction) -> IntroService:
-    return interaction.client.intros
+    return bot_of(interaction).intros
 
 
 def sticky_embed(client: discord.Client) -> discord.Embed:
@@ -372,9 +373,6 @@ async def repost_sticky(
     await service.set_sticky(sent.id)
 
 
-# ------------------------------------------------------------- admin: channel
-
-
 @channel_group.command(name="set", description=t("intro.channel.set.description"))
 @app_commands.describe(channel=t("intro.channel.set.param_channel"))
 async def set_channel(
@@ -431,9 +429,6 @@ async def sticky_command(interaction: discord.Interaction) -> None:
     await interaction.response.defer(ephemeral=True)
     await repost_sticky(interaction.client, channel)
     await interaction.followup.send(t("intro.sticky.reposted"), ephemeral=True)
-
-
-# ----------------------------------------------------------- admin: questions
 
 
 @questions_group.command(

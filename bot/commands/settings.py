@@ -17,10 +17,12 @@ import discord
 from discord import app_commands
 
 from ..services.coupons import DEFAULT_FALLBACK_IMAGE
+from ..services.embeds import new_embed
+from ..client import bot_of
 from ..texts import t
 from .bot_say import parse_message_link
 from .checks import require_admin
-from .listing import chunked, new_embed, parse_hex_colour, send_paginated
+from .listing import chunked, parse_hex_colour, send_paginated
 
 settings_group = app_commands.Group(
     name="settings",
@@ -155,10 +157,10 @@ def parse_secret(raw: str) -> str | None:
 
 def _current_days(interaction: discord.Interaction, key: str) -> int:
     if key == PURGE_BOOK_RELEASES:
-        return interaction.client.releases.purge_days
+        return bot_of(interaction).releases.purge_days
     if key == PURGE_STREAK_LOGS:
-        return interaction.client.streaks.log_retention_days
-    return interaction.client.reviews.repost_cooldown_days
+        return bot_of(interaction).streaks.log_retention_days
+    return bot_of(interaction).reviews.repost_cooldown_days
 
 
 def _current_value(
@@ -166,15 +168,15 @@ def _current_value(
 ) -> tuple[str, str]:
     """Return the current value of a key and its unit (empty when unit-less)."""
     kind = _KINDS[key]
-    settings = interaction.client.bot_settings
+    settings = bot_of(interaction).bot_settings
     if kind == "days":
         days = _current_days(interaction, key)
         return str(days), t("settings.list.unit_days", s="" if days == 1 else "s")
     if kind == "hour":
         if key == WEEKLY_LEADERBOARD_HOUR:
-            hour = interaction.client.weekly.post_hour
+            hour = bot_of(interaction).weekly.post_hour
         else:
-            hour = interaction.client.releases.post_hour
+            hour = bot_of(interaction).releases.post_hour
         return f"{hour:02d}:00", t("settings.list.unit_hour")
     if kind == "channel":
         if key == BUDDY_READ_CHANNEL:
@@ -243,17 +245,17 @@ async def apply_value(
     if kind == "days":
         days = parse_days(raw)
         if key == PURGE_BOOK_RELEASES:
-            await interaction.client.releases.set_purge_days(days)
+            await bot_of(interaction).releases.set_purge_days(days)
         elif key == PURGE_STREAK_LOGS:
-            await interaction.client.streaks.set_log_retention_days(days)
+            await bot_of(interaction).streaks.set_log_retention_days(days)
         else:
-            await interaction.client.reviews.set_repost_cooldown_days(days)
+            await bot_of(interaction).reviews.set_repost_cooldown_days(days)
     elif kind == "hour":
         hour = parse_hour(raw)
         if key == WEEKLY_LEADERBOARD_HOUR:
-            await interaction.client.weekly.set_post_hour(hour)
+            await bot_of(interaction).weekly.set_post_hour(hour)
         else:
-            await interaction.client.releases.set_post_hour(hour)
+            await bot_of(interaction).releases.set_post_hour(hour)
     elif kind == "channel":
         channel_id = parse_channel_id(raw)
         if (
@@ -263,53 +265,55 @@ async def apply_value(
         ):
             raise ValueError(raw)
         if key == BUDDY_READ_CHANNEL:
-            await interaction.client.bot_settings.set_reference_forum_channel(
+            await bot_of(interaction).bot_settings.set_reference_forum_channel(
                 channel_id
             )
-            interaction.client.reference_forum_channel_id = channel_id or 0
+            bot_of(interaction).reference_forum_channel_id = channel_id or 0
         elif key == GEN_CHAT_CHANNEL:
-            await interaction.client.bot_settings.set_gen_chat_channel(
+            await bot_of(interaction).bot_settings.set_gen_chat_channel(
                 channel_id
             )
         elif key == ADMIN_TEST_CHANNEL:
-            await interaction.client.bot_settings.set_admin_test_channel(
+            await bot_of(interaction).bot_settings.set_admin_test_channel(
                 channel_id
             )
-            interaction.client.admin_test_channel_id = channel_id or 0
+            bot_of(interaction).admin_test_channel_id = channel_id or 0
         else:
-            await interaction.client.bot_settings.set_updates_channel(channel_id)
-            interaction.client.bot_updates_channel_id = channel_id or 0
+            await bot_of(interaction).bot_settings.set_updates_channel(
+                channel_id
+            )
+            bot_of(interaction).bot_updates_channel_id = channel_id or 0
     elif kind == "url":
         image = parse_url(raw)
         if key == COUPON_FALLBACK_IMAGE:
-            await interaction.client.bot_settings.set_coupon_fallback_image(
+            await bot_of(interaction).bot_settings.set_coupon_fallback_image(
                 image
             )
-            interaction.client.coupon_fallback_image = (
+            bot_of(interaction).coupon_fallback_image = (
                 image or DEFAULT_FALLBACK_IMAGE
             )
         else:
-            await interaction.client.bot_settings.set_transparent_embed_image(
+            await bot_of(interaction).bot_settings.set_transparent_embed_image(
                 image
             )
-            interaction.client.transparent_embed_image = image
+            bot_of(interaction).transparent_embed_image = image
     elif kind == "message_link":
         link = parse_message_link_setting(raw)
-        await interaction.client.bot_settings.set_reference_message_link(link)
+        await bot_of(interaction).bot_settings.set_reference_message_link(link)
         parsed = parse_message_link(link) if link else None
-        interaction.client.reference_channel_id = parsed[0] if parsed else 0
-        interaction.client.reference_message_id = parsed[1] if parsed else 0
+        bot_of(interaction).reference_channel_id = parsed[0] if parsed else 0
+        bot_of(interaction).reference_message_id = parsed[1] if parsed else 0
     elif kind == "secret":
         cookie = parse_secret(raw)
-        await interaction.client.bot_settings.set_goodreads_session_cookie(
+        await bot_of(interaction).bot_settings.set_goodreads_session_cookie(
             cookie
         )
-        interaction.client.reviews.set_goodreads_session_cookie(cookie)
+        bot_of(interaction).reviews.set_goodreads_session_cookie(cookie)
     else:
         color = parse_color(raw)
         stored = f"#{color.value:06x}" if color is not None else None
-        await interaction.client.bot_settings.set_default_embed_color(stored)
-        interaction.client.default_embed_color = color
+        await bot_of(interaction).bot_settings.set_default_embed_color(stored)
+        bot_of(interaction).default_embed_color = color
 
 
 @settings_group.command(name="list", description=t("settings.list.description"))

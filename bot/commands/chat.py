@@ -15,6 +15,7 @@ from ..services.chat import (
     configure_chat,
 )
 from ..texts import t
+from .views import respond
 
 logger = logging.getLogger(__name__)
 
@@ -163,12 +164,9 @@ async def _reply_quietly(message: discord.Message, content: str) -> None:
 async def _respond(
     interaction: discord.Interaction, content: str, *, ephemeral: bool = False
 ) -> None:
-    """Answer through the followup once acknowledged, otherwise directly."""
+    """Answer the interaction, logging instead of raising when it fails."""
     try:
-        if interaction.response.is_done():
-            await interaction.followup.send(content, ephemeral=ephemeral)
-        else:
-            await interaction.response.send_message(content, ephemeral=ephemeral)
+        await respond(interaction, content, ephemeral=ephemeral)
     except Exception:
         logger.debug("Could not send chat response", exc_info=True)
 

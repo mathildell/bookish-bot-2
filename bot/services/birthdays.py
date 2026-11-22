@@ -23,6 +23,7 @@ from ..models import Birthday, BirthdayImage, BirthdayMessage, BirthdaySetting
 from ..notifications import announce_level_up
 from ..texts import t, t_choice
 from . import level as level_service
+from .embeds import new_embed, set_transparent_image
 from .level_rewards import sync_member_roles
 from .members import resolve_members
 from .timezones import (
@@ -91,9 +92,6 @@ class MemberNotFound(BirthdayError):
 
 class PostFailed(BirthdayError):
     key = "birthday.errors.post_failed"
-
-
-# ----------------------------------------------------------------- pure rules
 
 
 def days_in_month(month: int, year: int = 2000) -> int:
@@ -263,7 +261,6 @@ def choose_content(
     )
 
 
-
 def xp_award_summary(change: level_service.LevelChangeResult) -> dict:
     return {
         "old_level": change.old_level,
@@ -309,7 +306,7 @@ def build_birthday_embed(
     content: ContentChoice,
     xp_award: dict | None,
 ) -> discord.Embed:
-    embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
+    embed = new_embed(client)
     embed.set_author(
         name=discord.utils.escape_markdown(member.display_name),
         icon_url=member.display_avatar.url,
@@ -319,9 +316,7 @@ def build_birthday_embed(
     if content.image_url:
         embed.set_image(url=content.image_url)
     else:
-        transparent = getattr(client, "transparent_embed_image", None)
-        if transparent:
-            embed.set_image(url=transparent)
+        set_transparent_image(embed, client)
     if xp_award:
         embed.add_field(
             name=t("birthday.post.xp_field"),
@@ -329,9 +324,6 @@ def build_birthday_embed(
             inline=False,
         )
     return embed
-
-
-# ------------------------------------------------------------------- service
 
 
 class BirthdayService:
@@ -491,9 +483,6 @@ class BirthdayService:
             )
             await session.commit()
         return removed_birthday, had_linked
-
-
-
 
     async def _list_content(self, model, *, user_id, search):
         async with session_scope() as session:
@@ -771,7 +760,6 @@ class BirthdayService:
                     await session.commit()
                     await session.refresh(stored)
                     return "message", stored
-
 
     async def choose_content(self, user_id: int) -> ContentChoice:
         messages = await self.list_messages()

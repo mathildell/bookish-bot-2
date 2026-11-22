@@ -44,9 +44,14 @@ POPULAR_TIMEZONES = (
 )
 
 
+def as_utc(value: datetime) -> datetime:
+    """Attach UTC to a naive datetime (the stored shape); aware values pass through."""
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
 def local_now(now_utc: datetime, tz_name: str) -> datetime:
     """Interpret a naive UTC timestamp in the given timezone."""
-    return now_utc.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz_name))
+    return as_utc(now_utc).astimezone(ZoneInfo(tz_name))
 
 
 def to_utc(local: datetime) -> datetime:

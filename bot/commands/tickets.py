@@ -11,8 +11,7 @@ import logging
 import discord
 from discord import app_commands
 
-from ..services.booster_role import resolve_notify_channel
-from ..services.channels import resolve_text_channel
+from ..services.channels import resolve_text_channel, resolve_updates_channel
 from ..services.level import utcnow
 from ..services.tickets import (
     STATUS_CLOSED,
@@ -26,8 +25,10 @@ from ..services.tickets import (
     thread_name,
     ticket_embed,
 )
+from ..client import bot_of
 from ..texts import t
 from .checks import is_admin, require_admin
+from .views import respond
 
 logger = logging.getLogger("bh2.tickets")
 
@@ -56,7 +57,7 @@ role_group = app_commands.Group(
 
 
 def _service(interaction: discord.Interaction) -> TicketService:
-    return interaction.client.tickets
+    return bot_of(interaction).tickets
 
 
 async def ensure_sticky(
@@ -96,13 +97,6 @@ def _thread(interaction: discord.Interaction) -> discord.Thread | None:
     )
 
 
-async def _respond(interaction: discord.Interaction, message: str) -> None:
-    if interaction.response.is_done():
-        await interaction.followup.send(message, ephemeral=True)
-    else:
-        await interaction.response.send_message(message, ephemeral=True)
-
-
 async def _defer(interaction: discord.Interaction) -> None:
     if not interaction.response.is_done():
         await interaction.response.defer(ephemeral=True)
@@ -137,9 +131,7 @@ async def _announce_closed(
 ) -> None:
     if guild is None:
         return
-    channel = await resolve_notify_channel(
-        guild, getattr(client, "bot_updates_channel_id", 0)
-    )
+    channel = await resolve_updates_channel(client, guild)
     if channel is None:
         return
     try:
@@ -158,11 +150,11 @@ async def _handle_open(interaction: discord.Interaction) -> None:
         or not service.admin_role_id
         or not isinstance(channel, discord.TextChannel)
     ):
-        await _respond(interaction, t("tickets.errors.not_configured"))
+        await respond(interaction, t("tickets.errors.not_configured"), ephemeral=True)
         return
     role = guild.get_role(service.admin_role_id)
     if role is None:
-        await _respond(interaction, t("tickets.errors.not_configured"))
+        await respond(interaction, t("tickets.errors.not_configured"), ephemeral=True)
         return
 
     await _defer(interaction)
@@ -243,21 +235,21 @@ async def _handle_close(
     service = _service(interaction)
     thread = _thread(interaction)
     if thread is None:
-        await _respond(interaction, t("tickets.errors.not_thread"))
+        await respond(interaction, t("tickets.errors.not_thread"), ephemeral=True)
         return
     await _defer(interaction)
     ticket = await service.get_by_thread(thread.id)
     if ticket is None:
-        await _respond(interaction, t("tickets.errors.not_ticket"))
+        await respond(interaction, t("tickets.errors.not_ticket"), ephemeral=True)
         return
     allowed = _has_ticket_admin(interaction, service) or (
         allow_opener and interaction.user.id == ticket.opener_id
     )
     if not allowed:
-        await _respond(interaction, t("tickets.errors.no_permission"))
+        await respond(interaction, t("tickets.errors.no_permission"), ephemeral=True)
         return
     if ticket.status == STATUS_CLOSED and thread.archived:
-        await _respond(interaction, t("tickets.close.already_closed"))
+        await respond(interaction, t("tickets.close.already_closed"), ephemeral=True)
         return
 
     reason = t("tickets.audit.close", number=ticket.number)
@@ -293,24 +285,24 @@ async def _handle_reopen(
     service = _service(interaction)
     thread = _thread(interaction)
     if thread is None:
-        await _respond(interaction, t("tickets.errors.not_thread"))
+        await respond(interaction, t("tickets.errors.not_thread"), ephemeral=True)
         return
     await _defer(interaction)
     ticket = await service.get_by_thread(thread.id)
     if ticket is None:
-        await _respond(interaction, t("tickets.errors.not_ticket"))
+        await respond(interaction, t("tickets.errors.not_ticket"), ephemeral=True)
         return
     allowed = _has_ticket_admin(interaction, service) or (
         allow_opener and interaction.user.id == ticket.opener_id
     )
     if not allowed:
-        await _respond(interaction, t("tickets.errors.no_permission"))
+        await respond(interaction, t("tickets.errors.no_permission"), ephemeral=True)
         return
     if ticket.status == STATUS_OPEN:
-        await _respond(interaction, t("tickets.reopen.already_open"))
+        await respond(interaction, t("tickets.reopen.already_open"), ephemeral=True)
         return
     if from_button and not can_reopen_with_button(ticket, utcnow()):
-        await _respond(interaction, t("tickets.reopen.expired"))
+        await respond(interaction, t("tickets.reopen.expired"), ephemeral=True)
         return
 
     reason = t("tickets.audit.reopen", number=ticket.number)

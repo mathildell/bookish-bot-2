@@ -12,7 +12,7 @@ import asyncio
 import logging
 import re
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import aiohttp
@@ -23,10 +23,12 @@ from sqlalchemy import delete, select
 from ..db import session_scope
 from ..models import BotSetting, ReviewEntry, ReviewFeed, ReviewSetting
 from ..texts import t
+from .embeds import new_embed, set_transparent_image
 from .html import html_to_markdown
 from .level import utcnow
 from .members import resolve_members
 from .text import truncate
+from .timezones import as_utc
 
 logger = logging.getLogger("bh2.reviews")
 
@@ -365,7 +367,7 @@ def parse_review_page(html_text: str, entry: FeedEntry) -> FeedEntry:
 
 
 def format_rating(value: str) -> str:
-    """Render a raw rating string as ``3 ⭐`` / ``3.5 ⭐``, or a placeholder."""
+    """Render a raw rating string (``3`` / ``3.5``) as text, or a placeholder."""
     try:
         rating = float(value)
     except (TypeError, ValueError):
@@ -379,7 +381,7 @@ def format_date_read(value: datetime | None) -> str:
     """Render the date a book was read, or a placeholder."""
     if value is None:
         return t("reviews.embed.date_read_none")
-    timestamp = int(value.replace(tzinfo=timezone.utc).timestamp())
+    timestamp = int(as_utc(value).timestamp())
     return f"<t:{timestamp}:D>"
 
 
@@ -427,7 +429,7 @@ def build_review_embed(
     client: discord.Client,
 ) -> discord.Embed:
     """Build the review embed posted to the reviews channel."""
-    embed = discord.Embed(colour=getattr(client, "default_embed_color", None))
+    embed = new_embed(client)
 
     if member is not None:
         avatar = getattr(member, "display_avatar", None)
@@ -488,9 +490,7 @@ def build_review_embed(
         icon_url=feed.logo_url,
     )
 
-    background = getattr(client, "transparent_embed_image", None)
-    if background:
-        embed.set_image(url=background)
+    set_transparent_image(embed, client)
     return embed
 
 
@@ -582,8 +582,6 @@ class ReviewService:
     def mark_auth_notice_sent(self, now: datetime) -> None:
         self._last_auth_notice_at = now
 
-    # ----------------------------------------------------------- settings
-
     async def reload(self) -> None:
         async with session_scope() as session:
             row = (
@@ -650,8 +648,6 @@ class ReviewService:
             await session.commit()
         self._repost_cooldown_days = days
 
-    # -------------------------------------------------------------- feeds
-
     async def all_feeds(self) -> list[ReviewFeed]:
         async with session_scope() as session:
             return list(
@@ -709,8 +705,6 @@ class ReviewService:
             )
             await session.commit()
         return result.rowcount > 0
-
-    # ------------------------------------------------------------ entries
 
     async def force_repost(self, discord_user_id: int, entry_id: str) -> bool:
         """Forget an entry's tracking so it is posted again on the next poll."""
@@ -790,8 +784,6 @@ class ReviewService:
             if posted:
                 row.last_posted_at = now
             await session.commit()
-
-    # -------------------------------------------------------------- worker
 
     async def post_new_reviews(
         self,

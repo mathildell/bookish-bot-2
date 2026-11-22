@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from ..db import session_scope
 from ..models import Reminder, ReminderSnooze
+from .hours import check_hour
 from .level import utcnow
 from .timezones import default_member_timezone, local_now, to_utc, valid_timezone
 from .weekdays import WEEKDAY_NAMES
@@ -196,9 +197,6 @@ class ReminderNotFound(ReminderError):
     key = "reminders.errors.not_found"
 
 
-# ----------------------------------------------------------------- pure rules
-
-
 def clean_message(raw: str) -> str:
     return (raw or "").strip()
 
@@ -213,9 +211,7 @@ def validate_message(raw: str) -> str:
 
 
 def validate_hour(hour: int) -> int:
-    if not isinstance(hour, int) or not 0 <= hour <= 23:
-        raise InvalidHour(hour=hour)
-    return hour
+    return check_hour(hour, InvalidHour)
 
 
 def validate_monthly_target(
@@ -533,22 +529,15 @@ def snooze_due_at(now: datetime, delay: timedelta) -> datetime:
     return now + delay
 
 
-# ------------------------------------------------------------------- service
-
-
 class ReminderService:
     """CRUD and the due-query behind the reminder poll."""
 
     def __init__(self, guild_id: int) -> None:
         self._guild_id = guild_id
 
-    # ------------------------------------------------------------- timezone
-
     async def default_timezone(self, user_id: int) -> str:
         """The member's streak timezone, falling back to UTC."""
         return await default_member_timezone(self._guild_id, user_id)
-
-    # ----------------------------------------------------------------- CRUD
 
     async def add(
         self,
@@ -834,8 +823,6 @@ class ReminderService:
                 statement = statement.where(Reminder.user_id == user_id)
             statement = statement.order_by(Reminder.next_run_at)
             return list((await session.execute(statement)).scalars())
-
-    # ------------------------------------------------------------ delivery
 
     async def due(
         self, now: datetime | None = None

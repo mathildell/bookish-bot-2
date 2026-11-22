@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import discord
 from discord import app_commands
@@ -26,17 +26,19 @@ from ..services.reminders import (
     Reminder,
     ReminderService,
 )
-from ..services.timezones import search_timezones
+from ..services.text import ordinal
+from ..services.timezones import as_utc
 from ..services.weekdays import WEEKDAY_NAMES
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
+from .autocomplete import timezone_autocomplete
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     chunked,
-    new_embed,
     send_paginated,
     set_author,
-    set_transparent_image,
 )
 from .views import ExpiringView, delete_interaction_view, delete_view, tracked_row
 
@@ -57,7 +59,7 @@ reminders_group = app_commands.Group(
 
 
 def _service(interaction: discord.Interaction) -> ReminderService:
-    return interaction.client.reminders
+    return bot_of(interaction).reminders
 
 
 def _hour_value(hour: int) -> str:
@@ -70,21 +72,12 @@ def _hour_value(hour: int) -> str:
     return t(key, hour=display)
 
 
-def _ordinal(day: int) -> str:
-    remainder = day % 100
-    if 11 <= remainder <= 13:
-        suffix = "th"
-    else:
-        suffix = {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
-    return t(f"reminders.shared.suffix.{suffix}")
-
-
 def _weekday_name(weekday: int) -> str:
     return t(f"components.weekday.{WEEKDAY_NAMES[weekday]}")
 
 
 def _format_run(moment: datetime) -> str:
-    return discord.utils.format_dt(moment.replace(tzinfo=timezone.utc), "f")
+    return discord.utils.format_dt(as_utc(moment), "f")
 
 
 def schedule_summary(reminder: Reminder) -> str:
@@ -115,8 +108,7 @@ def schedule_summary(reminder: Reminder) -> str:
             return t(key, days=offset, hour=hour)
         return t(
             "reminders.schedule.monthly",
-            day=reminder.day_of_month,
-            suffix=_ordinal(reminder.day_of_month or 1),
+            day=ordinal(reminder.day_of_month or 1),
             hour=hour,
         )
     days = reminder.interval_days or 1
@@ -191,9 +183,6 @@ def _confirmation_embed(
             inline=True,
         )
     return embed
-
-
-# --------------------------------------------------------------------- views
 
 
 @dataclass(frozen=True)
@@ -481,8 +470,6 @@ class ReminderActionsFallbackView(_ReminderActions, discord.ui.View):
         self.add_item(_SnoozeButton())
 
 
-# ------------------------------------------------------------------ choices
-
 REPEAT_CHOICES = [
     app_commands.Choice(name=t(f"reminders.repeat.{kind}"), value=kind)
     for kind in KINDS
@@ -565,9 +552,6 @@ async def _reminder_autocomplete(
         if len(choices) >= 25:
             break
     return choices
-
-
-# ------------------------------------------------------------------ commands
 
 
 @reminders_group.command(name="add", description=t("reminders.add.description"))
@@ -849,12 +833,5 @@ async def list_reminders(
     )
 
 
-@add.autocomplete("timezone")
-@edit.autocomplete("timezone")
-async def timezone_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[str]]:
-    return [
-        app_commands.Choice(name=label, value=value)
-        for value, label in search_timezones(current)
-    ]
+add.autocomplete("timezone")(timezone_autocomplete)
+edit.autocomplete("timezone")(timezone_autocomplete)

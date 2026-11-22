@@ -83,9 +83,6 @@ class InvalidReminder(StreakError):
     key = "streaks.errors.invalid_reminder"
 
 
-# ----------------------------------------------------------------- pure rules
-
-
 def level_xp(level: int) -> int:
     """XP paid for completing ``level`` (decelerating growth, capped at 30)."""
     if level <= 0:
@@ -295,9 +292,6 @@ def window_slots(
     ]
 
 
-# --------------------------------------------------------------- result types
-
-
 @dataclass
 class LevelAward:
     """One coupon's worth of progression: a finished level and the XP it paid."""
@@ -407,9 +401,6 @@ class Reminder:
     goal: StreakGoal
     kind: str  # "custom", "last_chance" or "rescue"
     marker: str = "custom"  # idempotency column, "custom" or "last_chance"
-
-
-# --------------------------------------------------------------- DB helpers
 
 
 async def _get_goal(session, *, guild_id: int, user_id: int) -> StreakGoal | None:
@@ -580,9 +571,6 @@ async def _apply_level_progress(
     return progress
 
 
-# ------------------------------------------------------------------ service
-
-
 class StreakService:
     """Settings plus the read/write streak operations."""
 
@@ -603,8 +591,6 @@ class StreakService:
     @property
     def log_retention_days(self) -> int:
         return self._log_retention_days
-
-    # ----------------------------------------------------------- settings
 
     async def _settings(self, session, *, create: bool = False) -> StreakSetting | None:
         row = (
@@ -651,8 +637,6 @@ class StreakService:
             row.log_retention_days = days
             await session.commit()
         self._log_retention_days = days
-
-    # -------------------------------------------------------------- goals
 
     async def get_goal(self, user_id: int) -> StreakGoal | None:
         async with session_scope() as session:
@@ -702,8 +686,6 @@ class StreakService:
             await session.refresh(goal)
             return goal
 
-    # ---------------------------------------------------------- snapshot
-
     async def view(self, user_id: int) -> tuple[StreakGoal, Streak | None, list[StreakLog]]:
         """Goal, the most relevant streak and its current-window logs."""
         async with session_scope() as session:
@@ -749,8 +731,6 @@ class StreakService:
             last_date=last_date,
             closes_at=closes_at,
         )
-
-    # -------------------------------------------------------------- logging
 
     async def log_daily(
         self, *, user_id: int, amount_raw: str, now: datetime | None = None
@@ -844,8 +824,6 @@ class StreakService:
                 rescuable=rescuable,
                 closed=closed_streak,
             )
-
-    # -------------------------------------------------------------- rescue
 
     async def _rescuable_streak(
         self, session, *, goal: StreakGoal, now: datetime
@@ -970,8 +948,6 @@ class StreakService:
                 progress=progress,
             )
 
-    # ------------------------------------------------------------ backfill
-
     async def admin_log(
         self,
         *,
@@ -1055,8 +1031,6 @@ class StreakService:
                 progress=progress,
                 rescuable=None,
             )
-
-    # -------------------------------------------------------- upkeep/polls
 
     async def close_due(self, now: datetime | None = None) -> list[ClosedStreak]:
         """Close every ongoing streak whose deadline has passed."""
@@ -1173,8 +1147,6 @@ class StreakService:
             )
             await session.commit()
             return int(result.rowcount or 0)
-
-    # --------------------------------------------------------- leaderboards
 
     async def leaderboard(
         self, *, ongoing: bool, limit: int = 10

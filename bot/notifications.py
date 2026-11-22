@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 import discord
 
+from .services.embeds import new_embed
 from .services.streaks import ClosedStreak, format_date
 from .texts import t
 
@@ -30,23 +31,23 @@ async def announce_level_up(
 
 
 async def announce_theme_failed(
+    client: discord.Client,
     channel: discord.abc.Messageable | None,
     *,
     title: str,
     error: object,
-    colour: discord.Colour | None = None,
 ) -> None:
     """Tell the admins' updates channel that a theme image could not be made."""
     if channel is None:
         return
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("biweekly_theme.post.failed_title"),
         description=t(
             "biweekly_theme.post.failed_description",
             title=title,
             error=error,
         ),
-        colour=colour,
     )
     try:
         await channel.send(embed=embed)
@@ -55,10 +56,10 @@ async def announce_theme_failed(
 
 
 async def announce_streak_closed(
+    client: discord.Client,
     channel: discord.abc.Messageable | None,
     *,
     closed: Sequence[ClosedStreak],
-    colour: discord.Colour | None = None,
 ) -> None:
     """Tell the admins' updates channel which members' streaks just closed."""
     if channel is None or not closed:
@@ -72,10 +73,10 @@ async def announce_streak_closed(
         )
         for entry in closed
     ]
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("streaks.closed.title"),
         description="\n".join(lines),
-        colour=colour,
     )
     try:
         await channel.send(embed=embed)
@@ -84,19 +85,19 @@ async def announce_streak_closed(
 
 
 async def announce_review_auth_failed(
+    client: discord.Client,
     channel: discord.abc.Messageable | None,
     *,
     missing_cookie: bool,
-    colour: discord.Colour | None = None,
 ) -> None:
     """Tell the admins' updates channel that reviews are on hold."""
     if channel is None:
         return
     prefix = "missing_cookie" if missing_cookie else "auth_failed"
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t(f"reviews.errors.{prefix}_title"),
         description=t(f"reviews.errors.{prefix}_description"),
-        colour=colour,
     )
     try:
         await channel.send(embed=embed)

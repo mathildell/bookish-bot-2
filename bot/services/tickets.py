@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import discord
 from sqlalchemy import func, select
@@ -17,8 +17,10 @@ from sqlalchemy import func, select
 from ..db import session_scope
 from ..models import Ticket, TicketSetting
 from ..texts import t
+from .embeds import new_embed, set_transparent_image
 from .level import utcnow
 from .text import truncate
+from .timezones import as_utc
 
 logger = logging.getLogger("bh2.tickets")
 
@@ -29,15 +31,11 @@ REOPEN_WINDOW = timedelta(hours=2)
 THREAD_NAME_LIMIT = 100
 
 
-def _utc(value: datetime) -> datetime:
-    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
-
-
 def format_timestamp(value: datetime | None) -> str:
     """Render a stored naive-UTC datetime as a Discord timestamp."""
     if value is None:
         return t("tickets.summary.unknown_time")
-    return discord.utils.format_dt(_utc(value), "f")
+    return discord.utils.format_dt(as_utc(value), "f")
 
 
 def thread_name(display_name: str, number: int) -> str:
@@ -65,32 +63,24 @@ def can_reopen_with_button(ticket: Ticket, now: datetime) -> bool:
     )
 
 
-def _apply_transparent_image(
-    embed: discord.Embed, client: discord.Client
-) -> None:
-    image = getattr(client, "transparent_embed_image", None)
-    if image:
-        embed.set_image(url=image)
-
-
 def sticky_embed(client: discord.Client) -> discord.Embed:
     """The single panel message posted in the ticketing channel."""
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("tickets.sticky.title"),
         description=t("tickets.sticky.description"),
-        colour=getattr(client, "default_embed_color", None),
     )
     return embed
 
 
 def ticket_embed(client: discord.Client, number: int) -> discord.Embed:
     """The embed pinned in a new ticket thread."""
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("tickets.embed.title", number=number),
         description=t("tickets.embed.description"),
-        colour=getattr(client, "default_embed_color", None),
     )
-    _apply_transparent_image(embed, client)
+    set_transparent_image(embed, client)
     return embed
 
 
@@ -98,7 +88,8 @@ def summary_embed(
     client: discord.Client, ticket: Ticket, thread_link: str
 ) -> discord.Embed:
     """The close summary posted in the admins' updates channel."""
-    embed = discord.Embed(
+    embed = new_embed(
+        client,
         title=t("tickets.summary.title"),
         description=t(
             "tickets.summary.description",
@@ -106,7 +97,6 @@ def summary_embed(
             link=thread_link,
             user=f"<@{ticket.opener_id}>",
         ),
-        colour=getattr(client, "default_embed_color", None),
     )
     embed.add_field(
         name=t("tickets.summary.opened_field"),

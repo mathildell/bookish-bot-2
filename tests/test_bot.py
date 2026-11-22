@@ -54,6 +54,7 @@ from bot.services.release_sources import BookData
 from bot.services.level_rewards import LevelRewardService, sync_member_roles
 from bot.services.members import resolve_member_lookups, resolve_members
 from bot.services.reviews import FeedData, FeedEntry
+from bot.services.text import ordinal
 from bot.services.streaks import ClosedStreak
 from bot.texts import t
 
@@ -1049,7 +1050,7 @@ class AnnounceStreakClosedTests(unittest.IsolatedAsyncioTestCase):
     async def test_lists_every_closed_streak(self) -> None:
         channel = FakeNotifyChannel()
         await notifications.announce_streak_closed(
-            channel, closed=[self._closed(1, 13), self._closed(2, 1)]
+            FakeClient(), channel, closed=[self._closed(1, 13), self._closed(2, 1)]
         )
         embed = channel.embeds[0]
         self.assertEqual(embed.title, t("streaks.closed.title"))
@@ -1060,18 +1061,18 @@ class AnnounceStreakClosedTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_missing_channel_is_ignored(self) -> None:
         await notifications.announce_streak_closed(
-            None, closed=[self._closed(1, 13)]
+            FakeClient(), None, closed=[self._closed(1, 13)]
         )
 
     async def test_empty_list_is_ignored(self) -> None:
         channel = FakeNotifyChannel()
-        await notifications.announce_streak_closed(channel, closed=[])
+        await notifications.announce_streak_closed(FakeClient(), channel, closed=[])
         self.assertEqual(channel.embeds, [])
 
     async def test_send_failure_is_swallowed(self) -> None:
         channel = FakeNotifyChannel(fail=True)
         await notifications.announce_streak_closed(
-            channel, closed=[self._closed(1, 13)]
+            FakeClient(), channel, closed=[self._closed(1, 13)]
         )
         self.assertEqual(channel.embeds, [])
 
@@ -1098,7 +1099,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         ]
 
         sent = await bot_main._post_streak_reminders(
-            FakeClient(), channel, reminders, colour=None
+            FakeClient(), channel, reminders
         )
 
         self.assertEqual([reminder.goal.user_id for reminder in sent], [2])
@@ -1112,7 +1113,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         reminders = [self._reminder(1, "custom")]
 
         sent = await bot_main._post_streak_reminders(
-            FakeClient(), channel, reminders, colour=None
+            FakeClient(), channel, reminders
         )
 
         self.assertEqual(sent, reminders)
@@ -1125,7 +1126,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         reminders = [self._reminder(1, "custom")]
 
         await bot_main._post_streak_reminders(
-            FakeClient(), channel, reminders, colour=None
+            FakeClient(), channel, reminders
         )
 
         view = channel.views[0]
@@ -1140,7 +1141,7 @@ class PostStreakRemindersTests(unittest.IsolatedAsyncioTestCase):
         )
 
         await bot_main._post_streak_reminders(
-            FakeClient(), channel, reminders, guild=guild, colour=None
+            FakeClient(), channel, reminders, guild=guild
         )
 
         self.assertEqual(channel.sent[0], "<@1>")
@@ -3057,20 +3058,20 @@ class BookReferenceTests(unittest.TestCase):
 
 class OrdinalTests(unittest.TestCase):
     def test_first_three(self) -> None:
-        self.assertEqual(release_service._ordinal(1), "1st")
-        self.assertEqual(release_service._ordinal(2), "2nd")
-        self.assertEqual(release_service._ordinal(3), "3rd")
+        self.assertEqual(ordinal(1), "1st")
+        self.assertEqual(ordinal(2), "2nd")
+        self.assertEqual(ordinal(3), "3rd")
 
     def test_teens_use_th(self) -> None:
-        self.assertEqual(release_service._ordinal(11), "11th")
-        self.assertEqual(release_service._ordinal(12), "12th")
-        self.assertEqual(release_service._ordinal(13), "13th")
+        self.assertEqual(ordinal(11), "11th")
+        self.assertEqual(ordinal(12), "12th")
+        self.assertEqual(ordinal(13), "13th")
 
     def test_twenties(self) -> None:
-        self.assertEqual(release_service._ordinal(21), "21st")
-        self.assertEqual(release_service._ordinal(22), "22nd")
-        self.assertEqual(release_service._ordinal(23), "23rd")
-        self.assertEqual(release_service._ordinal(30), "30th")
+        self.assertEqual(ordinal(21), "21st")
+        self.assertEqual(ordinal(22), "22nd")
+        self.assertEqual(ordinal(23), "23rd")
+        self.assertEqual(ordinal(30), "30th")
 
 
 class ParseDaysTests(unittest.TestCase):

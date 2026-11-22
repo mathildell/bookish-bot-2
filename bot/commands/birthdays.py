@@ -6,25 +6,25 @@ the temporary role and the shared pools of messages and images.
 
 from __future__ import annotations
 
-from datetime import timezone
 
 import discord
 from discord import app_commands
 
 from ..services import birthdays as birthday_service
-from ..services.booster_role import resolve_notify_channel
 from ..services.level import utcnow
 from ..services.members import resolve_members
-from ..services.timezones import search_timezones
+from ..services.timezones import as_utc
+from ..services.embeds import new_embed, set_transparent_image
+from ..services.channels import resolve_notify_channel
+from ..client import bot_of
 from ..texts import t
+from .autocomplete import timezone_autocomplete
 from .checks import is_admin, require_admin
 from .listing import (
     EMBEDS_PER_PAGE,
     Paginator,
     chunked,
-    new_embed,
     send_paginated,
-    set_transparent_image,
 )
 
 birthday_group = app_commands.Group(
@@ -54,9 +54,8 @@ MESSAGE = "message"
 IMAGE = "image"
 
 
-
 def _service(interaction: discord.Interaction) -> birthday_service.BirthdayService:
-    return interaction.client.birthdays
+    return bot_of(interaction).birthdays
 
 
 def _error_text(exc: birthday_service.BirthdayError) -> str:
@@ -70,18 +69,6 @@ async def date_autocomplete(
         app_commands.Choice(name=label, value=value)
         for value, label in birthday_service.search_birthday_dates(current)
     ]
-
-
-async def timezone_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[str]]:
-    return [
-        app_commands.Choice(name=label, value=value)
-        for value, label in search_timezones(current)
-    ]
-
-
-# --------------------------------------------------------------------- views
 
 
 def _content_embed(
@@ -136,7 +123,7 @@ def _birthday_list_embed(
     embed.add_field(
         name=t("birthday.list.next_title"),
         value=discord.utils.format_dt(
-            moment.replace(tzinfo=timezone.utc), "R"
+            as_utc(moment), "R"
         ),
         inline=True,
     )
@@ -254,9 +241,6 @@ async def _open_content_list(
     view.message = await interaction.followup.send(
         embeds=await view.load_page(0), view=view, ephemeral=True
     )
-
-
-# ------------------------------------------------------------------ commands
 
 
 @birthday_group.command(
@@ -384,7 +368,7 @@ async def set_channel(
         return
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
-        t("birthday.channel.set.success", channel=channel.mention)
+        t("birthday.channel.set.success", channel=channel.mention), ephemeral=True
     )
 
 
@@ -399,7 +383,7 @@ async def set_role(
         return
     await _service(interaction).set_role(role.id)
     await interaction.response.send_message(
-        t("birthday.role.set.success", role=role.mention)
+        t("birthday.role.set.success", role=role.mention), ephemeral=True
     )
 
 
@@ -466,7 +450,6 @@ async def add_content_cmd(
             ),
             ephemeral=True,
         )
-
 
 
 @content_group.command(
@@ -549,7 +532,6 @@ async def edit_content_cmd(
         return
 
 
-
 @birthday_group.command(
     name="force", description=t("birthday.force.description")
 )
@@ -589,9 +571,6 @@ async def force(
     await interaction.followup.send(
         t("birthday.force.success", user=user.mention), ephemeral=True
     )
-
-
-# -------------------------------------------------------------- autocomplete
 
 
 async def content_autocomplete(

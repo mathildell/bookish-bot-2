@@ -8,9 +8,11 @@ import discord
 from discord import app_commands
 
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
-from .listing import EMBEDS_PER_PAGE, chunked, new_embed, send_paginated, set_transparent_image
+from .listing import EMBEDS_PER_PAGE, chunked, send_paginated
 
 chatbot_group = app_commands.Group(
     name="chatbot",
@@ -74,7 +76,7 @@ async def chatbot_toggle(
 ) -> None:
     if not await require_admin(interaction):
         return
-    await interaction.client.bot_settings.set_chat_enabled(state == "on")
+    await bot_of(interaction).bot_settings.set_chat_enabled(state == "on")
     await interaction.response.send_message(t(f"chatbot.toggle.{state}"))
 
 
@@ -97,7 +99,7 @@ async def model_set(interaction: discord.Interaction, model: str) -> None:
                 return
         except Exception:
             pass
-    await interaction.client.bot_settings.set_chat_model(model)
+    await bot_of(interaction).bot_settings.set_chat_model(model)
     if chat is not None:
         try:
             settings = getattr(interaction.client, "bot_settings", None)
@@ -116,7 +118,7 @@ async def model_set(interaction: discord.Interaction, model: str) -> None:
 async def prompt_list(interaction: discord.Interaction) -> None:
     if not await require_admin(interaction):
         return
-    settings = interaction.client.bot_settings
+    settings = bot_of(interaction).bot_settings
     persona = getattr(settings, "chat_persona", None)
     prompt_name = getattr(settings, "chat_prompt_name", None)
     prompt_info = getattr(settings, "chat_prompt_info", None)
@@ -152,7 +154,7 @@ async def prompt_set(interaction: discord.Interaction, type: str, content: str) 
     if not content.strip():
         await interaction.response.send_message(t("chatbot.prompt.set.missing"), ephemeral=True)
         return
-    settings = interaction.client.bot_settings
+    settings = bot_of(interaction).bot_settings
     chat = getattr(interaction.client, "chat", None)
     if type == PROMPT_TYPE_PERSONA:
         await settings.set_chat_persona(content)
@@ -209,7 +211,7 @@ async def userinfo_set(interaction: discord.Interaction, user: discord.Member, c
         return
     content = (content or "").strip()
     if content.lower() == "none":
-        deleted = await interaction.client.member_profiles.delete(user.id)
+        deleted = await bot_of(interaction).member_profiles.delete(user.id)
         if deleted:
             await interaction.response.send_message(t("chatbot.userinfo.set.cleared", member=user.mention), ephemeral=True)
         else:
@@ -218,7 +220,9 @@ async def userinfo_set(interaction: discord.Interaction, user: discord.Member, c
     if len(content) > 500:
         await interaction.response.send_message(t("chatbot.userinfo.set.too_long"), ephemeral=True)
         return
-    await interaction.client.member_profiles.upsert(user.id, content, updated_by=interaction.user.id)
+    await bot_of(interaction).member_profiles.upsert(
+        user.id, content, updated_by=interaction.user.id
+    )
     await interaction.response.send_message(t("chatbot.userinfo.set.success", member=user.mention), ephemeral=True)
 
 
@@ -227,7 +231,7 @@ async def userinfo_list(interaction: discord.Interaction) -> None:
     if not await require_admin(interaction):
         return
     await interaction.response.defer(ephemeral=True)
-    rows = await interaction.client.member_profiles.all()
+    rows = await bot_of(interaction).member_profiles.all()
     if not rows:
         embed = new_embed(interaction.client)
         embed.title = t("chatbot.userinfo.list.title")

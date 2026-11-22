@@ -16,7 +16,6 @@ from discord import app_commands
 
 from ..notifications import announce_level_up, announce_streak_closed
 from ..services import streaks as streak_service
-from ..services.booster_role import resolve_notify_channel
 from ..services.coupons import DEFAULT_FALLBACK_IMAGE
 from ..services.level_rewards import sync_member_roles
 from ..services.members import resolve_members
@@ -30,10 +29,13 @@ from ..services.streaks import (
     display_level,
     valid_timezone,
 )
-from ..services.timezones import search_timezones
+from ..services.embeds import new_embed, set_transparent_image
+from ..services.channels import resolve_updates_channel
+from ..client import bot_of
 from ..texts import t, t_choice
+from .autocomplete import timezone_autocomplete
 from .checks import in_admin_test_channel, require_admin
-from .listing import new_embed, placement, set_author, set_transparent_image
+from .listing import placement, set_author
 from .views import (
     ExpiringView,
     ensure_author,
@@ -79,7 +81,7 @@ admin_group = app_commands.Group(
 
 
 def _service(interaction: discord.Interaction) -> streak_service.StreakService:
-    return interaction.client.streaks
+    return bot_of(interaction).streaks
 
 
 def _icons() -> dict[str, str]:
@@ -294,7 +296,7 @@ async def _handle_progress(
             interaction.guild,
             member,
             progress.xp_new_level,
-            interaction.client.level_rewards,
+            bot_of(interaction).level_rewards,
         )
         await announce_level_up(
             interaction.channel, member, progress.xp_new_level
@@ -304,9 +306,6 @@ async def _handle_progress(
     for idx, url in enumerate(urls[coupons_embedded:]):
         color = colors[coupons_embedded + idx] if len(colors) > coupons_embedded + idx else None
         await interaction.followup.send(embed=_coupon_embed(interaction.client, url, color=color))
-
-
-# ------------------------------------------------------------------ embeds
 
 
 def _register_step_embed(
@@ -583,14 +582,11 @@ async def _perform_log(
         coupons_embedded=1 if coupons else 0,
     )
     if result.closed is not None:
-        channel = await resolve_notify_channel(
-            interaction.guild,
-            getattr(interaction.client, "bot_updates_channel_id", 0),
+        channel = await resolve_updates_channel(
+            interaction.client, interaction.guild
         )
         await announce_streak_closed(
-            channel,
-            closed=[result.closed],
-            colour=getattr(interaction.client, "default_embed_color", None),
+            interaction.client, channel, closed=[result.closed]
         )
 
 
@@ -914,9 +910,6 @@ def _leaderboard_embed(
     embed.description = "\n".join(lines)
     set_transparent_image(embed, client)
     return embed
-
-
-# ------------------------------------------------------------------- views
 
 
 class _HourSelect(discord.ui.Select):
@@ -1457,7 +1450,7 @@ class _TodayButton(discord.ui.Button):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         message = await _today_message(
-            interaction.client.streaks, interaction.user.id
+            bot_of(interaction).streaks, interaction.user.id
         )
         await interaction.response.send_message(message, ephemeral=True)
 
@@ -1658,9 +1651,6 @@ class StreakLeaderboardFallbackView(discord.ui.View):
         await self._show(interaction, False)
 
 
-# ---------------------------------------------------------------- commands
-
-
 @streaks_group.command(
     name="register", description=t("streaks.register.description")
 )
@@ -1720,14 +1710,7 @@ async def register(
     view.message = await interaction.original_response()
 
 
-@register.autocomplete("timezone")
-async def _timezone_autocomplete(
-    interaction: discord.Interaction, current: str
-) -> list[app_commands.Choice[str]]:
-    return [
-        app_commands.Choice(name=label, value=value)
-        for value, label in search_timezones(current)
-    ]
+register.autocomplete("timezone")(timezone_autocomplete)
 
 
 @streaks_group.command(name="edit", description=t("streaks.edit.description"))
@@ -1861,7 +1844,7 @@ async def set_channel(
         return
     await _service(interaction).set_channel(channel.id)
     await interaction.response.send_message(
-        t("streaks.channel.set.success", channel=channel.mention)
+        t("streaks.channel.set.success", channel=channel.mention), ephemeral=True
     )
 
 

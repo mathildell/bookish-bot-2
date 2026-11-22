@@ -13,11 +13,13 @@ from ..notifications import announce_level_up
 from ..services import level as level_service
 from ..services.level_rewards import LevelRewardService, sync_member_roles
 from ..services.members import resolve_members
+from ..services.embeds import new_embed, set_transparent_image
+from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
 from .level_boosts import register_boosts_group
-from .listing import new_embed, placement, set_author, set_transparent_image
+from .listing import placement, set_author
 from .views import (
     ExpiringView,
     track_view,
@@ -37,7 +39,7 @@ xp_group = app_commands.Group(
 
 
 def _rewards(interaction: discord.Interaction) -> LevelRewardService:
-    return interaction.client.level_rewards
+    return bot_of(interaction).level_rewards
 
 
 PROGRESS_BAR_SEGMENTS = 12
@@ -423,7 +425,7 @@ async def weekly_channel(
 ) -> None:
     if not await require_admin(interaction):
         return
-    await interaction.client.weekly.set_channel(channel.id)
+    await bot_of(interaction).weekly.set_channel(channel.id)
     await interaction.response.send_message(
         t("level.xp.weekly.success", channel=channel.mention)
     )

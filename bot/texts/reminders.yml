@@ -17,11 +17,6 @@ reminders:
     role_field: "Role"
     hour_value_am: "%{hour}:00 AM"
     hour_value_pm: "%{hour}:00 PM"
-    suffix:
-      st: "st"
-      nd: "nd"
-      rd: "rd"
-      th: "th"
 
   repeat:
     once: "Once"
@@ -34,7 +29,7 @@ reminders:
     once: "Once, %{when}"
     daily: "Every day at %{hour}"
     weekly: "Every %{weekday} at %{hour}"
-    monthly: "Every month on the %{day}%{suffix} at %{hour}"
+    monthly: "Every month on the %{day} at %{hour}"
     monthly_last: "Every month on the last day at %{hour}"
     monthly_before: "Every month %{days} day before the end at %{hour}"
     monthly_before_plural: "Every month %{days} days before the end at %{hour}"
@@ -102,7 +97,7 @@ reminders:
     invalid_minutes: "`%{minutes}` isn’t a valid number of minutes (1-%{maximum})."
     missing_message: "The reminder text can’t be empty."
     message_too_long: "That reminder text is %{length} characters long; the max is %{maximum}."
-    invalid_hour: "`%{hour}` isn’t a valid hour of the day."
+    invalid_hour: "`%{hour}` isn’t a valid hour of the day (0-23)."
     invalid_timezone: "`%{timezone}` isn’t a timezone I recognise; try looking up a metropolis near you instead."
     invalid_kind: "`%{kind}` isn’t a schedule I know."
     missing_date: "One-off reminders need a date (`2026-10-29` or a weekday like `thursday`) or a delay like `in 30 minutes`."

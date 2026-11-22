@@ -157,6 +157,7 @@ compiling:
 run.py                     entrypoint
 bot/
   main.py                  bot wiring (events, intents, startup)
+  client.py                BookishBot (commands.Bot with typed services/settings) + bot_of(interaction)
   config.py                config.yaml loader
   db.py                    async engine/session helpers
     models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
@@ -195,13 +196,15 @@ bot/
     settings.py            /settings group + list/edit (typed bot settings)
     ping.py                /ping (is the bot awake?)
     randomize.py           /randomize + reroll button
+    autocomplete.py        autocomplete callbacks shared by several groups (timezones)
     checks.py              shared permission checks
     listing.py             shared pagination + list-embed helpers
-    views.py               shared timed-view base, author/tracking checks
+    views.py               shared timed-view base, author/tracking checks, respond()
   services/
     booster_react.py       react matching + CRUD
     booster_role.py        role links + reconcile poll
-    channels.py            text channel resolution shared by commands and startup
+    channels.py            channel resolution (text, notify, updates) shared by commands and startup
+    embeds.py              new_embed (default colour) + transparent background helper
     chat.py                local LLM client (models, prompt, cooldowns, requests)
     coupons.py             streak coupon rendering
     image_hosting.py       imgbb/tmpfiles uploads + image verification
@@ -214,8 +217,9 @@ bot/
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads
     reviews.py             Goodreads profile fetch/parse + review poll
+    hours.py               hour-of-day validation shared by reminders and themes
     html.py                shared HTML -> Discord markdown converter
-    text.py                shared text truncation
+    text.py                shared text truncation + ordinals
     search.py              case/punctuation-insensitive search keys
     release_sources.py     Playwright scraper + Goodreads/NetGalley parsers
     releases.py            release CRUD + embeds + daily/monthly announcements
@@ -226,7 +230,7 @@ bot/
     biweekly_theme.py      theme deck/schedule/due-post helpers + validation
     tickets.py             ticket settings/tickets + embeds + Reopen button expiry
     view_messages.py       tracked public views (restore/expiry/purge)
-    timezones.py           IANA timezone search/validation shared by streaks, reminders and birthdays
+    timezones.py           IANA timezone search/validation + naive-UTC helpers shared by streaks, reminders and birthdays
     weekdays.py            weekday names shared by reminders and themes
     settings.py            bot-wide settings (updates channel, embed image/colour)
   texts/                   user-facing strings (YAML, one file per component)
@@ -258,7 +262,7 @@ bookishhideaway/           archived old Ruby project — out of scope, ignore
   are disabled when the bot stops listening to them.
 - **Do not add comments unless they explain non-obvious intent.** Keep comments
   accurate — delete comments that no longer match the code.
-- **CRUD vocabulary for commands:** `add`, `remove`, `list`, `view`, `edit`. If the user uses the term `delete` instead of `remove`, for example, remind them of the established naming convention.
+- **CRUD vocabulary for commands:** `add`, `remove`, `list`, `view`, `edit`, plus `set` for configuring a single value (a channel, a role, a model). If the user uses the term `delete` instead of `remove`, for example, remind them of the established naming convention.
 - No emojis in source files (leave the ones in README.md).
 
 ## Database
