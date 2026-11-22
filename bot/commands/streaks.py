@@ -438,17 +438,14 @@ def _log_embed(
         value=_format_date(log.log_date),
         inline=True,
     )
-    embed.add_field(
-        name=t("streaks.log.amount_field"),
-        value=t("streaks.log.amount_value", amount=log.amount, unit=goal.unit),
-        inline=True,
-    )
+    amount_value = t("streaks.log.amount_value", amount=log.amount, unit=goal.unit)
     if book:
-        embed.add_field(
-            name=t("streaks.log.book_field"),
-            value=discord.utils.escape_markdown(book),
-            inline=True,
+        amount_value += t(
+            "streaks.log.book_line", book=discord.utils.escape_markdown(book)
         )
+    embed.add_field(
+        name=t("streaks.log.amount_field"), value=amount_value, inline=True
+    )
     embed.add_field(
         name=t("streaks.shared.level_field"),
         value=t(

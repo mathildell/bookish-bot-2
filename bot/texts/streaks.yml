@@ -101,7 +101,7 @@ streaks:
     modal_book: "What book did you make progress on?"
     modal_book_placeholder: "Optional"
     param_book: "What book did you make progress on? (optional)"
-    book_field: "Reading"
+    book_line: "\n*%{book}*"
     title: "Logged"
     amount_field: "Logged"
     amount_value: "%{amount} %{unit}"
