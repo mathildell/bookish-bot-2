@@ -129,8 +129,8 @@ async def find_participants(
 ) -> list[discord.Member]:
     """Authors of messages an admin marked since the theme post.
 
-    A message counts when at least one member with Manage Server reacted
-    with the submission emoji; each author is listed once, in order of
+    A message counts when the bot itself (``/bot react``) or at least one
+    member with Manage Server reacted with the submission emoji; each author is listed once, in order of
     their first marked message.
     """
     participants: dict[int, discord.Member] = {}
@@ -146,6 +146,9 @@ async def find_participants(
         for reaction in message.reactions:
             if not reaction_matches(reaction, emoji):
                 continue
+            if reaction.me:
+                participants[author.id] = author
+                break
             async for user in reaction.users():
                 if await _is_admin(author.guild, user, admins):
                     participants[author.id] = author

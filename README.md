@@ -671,7 +671,7 @@ titles are deduplicated without case, accents or extra whitespace. Commands
 accept a card by its numeric id or by selecting it from the autocomplete list.
 
 **Submission rewards:** an admin reacts (default ⭐, change it with
-`/biweekly-theme emoji set`) to each member's submission message in the theme
+`/biweekly-theme emoji set`; the bot reacting via `/bot react` counts too) to each member's submission message in the theme
 channel. Before the next card is posted, every marked author receives 1000 XP in
 one summary, the roulette picks a winner who gets 1000 XP more, and the new card
 follows 10 minutes later. Progress is saved, so a restart resumes the run

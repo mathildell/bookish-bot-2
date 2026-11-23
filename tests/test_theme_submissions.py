@@ -26,9 +26,10 @@ def member(user_id: int, *, admin: bool = False, bot: bool = False):
     return m
 
 
-def reaction(emoji: str, users: list):
+def reaction(emoji, users: list, me: bool = False):
     r = MagicMock()
     r.emoji = emoji
+    r.me = me
 
     async def iterate():
         for user in users:
@@ -81,6 +82,19 @@ class TestFindParticipants(unittest.IsolatedAsyncioTestCase):
                 message(alice, [reaction(EMOJI, [admin])]),
                 message(bob, [reaction(EMOJI, [regular])]),
                 message(carol, [reaction("👍", [admin])]),
+            ]
+        )
+        result = await subs.find_participants(
+            channel, after_message_id=5, emoji=EMOJI
+        )
+        self.assertEqual([m.id for m in result], [10])
+
+    async def test_bot_reaction_counts(self) -> None:
+        alice, bob = member(10), member(11)
+        channel = channel_with(
+            [
+                message(alice, [reaction(EMOJI, [], me=True)]),
+                message(bob, [reaction(EMOJI, [member(2)])]),
             ]
         )
         result = await subs.find_participants(
