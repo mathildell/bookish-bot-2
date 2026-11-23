@@ -21,7 +21,7 @@ from ..texts import t
 from . import level as level_service
 from .biweekly_theme import BiweeklyThemeService, ThemeCycle
 from .booster_react import parse_emoji
-from .embeds import new_embed
+from .embeds import new_embed, set_transparent_image
 from .level_rewards import sync_member_roles
 from .members import resolve_members
 from .roulette import spin_roulette
@@ -239,6 +239,8 @@ async def _post_summary(
         )
         for index, block in enumerate(split_lines(lines))
     ]
+    for embed in embeds:
+        set_transparent_image(embed, client)
     for start in range(0, len(embeds), EMBEDS_PER_MESSAGE):
         await channel.send(embeds=embeds[start : start + EMBEDS_PER_MESSAGE])
 
