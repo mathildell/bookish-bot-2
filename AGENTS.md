@@ -68,7 +68,19 @@ Implemented features:
   (write-only; only set/none is shown). This is the home for values that used to
   live in `config.yaml`.
 - **Chatbot** — `/chatbot` groups a settings overview (`/chatbot settings`: on/off, model and reachability, limits, prompt overrides), an on/off toggle for the AI replies (while off, members get a short notice and Ollama is never contacted), model selection, prompt overrides (persona/name/biography instructions), and member userinfo (moved from `/bio`). Member bios are auto-cleared when they leave the server.
-- **Bi-weekly themes** — admins maintain a deck of theme cards; members can search the deck (`/biweekly-theme cards search`) and suggest cards (`/biweekly-theme cards suggest`), which admins approve or refuse; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is attached directly to the Discord message, with the prompt as message content. Each post is pinned in the channel, unpinning the previous card's post. Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection.
+- **Bi-weekly themes** — admins maintain a deck of theme cards; members can search the deck (`/biweekly-theme cards search`) and suggest cards (`/biweekly-theme cards suggest`), which admins approve or refuse; every two weeks the bot posts one unsent card at a configured UTC weekday/hour in the configured channel (optional role ping). The prompt and optional description are rendered in white onto `assets/weeklytheme/template.png` with the period running from the day after posting through the next 13 days; the image is attached directly to the Discord message, with the prompt as message content. Each post is pinned in the channel, unpinning the previous card's post. Cards retire once posted and the deck resets when empty; missed runs are skipped. `/biweekly-theme force` posts one now (consuming a card without affecting the schedule). Render failures notify the updates channel once and skip that run, with no fallback image. CSV import with duplicate protection. Submissions are marked by admins: any
+  message in the theme channel since the card's post that a member with Manage
+  Server reacted to with the submission emoji (`/biweekly-theme emoji set`,
+  default `biweekly_theme.settlement.emoji`) counts, once per author. When the
+  next card is due the bot starts a saved `ThemeCycle`: it picks the winner and
+  pays 1000 XP to every participant plus 1000 to the winner in one transaction
+  (with `settled_message_id`), announces one summary embed with level progress
+  and the `/randomize` roulette (rigged to the saved winner), then waits 10
+  minutes before posting. A restart resumes the cycle (the announcement is
+  replayed until done; runs older than 12h are dropped); startup only resumes,
+  never starts one. `/biweekly-theme dryrun [channel]` replays the whole
+  presentation for the ongoing card without paying, pinging or posting a card.
+  `/biweekly-theme force` does not settle.
 - **Reminders** — members set one-off or recurring reminders (`/reminder
   add|edit|remove|list`) that fire in a chosen timezone (defaulting to a zone
   named in the schedule, then the streak timezone, then UTC) and are posted in
@@ -214,6 +226,8 @@ bot/
     image_hosting.py       imgbb/tmpfiles uploads + image verification
     image_text.py          shared image text fitting/wrapping
     theme_images.py        bi-weekly theme rendering onto the template
+    theme_submissions.py   theme participants (admin reactions), XP payout + winner draw
+    roulette.py            roulette animation shared by /randomize and the theme draw
     level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
     xp_boosts.py           XP boost storage/lookup

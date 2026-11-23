@@ -645,6 +645,8 @@ the admins' updates channel, where admins approve or refuse them.
 /biweekly-theme channel set channel:
 /biweekly-theme role set role:
 /biweekly-theme schedule set day: hour:
+/biweekly-theme emoji set emoji:
+/biweekly-theme dryrun [channel:]
 /biweekly-theme toggle
 /biweekly-theme force [card:]
 /biweekly-theme status
@@ -667,6 +669,15 @@ is due it is skipped (admins can post one manually with `/biweekly-theme force`)
 and a manual post consumes a card without changing the schedule marker. Card
 titles are deduplicated without case, accents or extra whitespace. Commands
 accept a card by its numeric id or by selecting it from the autocomplete list.
+
+**Submission rewards:** an admin reacts (default ⭐, change it with
+`/biweekly-theme emoji set`) to each member's submission message in the theme
+channel. Before the next card is posted, every marked author receives 1000 XP in
+one summary, the roulette picks a winner who gets 1000 XP more, and the new card
+follows 10 minutes later. Progress is saved, so a restart resumes the run
+without paying twice. `/biweekly-theme dryrun [channel:]` previews the whole
+process for the ongoing card in any channel, without paying XP, pinging anyone
+or posting a card.
 
 If the image cannot be rendered, admins are notified once in the
 updates channel and that run is skipped; there is no fallback image.

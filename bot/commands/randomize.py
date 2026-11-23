@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import asyncio
-import random
 
 import discord
 from discord import app_commands
 
-from ..texts import t, t_list
+from ..services.roulette import (
+    result_content,
+    roulette_content,
+    spinning_content,
+)
+from ..texts import t
 from .views import ExpiringView, message_author_id, track_view, tracked_row
 
 REROLL_CUSTOM_ID = "randomize:reroll"
 REROLL_LIFETIME_SECONDS = 2 * 60 * 60
 REROLL_VIEW_KIND = "randomize"
-
-_ROULETTE_FRAMES = t_list("randomize.roulette_frames")
 
 
 def parse_items(value: str) -> list[str]:
@@ -28,17 +30,6 @@ def parse_items(value: str) -> list[str]:
         if item:
             items.append(item)
     return items
-
-
-def _roulette_content(parsed: list[str]) -> tuple[list[str], str]:
-    frames = _ROULETTE_FRAMES
-    start = random.randint(0, len(frames) - 1)
-    f1 = frames[start % len(frames)]
-    f2 = frames[(start + 1) % len(frames)]
-    f3 = frames[(start + 2) % len(frames)]
-    f4 = frames[(start + 3) % len(frames)]
-    winner = random.choice(parsed)
-    return [f1, f2, f3, f4], winner
 
 
 class RandomizeRerollButton(discord.ui.Button):
@@ -98,10 +89,10 @@ class RandomizeRerollView(ExpiringView):
             )
             return
 
-        sequence, winner = _roulette_content(parsed)
+        sequence, winner = roulette_content(parsed)
         self._set_reroll_disabled(True)
         await interaction.response.edit_message(
-            content=f"{sequence[0]}\n\n{t('randomize.wheel_turning')}", view=self
+            content=spinning_content(sequence[0]), view=self
         )
         message = interaction.message
         if message is None:
@@ -118,15 +109,15 @@ class RandomizeRerollView(ExpiringView):
             pass
 
         await asyncio.sleep(1)
-        await message.edit(content=f"{sequence[1]}\n\n{t('randomize.wheel_turning')}")
+        await message.edit(content=spinning_content(sequence[1]))
 
         await asyncio.sleep(1)
-        await message.edit(content=f"{sequence[2]}\n\n{t('randomize.wheel_turning')}")
+        await message.edit(content=spinning_content(sequence[2]))
 
         await asyncio.sleep(1)
         self._set_reroll_disabled(False)
         await message.edit(
-            content=f"{sequence[3]}\n\n{t('randomize.picking', item=winner)}",
+            content=result_content(sequence[3], winner),
             view=self,
         )
         try:
@@ -159,10 +150,10 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
         return
 
     owner_id = interaction.user.id
-    sequence, winner = _roulette_content(parsed)
+    sequence, winner = roulette_content(parsed)
     view = RandomizeRerollView(items, disabled=True, owner_id=owner_id)
     await interaction.response.send_message(
-        f"{sequence[0]}\n\n{t('randomize.wheel_turning')}", view=view
+        spinning_content(sequence[0]), view=view
     )
     message = await interaction.original_response()
     view.message = message
@@ -176,18 +167,18 @@ async def randomize_command(interaction: discord.Interaction, items: str) -> Non
 
     await asyncio.sleep(1)
     await message.edit(
-        content=f"{sequence[1]}\n\n{t('randomize.wheel_turning')}", view=view
+        content=spinning_content(sequence[1]), view=view
     )
 
     await asyncio.sleep(1)
     await message.edit(
-        content=f"{sequence[2]}\n\n{t('randomize.wheel_turning')}", view=view
+        content=spinning_content(sequence[2]), view=view
     )
 
     await asyncio.sleep(1)
     view._set_reroll_disabled(False)
     await message.edit(
-        content=f"{sequence[3]}\n\n{t('randomize.picking', item=winner)}", view=view
+        content=result_content(sequence[3], winner), view=view
     )
     await track_view(
         interaction.client,

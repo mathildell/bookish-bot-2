@@ -22,6 +22,8 @@ from ..services.biweekly_theme import (
     validate_description,
     validate_title,
 )
+from ..services.booster_react import parse_emoji
+from ..services.theme_submissions import preview_cycle
 from ..services.weekdays import WEEKDAY_NAMES
 from ..services.embeds import new_embed, set_transparent_image
 from ..services.channels import (
@@ -58,6 +60,12 @@ role_group = app_commands.Group(
 schedule_group = app_commands.Group(
     name="schedule",
     description=t("biweekly_theme.schedule.group_description"),
+    parent=biweekly_theme_group,
+)
+
+emoji_group = app_commands.Group(
+    name="emoji",
+    description=t("biweekly_theme.emoji.group_description"),
     parent=biweekly_theme_group,
 )
 
@@ -450,6 +458,27 @@ async def set_channel(
     )
 
 
+@emoji_group.command(
+    name="set", description=t("biweekly_theme.emoji.set.description")
+)
+@app_commands.describe(emoji=t("biweekly_theme.emoji.set.param_emoji"))
+async def set_emoji(interaction: discord.Interaction, emoji: str) -> None:
+    if not await require_admin(interaction):
+        return
+    raw = emoji.strip()
+    try:
+        parse_emoji(raw)
+    except ValueError:
+        await interaction.response.send_message(
+            t("biweekly_theme.emoji.set.invalid"), ephemeral=True
+        )
+        return
+    await _service(interaction).set_submission_emoji(raw)
+    await interaction.response.send_message(
+        t("biweekly_theme.emoji.set.success", emoji=raw), ephemeral=True
+    )
+
+
 @role_group.command(
     name="set", description=t("biweekly_theme.role.set.description")
 )
@@ -559,6 +588,48 @@ async def force(interaction: discord.Interaction, card: int | None = None) -> No
         ),
         ephemeral=True,
     )
+
+
+@biweekly_theme_group.command(
+    name="dryrun", description=t("biweekly_theme.dryrun.description")
+)
+@app_commands.describe(channel=t("biweekly_theme.dryrun.param_channel"))
+async def dryrun(
+    interaction: discord.Interaction,
+    channel: discord.TextChannel | discord.Thread | None = None,
+) -> None:
+    if not await require_admin(interaction):
+        return
+    service = _service(interaction)
+    source = _posting_channel(interaction, service)
+    output = channel or interaction.channel
+    if source is None or service.pinned_message_id is None:
+        await interaction.response.send_message(
+            t("biweekly_theme.dryrun.no_theme"), ephemeral=True
+        )
+        return
+    await interaction.response.send_message(
+        t("biweekly_theme.dryrun.started", channel=output.mention),
+        ephemeral=True,
+    )
+    try:
+        count = await preview_cycle(
+            interaction.client, interaction.guild, source, output, service
+        )
+    except discord.HTTPException as exc:
+        logger.warning("Could not run the theme dry run", exc_info=True)
+        await interaction.followup.send(
+            t("biweekly_theme.dryrun.failed", error=exc), ephemeral=True
+        )
+        return
+    if count == 0:
+        await interaction.followup.send(
+            t(
+                "biweekly_theme.dryrun.no_submissions",
+                emoji=service.submission_emoji,
+            ),
+            ephemeral=True,
+        )
 
 
 @biweekly_theme_group.command(

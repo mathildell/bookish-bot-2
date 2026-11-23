@@ -32,6 +32,20 @@ biweekly_theme:
     no_cards: "The deck is empty. Add a theme with `/biweekly-theme cards add`."
     success: "Posted a theme card in %{channel}."
     failed: "I couldn’t post the card: %{error}"
+  emoji:
+    group_description: "The reaction that marks a theme submission"
+    set:
+      description: "Set the emoji admins react with to mark a submission"
+      param_emoji: "A unicode emoji or a server emoji"
+      success: "Messages that an admin reacts to with %{emoji} now count as theme submissions."
+      invalid: "That doesn’t look like an emoji I can use."
+  dryrun:
+    description: "Preview the submission rewards of the current theme without paying anything"
+    param_channel: "Channel to show the preview in (defaults to this one)"
+    no_theme: "There is no posted theme to preview yet."
+    no_submissions: "Nobody has a submission marked with %{emoji} since the current theme was posted."
+    started: "Running the preview in %{channel}. No XP is paid and no theme is posted."
+    failed: "I couldn’t run the preview: %{error}"
   status:
     description: "Show the current bi-weekly theme settings"
     title: "Bi-weekly themes"
@@ -128,3 +142,18 @@ biweekly_theme:
     invalid_weekday: "That isn’t a day of the week I recognise."
     invalid_hour: "`%{hour}` isn’t a valid hour of the day (0-23)."
     image_failed: "I couldn’t create the card image for “%{title}”: %{error}"
+
+  settlement:
+    emoji: "⭐"
+    summary_title: "Thank you for participating!"
+    dry_run_summary_title: "Dry run: thank you for participating!"
+    summary_intro: "Thanks to everyone who handed in this fortnight's theme! Each of you receives **`%{xp}` XP**:"
+    entry: "- %{user}: %{progress}"
+    xp_add: "**`%{xp}` XP** (Level `%{l}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
+    xp_level_up: "**`%{xp}` XP** (Level `%{l1}` → `%{l2}`, `%{n1}` → `%{n2}`/`%{needed}` XP)"
+    draw_intro: "Time to draw this fortnight's bonus winner among our **%{count}** participants!"
+    sole_participant: "%{user} was our only participant this fortnight, so the bonus goes to them!"
+    winner: "Congratulations %{user}, you win an extra %{progress}!"
+    dry_run_winner: "Dry run: %{user} would win an extra %{progress}. Nothing was paid."
+    failed_title: "Theme rewards failed"
+    failed_description: "I couldn’t reward the previous theme’s submissions: %{error}"

@@ -1021,6 +1021,18 @@ class BiweeklyThemeSetting(Base):
     pinned_message_id: Mapped[int | None] = mapped_column(
         BigInteger, nullable=True
     )
+    # The theme post whose submissions were already rewarded, so a restart
+    # or a second run can never pay the same fortnight twice.
+    settled_message_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True
+    )
+    # Emoji admins react with to mark a submission; null uses the default.
+    submission_emoji: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    # Progress of the run that rewards the previous card and posts the next
+    # one, so a restart can resume it (see ``ThemeCycle``).
+    cycle: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now()

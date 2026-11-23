@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from bot.commands import randomize
+from bot.services import roulette
 
 
 class TestRandomizeParse(unittest.TestCase):
@@ -43,9 +44,9 @@ class TestRandomizeParse(unittest.TestCase):
 class TestRandomizeChoice(unittest.TestCase):
     def test_choice_from_parsed_list(self) -> None:
         items = randomize.parse_items("a, b, c")
-        with patch("bot.commands.randomize.random.choice") as choice:
+        with patch("bot.services.roulette.random.choice") as choice:
             choice.return_value = "b"
-            winner = randomize.random.choice(items)
+            _, winner = roulette.roulette_content(items)
         self.assertEqual(winner, "b")
         choice.assert_called_once()
 

@@ -55,6 +55,26 @@ async def announce_theme_failed(
         logger.warning("Could not announce the theme failure: %s", exc)
 
 
+async def announce_theme_settlement_failed(
+    client: discord.Client,
+    channel: discord.abc.Messageable | None,
+    *,
+    error: object,
+) -> None:
+    """Tell the admins' updates channel that theme rewards were not paid."""
+    if channel is None:
+        return
+    embed = new_embed(
+        client,
+        title=t("biweekly_theme.settlement.failed_title"),
+        description=t("biweekly_theme.settlement.failed_description", error=error),
+    )
+    try:
+        await channel.send(embed=embed)
+    except discord.HTTPException as exc:
+        logger.warning("Could not announce the theme reward failure: %s", exc)
+
+
 async def announce_streak_closed(
     client: discord.Client,
     channel: discord.abc.Messageable | None,

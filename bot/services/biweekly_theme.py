@@ -11,6 +11,7 @@ import asyncio
 import logging
 import random
 import unicodedata
+from dataclasses import asdict, dataclass
 from datetime import date, datetime
 
 import discord
@@ -20,6 +21,7 @@ from ..db import session_scope
 from ..models import BiweeklyThemeCard, BiweeklyThemeSetting, BiweeklyThemeSuggestion
 from ..texts import t
 from .hours import check_hour
+from . import level as level_service
 from .level import utcnow
 from .search import search_key
 from .theme_images import render_theme, theme_period
@@ -194,6 +196,64 @@ def credit_description(description: str | None, name: str) -> str:
     return candidate
 
 
+@dataclass
+class ThemeCycle:
+    """One run of rewarding the previous card and posting the next.
+
+    Saved with the settings so a restart can pick up where the run stopped:
+    the XP is paid when the cycle starts, the announcement is replayed until
+    ``announced`` is set, and the next card waits for ``ready_at``.
+    """
+
+    started_at: datetime
+    message_id: int | None
+    participants: list[int]
+    winner: int | None
+    changes: dict[int, level_service.LevelChangeResult]
+    winner_change: level_service.LevelChangeResult | None = None
+    announced: bool = False
+    ready_at: datetime | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "started_at": self.started_at.isoformat(),
+            "message_id": self.message_id,
+            "participants": self.participants,
+            "winner": self.winner,
+            "changes": {
+                str(user_id): asdict(change)
+                for user_id, change in self.changes.items()
+            },
+            "winner_change": (
+                asdict(self.winner_change) if self.winner_change else None
+            ),
+            "announced": self.announced,
+            "ready_at": self.ready_at.isoformat() if self.ready_at else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ThemeCycle:
+        winner_change = data.get("winner_change")
+        ready_at = data.get("ready_at")
+        return cls(
+            started_at=datetime.fromisoformat(data["started_at"]),
+            message_id=data.get("message_id"),
+            participants=list(data.get("participants") or []),
+            winner=data.get("winner"),
+            changes={
+                int(user_id): level_service.LevelChangeResult(**change)
+                for user_id, change in (data.get("changes") or {}).items()
+            },
+            winner_change=(
+                level_service.LevelChangeResult(**winner_change)
+                if winner_change
+                else None
+            ),
+            announced=bool(data.get("announced")),
+            ready_at=datetime.fromisoformat(ready_at) if ready_at else None,
+        )
+
+
 class BiweeklyThemeService:
     """Settings plus the card deck behind the bi-weekly theme posts."""
 
@@ -208,6 +268,9 @@ class BiweeklyThemeService:
         self._last_attempted_on: date | None = None
         self._pinned_channel_id: int | None = None
         self._pinned_message_id: int | None = None
+        self._settled_message_id: int | None = None
+        self._submission_emoji: str | None = None
+        self._cycle: ThemeCycle | None = None
         # Serialises posts so a manual run cannot race the scheduled loop.
         self._post_lock = asyncio.Lock()
 
@@ -243,6 +306,22 @@ class BiweeklyThemeService:
     def pinned_message_id(self) -> int | None:
         return self._pinned_message_id
 
+    @property
+    def pinned_channel_id(self) -> int | None:
+        return self._pinned_channel_id
+
+    @property
+    def settled_message_id(self) -> int | None:
+        return self._settled_message_id
+
+    @property
+    def submission_emoji(self) -> str:
+        return self._submission_emoji or t("biweekly_theme.settlement.emoji")
+
+    @property
+    def cycle(self) -> ThemeCycle | None:
+        return self._cycle
+
     async def reload(self) -> None:
         async with session_scope() as session:
             row = await self._settings(session)
@@ -255,6 +334,11 @@ class BiweeklyThemeService:
         self._last_attempted_on = row.last_attempted_on if row else None
         self._pinned_channel_id = row.pinned_channel_id if row else None
         self._pinned_message_id = row.pinned_message_id if row else None
+        self._settled_message_id = row.settled_message_id if row else None
+        self._submission_emoji = row.submission_emoji if row else None
+        self._cycle = (
+            ThemeCycle.from_dict(row.cycle) if row and row.cycle else None
+        )
 
     async def set_channel(self, channel_id: int) -> None:
         async with session_scope() as session:
@@ -269,6 +353,13 @@ class BiweeklyThemeService:
             row.role_id = role_id
             await session.commit()
         self._role_id = role_id
+
+    async def set_submission_emoji(self, emoji: str) -> None:
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.submission_emoji = emoji
+            await session.commit()
+        self._submission_emoji = emoji
 
     async def set_schedule(self, weekday: int, hour: int) -> None:
         validate_weekday(weekday)
@@ -294,17 +385,21 @@ class BiweeklyThemeService:
             row = await self._settings(session, create=True)
             row.last_posted_on = posted_on
             row.last_attempted_on = posted_on
+            row.cycle = None
             await session.commit()
         self._last_posted_on = posted_on
         self._last_attempted_on = posted_on
+        self._cycle = None
 
     async def mark_attempted(self, attempted_on: date) -> None:
         """Remember a failed scheduled run so it is not retried that day."""
         async with session_scope() as session:
             row = await self._settings(session, create=True)
             row.last_attempted_on = attempted_on
+            row.cycle = None
             await session.commit()
         self._last_attempted_on = attempted_on
+        self._cycle = None
 
     async def set_pinned_post(
         self, channel_id: int | None, message_id: int | None
@@ -317,6 +412,66 @@ class BiweeklyThemeService:
             await session.commit()
         self._pinned_channel_id = channel_id
         self._pinned_message_id = message_id
+
+    async def start_cycle(
+        self,
+        *,
+        now: datetime,
+        message_id: int | None,
+        participants: list[int],
+        winner: int | None,
+        submission_xp: int,
+        winner_xp: int,
+    ) -> ThemeCycle:
+        """Pay the participants and the winner and record the run.
+
+        The XP, the settled marker and the saved run are written in one
+        transaction, so a post is rewarded exactly once and everything the
+        announcement needs survives a restart.
+        """
+        changes: dict[int, level_service.LevelChangeResult] = {}
+        winner_change = None
+        async with session_scope() as session:
+            for user_id in participants:
+                changes[user_id] = await level_service.add_xp(
+                    session,
+                    guild_id=self.guild_id,
+                    user_id=user_id,
+                    amount=submission_xp,
+                )
+            if winner is not None:
+                winner_change = await level_service.add_xp(
+                    session,
+                    guild_id=self.guild_id,
+                    user_id=winner,
+                    amount=winner_xp,
+                )
+            cycle = ThemeCycle(
+                started_at=now,
+                message_id=message_id,
+                participants=participants,
+                winner=winner,
+                changes=changes,
+                winner_change=winner_change,
+                announced=not participants,
+                ready_at=None if participants else now,
+            )
+            row = await self._settings(session, create=True)
+            if message_id is not None:
+                row.settled_message_id = message_id
+            row.cycle = cycle.to_dict()
+            await session.commit()
+        if message_id is not None:
+            self._settled_message_id = message_id
+        self._cycle = cycle
+        return cycle
+
+    async def save_cycle(self, cycle: ThemeCycle | None) -> None:
+        async with session_scope() as session:
+            row = await self._settings(session, create=True)
+            row.cycle = cycle.to_dict() if cycle else None
+            await session.commit()
+        self._cycle = cycle
 
     def is_due(self, now: datetime | None = None) -> bool:
         now = now or utcnow()

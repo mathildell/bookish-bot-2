@@ -9,6 +9,7 @@ Wires everything together:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import time as dt_time, timedelta
 
@@ -84,6 +85,7 @@ from .notifications import (
     announce_review_auth_failed,
     announce_streak_closed,
     announce_theme_failed,
+    announce_theme_settlement_failed,
 )
 from .services import level as level_service
 from .services.birthdays import BirthdayService
@@ -112,6 +114,11 @@ from .services.streaks import Reminder, StreakService
 from .services.tickets import TicketService
 from .services.view_messages import ViewMessageService
 from .services.biweekly_theme import BiweeklyThemeService, ThemeImageError
+from .services.theme_submissions import (
+    announce_cycle,
+    cycle_is_stale,
+    start_cycle,
+)
 from .services.xp_boosts import XpBoostService, apply_boost, boost_percent
 from .texts import interpolate, t, t_choice_template
 
@@ -919,9 +926,16 @@ async def run() -> None:
         except Exception:
             logger.exception("Weekly leaderboard catch-up failed")
 
-    async def post_biweekly_theme_now() -> None:
+    async def post_biweekly_theme_now(*, resume_only: bool = False) -> None:
+        """Reward the previous card, wait, then post the next one.
+
+        The run is saved as a ``ThemeCycle``, so after a restart (or a
+        failed step) the next call resumes it instead of starting over.
+        ``resume_only`` skips starting a new run, for startup.
+        """
         now = level_service.utcnow()
-        if not biweekly_theme.is_due(now):
+        cycle = biweekly_theme.cycle
+        if cycle is None and (resume_only or not biweekly_theme.is_due(now)):
             return
         guild = bot.get_guild(int(config.guild_id))
         if guild is None:
@@ -932,6 +946,25 @@ async def run() -> None:
         if channel is None:
             logger.warning("Theme is due but no channel is set")
             return
+        try:
+            if cycle is None:
+                cycle = await start_cycle(biweekly_theme, channel, now)
+            if not cycle.announced:
+                await announce_cycle(bot, guild, channel, biweekly_theme, cycle, now)
+        except Exception as exc:
+            logger.exception("Could not reward the theme submissions")
+            await announce_theme_settlement_failed(
+                bot, await resolve_updates_channel(bot, guild), error=exc
+            )
+            return
+        if cycle_is_stale(cycle, now):
+            logger.warning("Skipping a theme run that resumed too late")
+            await biweekly_theme.save_cycle(None)
+            return
+        if cycle.ready_at is not None:
+            wait = (cycle.ready_at - level_service.utcnow()).total_seconds()
+            if wait > 0:
+                await asyncio.sleep(wait)
         try:
             card = await biweekly_theme.post_card(
                 channel, bot, view=ThemeSuggestView()
@@ -952,6 +985,7 @@ async def run() -> None:
             return
         if card is None:
             logger.warning("Theme is due but the deck is empty")
+            await biweekly_theme.save_cycle(None)
             return
         await biweekly_theme.mark_posted(now.date())
         logger.info("Posted the bi-weekly theme")
@@ -961,6 +995,14 @@ async def run() -> None:
         # Runs hourly so the post hour can be changed at runtime; a run
         # missed while the bot was down is skipped, not made up.
         await post_biweekly_theme_now()
+
+    @post_biweekly_theme.before_loop
+    async def _wait_ready_theme() -> None:
+        await bot.wait_until_ready()
+        try:
+            await post_biweekly_theme_now(resume_only=True)
+        except Exception:
+            logger.exception("Bi-weekly theme resume failed")
 
     async def add_streak_today_buttons_now() -> None:
         """Catch up streak reminders posted before the today button existed."""
