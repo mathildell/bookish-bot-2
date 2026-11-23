@@ -48,7 +48,7 @@ def channel_with(messages):
         for m in messages:
             yield m
 
-    return SimpleNamespace(history=history, id=1)
+    return SimpleNamespace(history=history, id=1, guild=member(0).guild)
 
 
 class TestHelpers(unittest.TestCase):
@@ -102,6 +102,16 @@ class TestFindParticipants(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual([m.id for m in result], [10])
 
+    async def test_uncached_author_counts(self) -> None:
+        stranger = SimpleNamespace(id=50, bot=False)
+        channel = channel_with(
+            [message(stranger, [reaction(EMOJI, [], me=True)])]
+        )
+        result = await subs.find_participants(
+            channel, after_message_id=5, emoji=EMOJI
+        )
+        self.assertEqual([m.id for m in result], [50])
+
     async def test_author_counted_once_and_bots_skipped(self) -> None:
         admin = member(1, admin=True)
         alice = member(10)
@@ -123,6 +133,7 @@ class TestReactionMatches(unittest.TestCase):
     def test_unicode_and_custom(self) -> None:
         self.assertTrue(subs.reaction_matches(reaction(EMOJI, []), EMOJI))
         self.assertFalse(subs.reaction_matches(reaction("👍", []), EMOJI))
+        self.assertTrue(subs.reaction_matches(reaction("⭐", []), "⭐\ufe0f"))
         custom = reaction(SimpleNamespace(id=42), [])
         self.assertTrue(subs.reaction_matches(custom, "<:star:42>"))
         self.assertFalse(subs.reaction_matches(custom, "<:star:43>"))

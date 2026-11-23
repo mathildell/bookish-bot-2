@@ -98,7 +98,12 @@ def reaction_matches(reaction: discord.Reaction, raw_emoji: str) -> bool:
     wanted = parse_emoji(raw_emoji)
     if isinstance(wanted, discord.PartialEmoji) and wanted.id is not None:
         return getattr(reaction.emoji, "id", None) == wanted.id
-    return str(reaction.emoji) == str(wanted)
+    return _plain(str(reaction.emoji)) == _plain(str(wanted))
+
+
+def _plain(emoji: str) -> str:
+    """Drop the invisible variation selector some keyboards add."""
+    return emoji.replace("\ufe0f", "")
 
 
 def cycle_is_stale(cycle: ThemeCycle, now: datetime) -> bool:
@@ -126,22 +131,21 @@ async def find_participants(
     *,
     after_message_id: int,
     emoji: str,
-) -> list[discord.Member]:
+) -> list[discord.abc.User]:
     """Authors of messages an admin marked since the theme post.
 
     A message counts when the bot itself (``/bot react``) or at least one
     member with Manage Server reacted with the submission emoji; each author is listed once, in order of
     their first marked message.
     """
-    participants: dict[int, discord.Member] = {}
+    guild = channel.guild
+    participants: dict[int, discord.abc.User] = {}
     admins: dict[int, bool] = {}
     async for message in channel.history(
         limit=None, after=discord.Object(id=after_message_id), oldest_first=True
     ):
         author = message.author
         if author.bot or author.id in participants:
-            continue
-        if not isinstance(author, discord.Member):
             continue
         for reaction in message.reactions:
             if not reaction_matches(reaction, emoji):
@@ -150,7 +154,7 @@ async def find_participants(
                 participants[author.id] = author
                 break
             async for user in reaction.users():
-                if await _is_admin(author.guild, user, admins):
+                if await _is_admin(guild, user, admins):
                     participants[author.id] = author
                     break
             break
@@ -164,7 +168,7 @@ async def start_cycle(
 ) -> ThemeCycle:
     """Find the participants and winner of the previous card and pay them."""
     previous_id = service.pinned_message_id
-    members: list[discord.Member] = []
+    members: list[discord.abc.User] = []
     if (
         previous_id is not None
         and service.settled_message_id != previous_id
