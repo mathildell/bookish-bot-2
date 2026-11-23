@@ -534,9 +534,10 @@ async def _perform_log(
     ephemeral: bool = False,
     reply_to: discord.Message | None = None,
 ) -> None:
+    book = (book or "").strip() or None
     try:
         result = await _service(interaction).log_daily(
-            user_id=interaction.user.id, amount_raw=amount
+            user_id=interaction.user.id, amount_raw=amount, book=book
         )
     except streak_service.StreakError as exc:
         await interaction.response.send_message(
@@ -571,7 +572,7 @@ async def _perform_log(
         result,
         coupon_url=coupon_url,
         coupon_color=getattr(coupons[0], "color", None) if coupons else None,
-        book=(book or "").strip() or None,
+        book=book,
     )
     if as_new_message:
         message = await _reply_to_alert(interaction, reply_to, embed, view)
@@ -1394,7 +1395,12 @@ class StreakRescueView(discord.ui.View):
 
 
 class _LogModal(discord.ui.Modal):
-    def __init__(self, *, reply_to: discord.Message | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        reply_to: discord.Message | None = None,
+        last_book: str | None = None,
+    ) -> None:
         super().__init__(title=t("streaks.log.modal_title"))
         self.reply_to = reply_to
         self.amount = discord.ui.TextInput(
@@ -1407,6 +1413,7 @@ class _LogModal(discord.ui.Modal):
             placeholder=t("streaks.log.modal_book_placeholder"),
             required=False,
             max_length=BOOK_MAX_LENGTH,
+            default=last_book,
         )
         self.add_item(self.book)
 
@@ -1468,8 +1475,12 @@ class _LogButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction) -> None:
+        goal = await _service(interaction).get_goal(interaction.user.id)
         await interaction.response.send_modal(
-            _LogModal(reply_to=interaction.message)
+            _LogModal(
+                reply_to=interaction.message,
+                last_book=goal.last_book if goal else None,
+            )
         )
 
 
@@ -1765,6 +1776,16 @@ async def edit(interaction: discord.Interaction) -> None:
     view.message = await interaction.original_response()
 
 
+async def _book_autocomplete(
+    interaction: discord.Interaction, current: str
+) -> list[app_commands.Choice[str]]:
+    goal = await _service(interaction).get_goal(interaction.user.id)
+    last = goal.last_book if goal else None
+    if not last or current.strip().lower() not in last.lower():
+        return []
+    return [app_commands.Choice(name=last, value=last)]
+
+
 @streaks_group.command(name="log", description=t("streaks.log.description"))
 @app_commands.describe(
     amount=t("streaks.log.param_amount"), book=t("streaks.log.param_book")
@@ -1777,6 +1798,9 @@ async def log(
     if not await _channel_guard(interaction):
         return
     await _perform_log(interaction, amount, book=book)
+
+
+log.autocomplete("book")(_book_autocomplete)
 
 
 @streaks_group.command(name="today", description=t("streaks.today.description"))

@@ -817,7 +817,7 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
         )
 
         class Service:
-            async def log_daily(self, *, user_id, amount_raw):
+            async def log_daily(self, *, user_id, amount_raw, book=None):
                 return result
 
         interaction.client.streaks = Service()
@@ -847,12 +847,20 @@ class LogReplyTests(unittest.IsolatedAsyncioTestCase):
                 self.modal = modal
 
         interaction = SimpleNamespace(
-            message=SimpleNamespace(id=7), response=Response()
+            message=SimpleNamespace(id=7),
+            response=Response(),
+            user=SimpleNamespace(id=1),
+        )
+        service = SimpleNamespace(
+            get_goal=AsyncMock(return_value=SimpleNamespace(last_book="Dune"))
         )
 
-        await command_streaks._LogButton().callback(interaction)
+        with patch.object(command_streaks, "_service", return_value=service):
+            await command_streaks._LogButton().callback(interaction)
 
-        self.assertIs(interaction.response.modal.reply_to, interaction.message)
+        modal = interaction.response.modal
+        self.assertIs(modal.reply_to, interaction.message)
+        self.assertEqual(modal.book.default, "Dune")
 
     @patch.object(
         command_streaks, "_handle_progress", new_callable=AsyncMock

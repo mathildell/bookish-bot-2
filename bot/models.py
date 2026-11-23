@@ -536,6 +536,8 @@ class StreakGoal(Base):
     reminder: Mapped[str] = mapped_column(String(16), nullable=False, default="none")
     # Local hour (1-22) for the custom reminder; null unless custom/both
     custom_hour: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The book typed on the member's most recent log, offered again next time.
+    last_book: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

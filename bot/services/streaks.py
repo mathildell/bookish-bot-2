@@ -404,6 +404,13 @@ class Reminder:
     marker: str = "custom"  # idempotency column, "custom" or "last_chance"
 
 
+class _Unset:
+    pass
+
+
+_UNSET = _Unset()
+
+
 async def _get_goal(session, *, guild_id: int, user_id: int) -> StreakGoal | None:
     return (
         await session.execute(
@@ -746,7 +753,12 @@ class StreakService:
         )
 
     async def log_daily(
-        self, *, user_id: int, amount_raw: str, now: datetime | None = None
+        self,
+        *,
+        user_id: int,
+        amount_raw: str,
+        book: str | None | _Unset = _UNSET,
+        now: datetime | None = None,
     ) -> LogResult:
         now = now or utcnow()
         async with session_scope() as session:
@@ -756,6 +768,8 @@ class StreakService:
             if goal is None:
                 raise NotRegistered()
 
+            if not isinstance(book, _Unset):
+                goal.last_book = book
             today = local_date(now, goal.timezone)
             streak = await _ongoing_streak(session, goal_id=goal.id)
             closed_streak: ClosedStreak | None = None
