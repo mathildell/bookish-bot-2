@@ -63,6 +63,20 @@ def _member_name(
 _EMOJI_NAME_INVALID = re.compile(r"[^a-zA-Z0-9_]+")
 
 
+async def _can_use_emoji(
+    interaction: discord.Interaction, emoji: PartialEmoji
+) -> bool:
+    if emoji.id is None:
+        return False
+    if interaction.guild is not None and interaction.guild.get_emoji(emoji.id):
+        return True
+    try:
+        owned = await interaction.client.fetch_application_emojis()
+    except discord.HTTPException:
+        return False
+    return any(entry.id == emoji.id for entry in owned)
+
+
 def _emoji_name(user: discord.User, interaction: discord.Interaction) -> str:
     """Application emoji name, distilled from the display name.
 
@@ -155,11 +169,18 @@ async def set_react(
 
     if emoji is not None:
         try:
-            parse_emoji(emoji)
+            parsed = parse_emoji(emoji)
         except ValueError:
             await interaction.followup.send(
                 t("booster.react.set.invalid_emoji", emoji=emoji),
                 ephemeral=True,
+            )
+            return
+        if isinstance(parsed, PartialEmoji) and not await _can_use_emoji(
+            interaction, parsed
+        ):
+            await interaction.followup.send(
+                t("booster.react.set.inaccessible_emoji"), ephemeral=True
             )
             return
         owner = service.emoji_owner(emoji, exclude_user_id=target.id)

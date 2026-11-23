@@ -10,7 +10,7 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
-from ..services.booster_react import CUSTOM_EMOJI_RE
+from ..services.booster_react import CUSTOM_EMOJI_RE, is_valid_emoji
 from ..services.members import resolve_members
 from ..services.embeds import new_embed, set_transparent_image
 from ..services.channels import resolve_updates_channel
@@ -185,7 +185,9 @@ async def edit(
     if emoji is not None:
         if _is_none(emoji):
             changes["display_icon"] = None
-        elif CUSTOM_EMOJI_RE.match(emoji.strip()):
+        elif CUSTOM_EMOJI_RE.match(emoji.strip()) or not is_valid_emoji(
+            emoji.strip()
+        ):
             await interaction.followup.send(
                 t("booster.role.edit.invalid_emoji", emoji=emoji), ephemeral=True
             )
