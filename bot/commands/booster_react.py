@@ -239,7 +239,7 @@ async def set_react(
     if image is not None and record is not None:
         await _delete_application_emoji(interaction, record.emoji, new_emoji)
 
-    await interaction.followup.send(
+    confirmation = await interaction.followup.send(
         t(
             "booster.react.set.created"
             if record is None
@@ -247,8 +247,14 @@ async def set_react(
             emoji=new_emoji,
             user=target.mention,
             extra=_nickname_extra(nicknames),
-        )
+        ),
+        wait=True,
     )
+    if emoji is not None or image is not None:
+        try:
+            await confirmation.add_reaction(new_emoji)
+        except discord.HTTPException:
+            pass
 
 
 @react_group.command(name="view", description=t("booster.react.view.description"))
