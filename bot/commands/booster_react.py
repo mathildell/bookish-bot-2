@@ -78,14 +78,14 @@ async def _can_use_emoji(
 
 
 async def _delete_application_emoji(
-    interaction: discord.Interaction, old: str, new: str
+    interaction: discord.Interaction, old: str
 ) -> None:
     """Remove a replaced emoji from the application emojis, if it is one."""
     try:
         old_partial = PartialEmoji.from_str(old)
     except ValueError:
         return
-    if old_partial.id is None or old == new:
+    if old_partial.id is None:
         return
     try:
         owned = await interaction.client.fetch_application_emoji(old_partial.id)
@@ -210,9 +210,12 @@ async def set_react(
 
     new_emoji = emoji
     if image is not None:
+        image_bytes = await image.read()
+        if record is not None:
+            await _delete_application_emoji(interaction, record.emoji)
         try:
             uploaded = await interaction.client.create_application_emoji(
-                name=_emoji_name(target, interaction), image=await image.read()
+                name=_emoji_name(target, interaction), image=image_bytes
             )
         except discord.HTTPException as exc:
             await interaction.followup.send(
@@ -236,8 +239,6 @@ async def set_react(
         identifiers=identifiers,
         emoji=new_emoji,
     )
-    if image is not None and record is not None:
-        await _delete_application_emoji(interaction, record.emoji, new_emoji)
 
     confirmation = await interaction.followup.send(
         t(
