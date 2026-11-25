@@ -77,6 +77,23 @@ async def _can_use_emoji(
     return any(entry.id == emoji.id for entry in owned)
 
 
+async def _delete_application_emoji(
+    interaction: discord.Interaction, old: str, new: str
+) -> None:
+    """Remove a replaced emoji from the application emojis, if it is one."""
+    try:
+        old_partial = PartialEmoji.from_str(old)
+    except ValueError:
+        return
+    if old_partial.id is None or old == new:
+        return
+    try:
+        owned = await interaction.client.fetch_application_emoji(old_partial.id)
+        await owned.delete()
+    except discord.HTTPException:
+        pass
+
+
 def _emoji_name(user: discord.User, interaction: discord.Interaction) -> str:
     """Application emoji name, distilled from the display name.
 
@@ -219,6 +236,8 @@ async def set_react(
         identifiers=identifiers,
         emoji=new_emoji,
     )
+    if image is not None and record is not None:
+        await _delete_application_emoji(interaction, record.emoji, new_emoji)
 
     await interaction.followup.send(
         t(

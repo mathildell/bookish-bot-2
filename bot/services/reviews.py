@@ -480,11 +480,9 @@ def build_review_embed(
 
     embed.set_footer(
         text=format_shelf(
-            discord.utils.escape_markdown(
-                member.display_name
-                if member is not None
-                else t("reviews.embed.unknown_member")
-            ),
+            member.display_name
+            if member is not None
+            else t("reviews.embed.unknown_member"),
             entry.shelves,
         ),
         icon_url=feed.logo_url,
