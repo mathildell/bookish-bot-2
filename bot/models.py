@@ -144,6 +144,36 @@ class LevelReward(Base):
     )
 
 
+class LevelRewardDraft(Base):
+    """A proposed level reward, previewed before replacing ``level_rewards``.
+
+    Temporary: drop this table with the ``/xp draft`` commands once the new
+    rewards are published.
+    """
+
+    __tablename__ = "level_reward_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    guild_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    level: Mapped[int] = mapped_column(Integer, nullable=False)
+    role_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_level_reward_drafts_guild_level_unique",
+            "guild_id",
+            "level",
+            unique=True,
+        ),
+    )
+
+
 class XpBoost(Base):
     """A role or channel that multiplies the XP earned from messages."""
 

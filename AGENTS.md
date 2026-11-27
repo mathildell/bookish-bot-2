@@ -17,7 +17,11 @@ Implemented features:
   Monday-to-Sunday week. A top-10 weekly leaderboard is posted on Sundays at
   the configurable hour, and the weekly totals roll over for the next week. Admins
   can grant additive role- and channel/thread-based message XP boosts via
-  `/xp boosts set|remove`.
+  `/xp boosts set|remove`. Temporary: `/xp draft set|remove|list|publish`
+  builds a new reward list in `level_reward_drafts`, posts it publicly (one
+  embed per role, with its icon) and finally replaces the live rewards,
+  removing dropped reward roles. Delete the draft modules, texts
+  (`level.draft`), model, tests and README entries once the switch is done.
 - **Book reviews** — every 30 minutes, read each member's Goodreads profile
   "recent updates" (spaced out between members) and post new reviews to the
   configured channel (each entry at most once per 24h). New reviews are enriched
@@ -177,7 +181,8 @@ bot/
   config.py                config.yaml loader
   db.py                    async engine/session helpers
     models.py                SQLAlchemy models (BoosterReact, BoosterRole, UserXP,
-                           WeeklyXP, WeeklySetting, LevelReward, XpBoost, ReviewFeed,
+                           WeeklyXP, WeeklySetting, LevelReward,
+                           LevelRewardDraft, XpBoost, ReviewFeed,
                            ReviewEntry, ReviewSetting, IntroQuestion,
                            IntroSetting, IntroPost, TicketSetting, Ticket,
                            BookRelease, ReleaseSetting, ReleaseEditDraft,
@@ -194,6 +199,7 @@ bot/
     level.py               /xp root group + level/leaderboard/weekly/add/remove/freeze/unfreeze
     level_rewards.py       /xp rewards ...
     level_boosts.py        /xp boosts ...
+    level_reward_drafts.py /xp draft ... (temporary reward-list preview + publish)
     reviews.py             /reviews root group + feed add/remove/list, channel, repost
     releases.py            /releases group + add/update/search/list/remove, channel, role, force
     intro.py               /intro group + sticky button/modal + question manager
@@ -231,6 +237,7 @@ bot/
     level.py               XP curve + per-user XP storage + weekly tracking
     level_rewards.py       level -> reward role links + role sync
     xp_boosts.py           XP boost storage/lookup
+    level_reward_drafts.py draft reward storage + publish (temporary)
     member_profiles.py     member bios used as chat context
     members.py             guild member resolution
     reference.py           pinned reference message for new forum threads

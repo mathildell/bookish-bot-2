@@ -156,6 +156,30 @@ Show every level and its reward role.
 Reapply reward roles so they match every member's current level.
 
 ```
+/xp draft set level: role:
+```
+**Permissions:** 🔒 Admin
+Set the reward role for a level in the draft reward list (temporary, for switching to new rewards).
+
+```
+/xp draft remove level:
+```
+**Permissions:** 🔒 Admin
+Remove a level from the draft reward list.
+
+```
+/xp draft list
+```
+**Permissions:** 🔒 Admin
+Post the draft rewards publicly as a preview, one embed per role with its icon and colour.
+
+```
+/xp draft publish
+```
+**Permissions:** 🔒 Admin
+Replace the live level rewards with the draft (after a confirmation), removing dropped reward roles and resyncing every member. Back up first with `scripts/backup_xp.py backup`.
+
+```
 /xp boosts set percent: [role:] [channel:]
 ```
 **Permissions:** 🔒 Admin

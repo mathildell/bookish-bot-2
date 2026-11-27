@@ -18,6 +18,7 @@ from ..client import bot_of
 from ..texts import t
 from .checks import require_admin
 from .level_rewards import register_rewards_group
+from .level_reward_drafts import register_draft_group
 from .level_boosts import register_boosts_group
 from .listing import placement, set_author
 from .views import (
@@ -432,6 +433,7 @@ async def weekly_channel(
 
 
 register_rewards_group(xp_group)
+register_draft_group(xp_group)
 register_boosts_group(xp_group)
 
 

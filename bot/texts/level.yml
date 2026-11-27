@@ -87,6 +87,29 @@ level:
     resync:
       description: "Reapply reward roles to match every member’s level"
       done: "Resynced reward roles for %{count} member(s)."
+  draft:
+    group_description: "Preview a new reward list before it replaces the live one"
+    empty: "The draft has no rewards yet. Add some with `/xp draft set`."
+    set:
+      description: "Set the draft reward role for a level"
+      success: "Draft: level %{level} now rewards %{role}."
+    remove:
+      description: "Remove a level from the draft rewards"
+      success: "Removed level %{level} from the draft."
+      fail: "The draft has no reward for level %{level}."
+    list:
+      description: "Post the draft rewards publicly, one embed per role"
+      header: "**Upcoming level rewards**"
+      entry_title: "Level %{level}"
+      missing_role: "Deleted role (%{role_id})"
+    publish:
+      description: "Replace the live level rewards with the draft"
+      confirm: "This replaces the %{live} live reward(s) with the %{draft} draft reward(s), then resyncs every member's roles (old reward roles are removed). Back up first with `scripts/backup_xp.py backup`."
+      confirm_button: "Publish"
+      cancel_button: "Cancel"
+      working: "Publishing the draft and resyncing roles..."
+      done: "Published %{rewards} reward(s) and resynced roles for %{count} member(s)."
+      cancelled: "Nothing changed."
   boosts:
     group_description: "Manage XP boosts for messages"
     invalid_percent: "Percent must be between 1 and 500. Use `/xp boosts remove` to delete a boost."
